@@ -2532,8 +2532,8 @@
 
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
-  // GANTI URL INI dengan URL Web App Apps Script (Deployment ID terbaru)
-  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
+  // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
+  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjnjYs1_c71egKX2_b03T67oecW-BSf3SSgd2JkIumOuV0ZT3eXVZqp7mSah8WCmXUpQ/exec";
 
   /**
    * Polyfill google.script.run menggunakan Proxy untuk mendukung hosting eksternal
@@ -2544,21 +2544,21 @@
         const createRunner = (handlers) => {
           return new Proxy({}, {
             get(target, prop) {
-              if (prop === 'withSuccessHandler') {
-                return (h) => createRunner({ ...handlers, success: h });
-              }
-              if (prop === 'withFailureHandler') {
-                return (h) => createRunner({ ...handlers, failure: h });
-              }
-              // Eksekusi fungsi server
+              if (prop === 'withSuccessHandler') return (h) => createRunner({ ...handlers, success: h });
+              if (prop === 'withFailureHandler') return (h) => createRunner({ ...handlers, failure: h });
+
               return async (...args) => {
                 try {
-                  const res = await fetch(GAS_WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: prop, data: args })
+                  const res = await fetch(GAS_WEB_APP_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: prop, data: args }) 
                   });
-                  const json = await res.json();
-                  if (json && json.status === 'error') throw new Error(json.pesan);
+                  const text = await res.text();
+                  if (!text) throw new Error("Respon kosong dari server.");
+                  
+                  let json;
+                  try { json = JSON.parse(text); } catch(e) { throw new Error("Format data server tidak valid."); }
+                  
                   if (handlers.success) handlers.success(json);
                 } catch (err) {
                   if (handlers.failure) handlers.failure(err);
@@ -2665,15 +2665,23 @@
 
   function triggerSystemNotification(judul, isi, targetPage) {
     if (Notification.permission === "granted") {
-      var options = {
+      const options = {
         body: isi,
-        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128'
+        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+        badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w96',
+        vibrate: [100, 50, 100],
+        data: { url: targetPage }
       };
-      var n = new Notification(judul, options);
-      n.onclick = function() {
-        window.focus();
-        handleNotifLihat(targetPage);
-      };
+
+      // Gunakan Service Worker untuk menampilkan notifikasi agar muncul di bilah status HP
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.showNotification(judul, options);
+        });
+      } else {
+        const n = new Notification(judul, options);
+        n.onclick = function() { window.focus(); handleNotifLihat(targetPage); };
+      }
     }
   }
 
@@ -3348,11 +3356,12 @@
               // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
             });
           }
-          // start polling notifikasi
+          // FIX: Pastikan polling notifikasi dijalankan setelah otomatis login
           startNotifikasiPolling();
           showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
           } else {
             localStorage.removeItem('sessionToken');
+            sessionStorage.removeItem('sessionToken');
             document.getElementById('loginScreen').style.display = 'flex';
           }
         })
@@ -3544,9 +3553,10 @@ function logout() {
 
 
   function doRegister() {
-    var nama = document.getElementById('regNama').value;
-    var email = document.getElementById('regEmail').value;
+    var nama = document.getElementById('regNama').value.trim();
+    var email = document.getElementById('regEmail').value.trim();
     var pass = document.getElementById('regPassword').value;
+
     if (!nama || !email || !pass) {
       return showWarning("Lengkapi data!");
     }
@@ -3678,6 +3688,11 @@ function logout() {
           + '      <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;"></span>'
           + '    </label>'
           + '  </div>'
+          + '</div>'
+          + '<div style="margin-top:15px;">'
+          + '  <button onclick="gantiPasswordUI()" style="width:100%; padding:12px; background:rgba(var(--primary-color-rgb), 0.08); color:var(--primary-color); border:1px solid rgba(var(--primary-color-rgb), 0.2); font-weight:700; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:0.2s; font-family:inherit;">'
+          + '    <i class="material-icons" style="font-size:20px;">lock_reset</i> Ubah Password'
+          + '  </button>'
           + '</div>'
           + '</div>',
       didOpen: function() {
@@ -5099,6 +5114,75 @@ function bukaJadwal() {
             showError(res.pesan);
           }
         }).adminHapusNotifikasi(id);
+      }
+    });
+  }
+
+  function gantiPasswordUI() {
+    Swal.fire({
+      title: 'Ubah Password',
+      background: 'var(--bg-surface)',
+      html: `
+        <div style="text-align:left;">
+          <div class="input-group" style="margin-bottom:12px;">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Password Lama</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">lock_outline</i>
+              <input type="password" id="oldPass" class="swal2-input" placeholder="••••••••" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+          <div class="input-group" style="margin-bottom:12px;">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Password Baru</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">lock</i>
+              <input type="password" id="newPass" class="swal2-input" placeholder="Minimal 4 karakter" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Konfirmasi Password Baru</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">check_circle_outline</i>
+              <input type="password" id="confirmPass" class="swal2-input" placeholder="Ulangi password baru" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Perbarui Password',
+      confirmButtonColor: 'var(--primary-color)',
+      cancelButtonText: 'Batal',
+      preConfirm: () => {
+        const oldP = document.getElementById('oldPass').value;
+        const newP = document.getElementById('newPass').value;
+        const confP = document.getElementById('confirmPass').value;
+        if (!oldP || !newP || !confP) {
+          Swal.showValidationMessage('Harap isi semua kolom!');
+          return false;
+        }
+        if (newP !== confP) {
+          Swal.showValidationMessage('Konfirmasi password tidak cocok!');
+          return false;
+        }
+        if (newP.length < 4) {
+          Swal.showValidationMessage('Password minimal 4 karakter!');
+          return false;
+        }
+        return { oldP, newP };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Memproses pembaruan password...');
+        google.script.run
+          .withSuccessHandler(function(res) {
+            Swal.close();
+            if (res.status === 'success') showSuccess(res.pesan);
+            else showError(res.pesan);
+          })
+          .withFailureHandler(function(err) {
+            Swal.close();
+            showError('Gagal memperbarui password: ' + err.message);
+          })
+          .ubahPassword(currentUser.email, result.value.oldP, result.value.newP);
       }
     });
   }
