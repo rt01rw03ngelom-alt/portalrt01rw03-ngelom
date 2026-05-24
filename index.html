@@ -3257,12 +3257,16 @@
   window.addEventListener('popstate', function() {
     // Logika untuk menangani tombol back HP
     sembunyikanSemuaLayar();
-    if (event.state && event.state.view) {
-      document.getElementById(event.state.view).style.display = 'block';
-      if (event.state.tab) { currentTab = event.state.tab; renderMenu(currentTab); }
+    if (history.state && history.state.view) {
+      var state = history.state;
+      document.getElementById(state.view).style.display = 'block';
+      if (state.tab) { 
+        currentTab = state.tab; 
+        renderMenu(currentTab); 
+      }
       // Jalankan fungsi muat data jika ada
-      if (event.state.onLoad && typeof window[event.state.onLoad] === 'function') {
-        window[event.state.onLoad]();
+      if (state.onLoad && typeof window[state.onLoad] === 'function') {
+        window[state.onLoad]();
       }
     } else {
       document.getElementById('dashboardView').style.display = 'block';
@@ -3867,6 +3871,7 @@ function logout() {
   function bukaKtJadwal() {
     sembunyikanSemuaLayar();
     document.getElementById('ktJadwalView').style.display = 'block';
+    history.pushState({view: 'ktJadwalView', tab: 'karangtaruna', onLoad: 'ktMuatDataJadwal'}, '', '#ktJadwal');
     document.getElementById('ktBtnTambahJadwal').style.display = hasPermission('kt_jadwal_crud') ? 'flex' : 'none';
     ktMuatDataJadwal();
   }
@@ -3945,6 +3950,7 @@ function logout() {
   function bukaKtKader() {
     sembunyikanSemuaLayar();
     document.getElementById('ktKaderView').style.display = 'block';
+    history.pushState({view: 'ktKaderView', tab: 'karangtaruna', onLoad: 'ktMuatDataKader'}, '', '#ktKader');
     document.getElementById('ktBtnTambahKader').style.display = hasPermission('kt_kader_crud') ? 'flex' : 'none';
     ktMuatDataKader();
   }
@@ -4205,6 +4211,7 @@ function logout() {
   function bukaKtGaleri() {
     sembunyikanSemuaLayar();
     document.getElementById('ktGaleriView').style.display = 'block';
+    history.pushState({view: 'ktGaleriView', tab: 'karangtaruna', onLoad: 'ktMuatDataGaleri'}, '', '#ktGaleri');
     document.getElementById('ktBtnTambahGaleri').style.display = hasPermission('kt_galeri_crud') ? 'flex' : 'none';
     ktMuatDataGaleri();
   }
@@ -4302,7 +4309,7 @@ function logout() {
 function bukaJadwal() {
     sembunyikanSemuaLayar();
     document.getElementById('jadwalView').style.display = 'block';
-    history.pushState({view: 'jadwalView', onLoad: 'muatDataJadwal'}, '', '#jadwal');
+    history.pushState({view: 'jadwalView', tab: 'warga', onLoad: 'muatDataJadwal'}, '', '#jadwal');
 
     // Kontrol visibilitas tombol Tambah berdasarkan izin
     if (hasPermission('rt_jadwal_crud')) {
@@ -5006,7 +5013,9 @@ function bukaJadwal() {
 
   // ======================== KELOLA USER ========================
   function bukaKelolaUser() {
+    sembunyikanSemuaLayar();
     document.getElementById('kelolaUserView').style.display = 'block';
+    history.pushState({view: 'kelolaUserView', tab: 'warga', onLoad: 'muatDataUser'}, '', '#kelolaUser');
     
     // Muat daftar role dulu baru muat data user
     muatDaftarRole(function() {
@@ -5483,6 +5492,7 @@ function bukaJadwal() {
   function bukaFormPengaduan() {
     sembunyikanSemuaLayar();
     document.getElementById('formPengaduanView').style.display = 'block';
+    history.pushState({view: 'formPengaduanView', tab: 'warga'}, '', '#kirimPengaduan');
   }
 
   function submitPengaduan() {
@@ -5532,7 +5542,9 @@ function bukaJadwal() {
   }
 
   function bukaHistori() {
+    sembunyikanSemuaLayar();
     document.getElementById('historiPengaduanView').style.display = 'block';
+    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'bukaHistori'}, '', '#historiPengaduan');
     var list = document.getElementById('listHistori');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -5572,7 +5584,9 @@ function bukaJadwal() {
   }
 
   function bukaLaporanAdmin() {
+    sembunyikanSemuaLayar();
     document.getElementById('laporanPengaduanAdminView').style.display = 'block';
+    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'bukaLaporanAdmin'}, '', '#adminPengaduan');
     var list = document.getElementById('listLaporanSemua');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -7027,7 +7041,9 @@ function bukaJadwal() {
 
   // ======================== MODUL PKK ========================
   function bukaPkkJadwal() {
+    sembunyikanSemuaLayar();
     document.getElementById('pkkJadwalView').style.display = 'block';
+    history.pushState({view: 'pkkJadwalView', tab: 'pkk', onLoad: 'pkkMuatDataJadwal'}, '', '#pkkJadwal');
     if (hasPermission('pkk_jadwal_crud')) { // Kontrol visibilitas tombol Tambah Jadwal PKK
       document.getElementById('pkkBtnTambahJadwal').style.display = 'flex';
     } else {
@@ -7141,7 +7157,9 @@ function bukaJadwal() {
   }
 
   function bukaPkkKader() {
+    sembunyikanSemuaLayar();
     document.getElementById('pkkKaderView').style.display = 'block';
+    history.pushState({view: 'pkkKaderView', tab: 'pkk', onLoad: 'pkkMuatDataKader'}, '', '#pkkKader');
     if (hasPermission('pkk_kader_crud')) { // Kontrol visibilitas tombol Tambah Kader PKK
       document.getElementById('pkkBtnTambahKader').style.display = 'flex';
     } else {
@@ -7264,7 +7282,9 @@ function bukaJadwal() {
   }
 
   function bukaPkkKirimLaporan() {
+    sembunyikanSemuaLayar();
     document.getElementById('pkkKirimLaporanView').style.display = 'block';
+    history.pushState({view: 'pkkKirimLaporanView', tab: 'pkk'}, '', '#pkkKirimLaporan');
     // default view; tombol simpan via pkkSubmitLaporan
   }
 
@@ -7320,7 +7340,9 @@ function bukaJadwal() {
   }
 
   function bukaPkkHistori() {
+    sembunyikanSemuaLayar();
     document.getElementById('pkkHistoriView').style.display = 'block';
+    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'bukaPkkHistori'}, '', '#pkkHistori');
     var list = document.getElementById('pkkListHistori');
     list.innerHTML = '<p>Memuat...</p>';
 
@@ -7363,7 +7385,9 @@ function bukaJadwal() {
   }
 
   function bukaPkkGaleri() {
+    sembunyikanSemuaLayar();
     document.getElementById('pkkGaleriView').style.display = 'block';
+    history.pushState({view: 'pkkGaleriView', tab: 'pkk', onLoad: 'pkkMuatDataGaleri'}, '', '#pkkGaleri');
     if (hasPermission('pkk_galeri_crud')) { // Kontrol visibilitas tombol Tambah Galeri PKK
       document.getElementById('pkkBtnTambahGaleri').style.display = 'flex';
     } else {
