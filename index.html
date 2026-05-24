@@ -1660,6 +1660,10 @@
       Belum punya akun? 
       <a href="#" onclick="bukaFormDaftar(); return false;" style="color:var(--primary-red); font-weight: 700; text-decoration: none;">Daftar Disini</a>
     </p>
+    
+    <p style="margin-top:15px; font-size: 13px; color: var(--text-muted); padding-top: 15px; border-top: 1px dashed var(--border-color);">
+      Kendala akses? <a href="https://wa.me/6281234567890" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Admin</a>
+    </p>
   </div>
 </div>
 
@@ -3571,15 +3575,15 @@ function logout() {
             tutupFormDaftar();
           });
         } else {
-          // Jika email sudah terdaftar, berikan pilihan untuk ke login
-          if (res.pesan && res.pesan.toLowerCase().includes('terdaftar')) {
+          // PENANGANAN KHUSUS: Jika email sudah terdaftar (mungkin akibat interupsi jaringan sebelumnya)
+          if (res.pesan && (res.pesan.toLowerCase().includes('terdaftar') || res.pesan.toLowerCase().includes('sudah ada'))) {
             Swal.fire({
-              icon: 'info',
-              title: 'Email Terdaftar',
-              text: res.pesan,
+              icon: 'warning',
+              title: 'Akun Sudah Aktif',
+              text: 'Email ini sudah terdaftar di database kami. Ini bisa terjadi karena pendaftaran sebelumnya sudah berhasil namun koneksi terputus.',
               showCancelButton: true,
-              confirmButtonText: 'Masuk (Login)',
-              cancelButtonText: 'Tutup',
+              confirmButtonText: 'Coba Masuk (Login)',
+              cancelButtonText: 'Batal',
               confirmButtonColor: 'var(--primary-color)'
             }).then((result) => {
               if (result.isConfirmed) tutupFormDaftar();
@@ -3592,17 +3596,22 @@ function logout() {
       .withFailureHandler(function(err) {
         btn.innerHTML = 'Daftar Sekarang';
         btn.disabled = false;
-        // Penanganan error network / timeout
-        Swal.fire({
-          icon: 'error',
-          title: 'Koneksi Terganggu',
-          text: 'Gagal menghubungi server. Namun, pendaftaran Anda mungkin sudah diproses. Silakan coba Login terlebih dahulu.',
-          confirmButtonText: 'Coba Login',
-          showCancelButton: true,
-          cancelButtonText: 'Tutup'
-        }).then((result) => {
-          if (result.isConfirmed) tutupFormDaftar();
-        });
+        
+        // JIKA TIMEOUT: Jangan langsung anggap gagal, arahkan user untuk cek login
+        if (err.message.includes('fetch') || err.message.includes('Network')) {
+           Swal.fire({
+            icon: 'question',
+            title: 'Koneksi Lambat',
+            text: 'Server tidak merespon tepat waktu, namun data Anda mungkin sudah tersimpan. Silakan coba login.',
+            showCancelButton: true,
+            confirmButtonText: 'Coba Login Sekarang',
+            cancelButtonText: 'Tunggu Disini'
+          }).then((result) => {
+            if (result.isConfirmed) tutupFormDaftar();
+          });
+        } else {
+          showError('Gagal mendaftar: ' + err.message);
+        }
       })
       .prosesDaftar(nama, email, pass);
   }
