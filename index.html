@@ -580,20 +580,35 @@
 
     .nav-item i {
       font-size: 26px;
+      transition: color 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     .nav-item span {
       font-size: 10px;
       font-weight: 700;
+      transition: color 0.4s ease;
     }
 
     .nav-item.active {
-      color: var(--primary-color);
+      color: var(--primary-color) !important;
       transform: translateY(-2px);
     }
 
     .nav-item.active i {
       font-weight: bold;
+      text-shadow: 0 0 15px rgba(var(--primary-color-rgb), 0.4);
+    }
+
+    /* Indikator Garis Atas yang Mengikuti Tema */
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 24px;
+      height: 4px;
+      background: var(--primary-color);
+      border-radius: 0 0 4px 4px;
+      box-shadow: 0 2px 10px rgba(var(--primary-color-rgb), 0.5);
     }
 
     .nav-menu-item {
@@ -1747,7 +1762,7 @@
       <i class="material-icons">local_florist</i><span>PKK</span>
     </button>
     <button class="nav-item" onclick="pilihMenu('karangtaruna')" id="nav-karangtaruna">
-      <i class="material-icons">music_note</i><span>KT</span>
+      <i class="material-icons">diversity_3</i><span>Karang Taruna</span>
     </button>
     <button class="nav-item" onclick="tampilkanProfil()" id="nav-profil">
       <i class="material-icons">person</i><span>Profil</span>
@@ -1894,7 +1909,7 @@
   <div id="ktKasView" class="screen">
     <div class="page-header">
       <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
-      <h3>Laporan Kas KT</h3>
+      <h3>Laporan Kas Karang Taruna</h3>
     </div>
     <div class="kas-summary">
       <div class="summary-card">
@@ -1914,6 +1929,7 @@
           <option value="2026" selected>2026</option>
         </select>
         <button class="btn-small" onclick="ktMuatGrafikKas()">Update Grafik</button>
+        <button class="btn-small success" onclick="ktCetakLaporanKas()">Cetak Laporan</button>
       </div>
     </div>
 
@@ -1966,8 +1982,8 @@
       <input type="hidden" id="ktGaleriId">
       <input type="text" id="ktGaleriJudul" placeholder="Judul Kegiatan">
       <select id="ktGaleriType" onchange="toggleGaleriType('kt')">
-        <option value="image">Gambar (Upload)</option>
-        <option value="video">Video (Link Medsos)</option>
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
       </select>
       <div id="ktGaleriFileContainer">
       <input type="file" id="ktGaleriFile" accept="image/*">
@@ -1975,7 +1991,7 @@
       </div>
       <div id="ktGaleriVideoContainer" style="display:none;">
         <input type="text" id="ktGaleriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
-        <p class="muted" style="font-size:11px;">Contoh: https://www.youtube.com/watch?v=xxx</p>
+        <p class="muted" style="font-size:11px;">Contoh: Link YouTube atau Link Foto (Google Drive/Lainnya)</p>
       </div>
       <textarea id="ktGaleriDeskripsi" rows="3" placeholder="Deskripsi Singkat"></textarea>
       <div id="ktPreviewGaleri"></div>
@@ -2233,8 +2249,8 @@
       <input type="hidden" id="pkkGaleriId">
       <input type="text" id="pkkGaleriCaption" placeholder="Caption / Deskripsi Foto">
       <select id="pkkGaleriType" onchange="toggleGaleriType('pkk')">
-        <option value="image">Gambar (Upload)</option>
-        <option value="video">Video (Link Medsos)</option>
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
       </select>
       <div id="pkkGaleriFileContainer">
       <input type="file" id="pkkGaleriFile" accept="image/*">
@@ -2242,6 +2258,7 @@
       </div>
       <div id="pkkGaleriVideoContainer" style="display:none;">
         <input type="text" id="pkkGaleriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
+        <p class="muted" style="font-size:11px;">Bisa berupa link foto atau link video</p>
       </div>
       <button class="btn-primary" onclick="pkkUploadGaleri()">Upload</button>
       <button class="btn-secondary" onclick="tutupForm('formPkkCrudGaleri','pkkWrapListGaleri')">Batal</button>
@@ -2499,8 +2516,8 @@
       <input type="hidden" id="galeriId">
       <input type="text" id="galeriCaption" placeholder="Caption / Deskripsi Foto">
       <select id="galeriType" onchange="toggleGaleriType('rt')">
-        <option value="image">Gambar (Upload)</option>
-        <option value="video">Video (Link Medsos)</option>
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
       </select>
       <div id="rtGaleriFileContainer">
       <input type="file" id="galeriFile" accept="image/*">
@@ -2508,6 +2525,7 @@
       </div>
       <div id="rtGaleriVideoContainer" style="display:none;">
         <input type="text" id="galeriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
+        <p class="muted" style="font-size:11px;">Bisa berupa link foto atau link video</p>
       </div>
       <button class="btn-primary" onclick="uploadGaleri()">Upload</button>
       <button class="btn-secondary" onclick="tutupForm('formCrudGaleri','wrapListGaleri')">Batal</button>
@@ -2654,15 +2672,26 @@
 
   function triggerSystemNotification(judul, isi, targetPage) {
     if (Notification.permission === "granted") {
-      var options = {
+      const options = {
         body: isi,
-        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128'
+        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+        badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+        vibrate: [200, 100, 200],
+        tag: 'portal-rt-notif-' + Date.now(),
+        renotify: true,
+        data: { 
+          url: window.location.href.split('#')[0] + '#' + (targetPage || 'warga') 
+        }
       };
-      var n = new Notification(judul, options);
-      n.onclick = function() {
-        window.focus();
-        handleNotifLihat(targetPage);
-      };
+
+      // Gunakan Service Worker jika tersedia untuk notifikasi yang lebih stabil di latar belakang
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(function(registration) {
+          registration.showNotification(judul, options);
+        });
+      } else {
+        new Notification(judul, options);
+      }
     }
   }
 
@@ -4186,6 +4215,85 @@ function logout() {
         }).ktHapusKas(id);
       }
     });
+  }
+
+  function ktCetakLaporanKas() {
+    var tahun = document.getElementById('ktTahunKasSelect').value;
+    var bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    var dataBulanan = Array.from({ length: 12 }, (_, i) => ({
+      namaBulan: bulanIndo[i],
+      pemasukan: 0,
+      pengeluaran: 0,
+      keterangan: []
+    }));
+
+    ktAllKasData.forEach(item => {
+      var d = item.tanggal.split('-');
+      if (d[0] == tahun) {
+        var mIdx = parseInt(d[1]) - 1;
+        if (item.jenis === 'Pemasukan') dataBulanan[mIdx].pemasukan += item.nominal;
+        else dataBulanan[mIdx].pengeluaran += item.nominal;
+        if (item.keterangan) dataBulanan[mIdx].keterangan.push(item.keterangan);
+      }
+    });
+
+    var total = { p: 0, g: 0 };
+    var tableRows = dataBulanan.map(b => {
+      if (b.pemasukan === 0 && b.pengeluaran === 0) return '';
+      total.p += b.pemasukan; total.g += b.pengeluaran;
+      return `<tr>
+        <td>${b.namaBulan}</td>
+        <td align="right">${b.pemasukan.toLocaleString('id-ID')}</td>
+        <td align="right">${b.pengeluaran.toLocaleString('id-ID')}</td>
+        <td><small>${b.keterangan.slice(0,3).join(', ')}</small></td>
+      </tr>`;
+    }).join('');
+
+    var printWin = window.open('', '_blank');
+    printWin.document.write(`
+      <html><head><title>Laporan Kas Karang Taruna</title>
+      <style>
+        body { font-family: sans-serif; padding: 40px; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #000; padding: 10px; font-size: 13px; }
+        th { background: #f2f2f2; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .footer { margin-top: 50px; float: right; text-align: center; width: 250px; }
+      </style></head><body>
+      <div class="header">
+        <h2>LAPORAN KEUANGAN KARANG TARUNA</h2>
+        <p>RT 01 RW 03 - Desa Ngelom</p>
+        <p>Tahun Anggaran: ${tahun}</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Bulan</th>
+            <th>Pemasukan (Rp)</th>
+            <th>Pengeluaran (Rp)</th>
+            <th>Keterangan Kegiatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr style="font-weight:bold; background:#f2f2f2;">
+            <td>TOTAL TAHUNAN</td>
+            <td align="right">${total.p.toLocaleString('id-ID')}</td>
+            <td align="right">${total.g.toLocaleString('id-ID')}</td>
+            <td>Saldo Akhir: Rp ${(total.p - total.g).toLocaleString('id-ID')}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="footer">
+        <p>Ngelom, ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p>
+        <p>Bendahara Karang Taruna</p>
+        <br><br><br>
+        <p><strong>( .................... )</strong></p>
+      </div>
+      </body></html>`);
+    printWin.document.close();
+    printWin.print();
   }
 
   function ktMuatGrafikKas() {
