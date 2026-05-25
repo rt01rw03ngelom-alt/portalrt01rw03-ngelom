@@ -1485,7 +1485,7 @@
       font-size: 11px;
       font-weight: 600;
       background: var(--bg-app);
-      color: #475569;
+      color: var(--text-main);
     }
 
     @media (max-width: 640px) {
@@ -1578,6 +1578,18 @@
     }
     @keyframes ptr-spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* Divider Bulan di Ronda */
+    .month-divider {
+      background: var(--bg-app) !important;
+      color: var(--primary-color) !important;
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 10px 15px !important;
+      border-bottom: 2px solid var(--primary-color);
     }
 
     /* Highlight untuk Baris Lunas Setahun (Hijau Emerald) */
@@ -2068,7 +2080,7 @@
         </button>
       </div>
       
-      <div id="uPermissionContainer" style="text-align:left; margin-top:15px; border:1px solid #e2e8f0; padding:10px; border-radius:12px;">
+      <div id="uPermissionContainer" style="text-align:left; margin-top:15px; border:1px solid var(--border-color); padding:10px; border-radius:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <label style="font-weight:700; font-size:12px; color:var(--text-muted); display:block; margin:0;">HAK AKSES FITUR:</label>
           <label style="font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px; color:var(--primary-color);">
@@ -3067,10 +3079,11 @@
     if (document.getElementById('dashboardView').style.display === 'block') {
       if (currentTab === 'karangtaruna') {
         google.script.run.withSuccessHandler(function(res) {
-          if (res.status === 'success') {
-            document.getElementById('totalKasIuranValue').innerText = (res.totalSaldo || 0).toLocaleString('id-ID');
-            if(callback) callback();
+          if (res.status === 'success' && currentTab === 'karangtaruna') {
+            var el = document.getElementById('totalKasIuranValue');
+            if (el) el.innerText = (res.totalSaldo || 0).toLocaleString('id-ID');
           }
+          if(callback) callback();
         }).ktGetKas();
       } else {
         muatDataKas(callback);
@@ -3209,7 +3222,7 @@
           + '  <div class="bbx-spinner" aria-hidden="true"></div>'
           + '  <div style="text-align:left;">'
           + '    <div style="font-weight:700; color:var(--primary-dark); margin-bottom:4px;">Memproses...</div>'
-          + '    <div style="color:#64748b; font-size:13px; line-height:1.35;">' + (msg || '') + '</div>'
+          + '    <div style="color:var(--text-muted); font-size:13px; line-height:1.35;">' + (msg || '') + '</div>'
           + '  </div>'
           + '</div>',
       allowOutsideClick: false,
@@ -3858,7 +3871,7 @@ function logout() {
       val1.innerText = '0000000';
       google.script.run.withSuccessHandler(function(res) {
         val1.classList.remove('skeleton-text');
-        if (res.status === 'success') {
+        if (res.status === 'success' && currentTab === 'karangtaruna') {
           val1.innerText = (res.totalSaldo || 0).toLocaleString('id-ID');
         }
       }).ktGetKas();
