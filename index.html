@@ -55,7 +55,8 @@
     body.dark-mode .welcome-banner,
     body.dark-mode .modal-kategori,
     body.dark-mode .login-box,
-    body.dark-mode .summary-card {
+    body.dark-mode .summary-card,
+    body.dark-mode .menu-item {
       /* Menggunakan warna surface dengan transparansi agar blur terlihat */
       background: rgba(30, 41, 59, 0.65) !important; 
       backdrop-filter: blur(12px) saturate(180%);
@@ -319,6 +320,7 @@
     }
 
     body.theme-warga .header-clouds,
+    body.theme-pkk .header-clouds,
     body.theme-karangtaruna .header-clouds {
       opacity: 0.6;
       animation: cloudDrift 90s linear infinite;
@@ -536,61 +538,62 @@
       text-align: center;
     }
 
-    .nav-fab {
+    /* Bottom Navigation Bar Styles */
+    .nav-bar-bottom {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: rgba(var(--primary-color-rgb), 0.85);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      width: 56px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-lg);
-      cursor: pointer;
-      z-index: 1000;
-      transition: all 0.2s ease;
-    }
-
-    .nav-fab:hover {
-      transform: scale(1.05);
-      background: var(--primary-dark);
-    }
-
-    .nav-fab:active {
-      transform: scale(0.95);
-    }
-
-    .nav-fab i {
-      font-size: 28px;
-    }
-
-.nav-menu {
-      position: fixed;
-      bottom: 90px;
-      z-index: 999;
-      right: 20px;
-      background: var(--bg-surface);
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 75px;
+      background: rgba(var(--bg-surface-rgb), 0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border-radius: 20px;
-      box-shadow: var(--shadow-lg);
-      padding: 12px 0;
-      min-width: 180px;
-      z-index: 999;
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      border: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      border-top: 1px solid var(--border-color);
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 1000;
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
     }
 
-    .nav-menu.show {
+    body.dark-mode .nav-bar-bottom {
+      background: rgba(30, 41, 59, 0.9);
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+    }
+
+    .nav-item {
+      flex: 1;
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: transparent;
+      border: none;
+      outline: none;
+    }
+
+    .nav-item i {
+      font-size: 26px;
+    }
+
+    .nav-item span {
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .nav-item.active {
+      color: var(--primary-color);
+      transform: translateY(-2px);
+    }
+
+    .nav-item.active i {
+      font-weight: bold;
     }
 
     .nav-menu-item {
@@ -1031,7 +1034,7 @@
 
     .screen {
       display: none;
-      padding: 1rem 1rem 160px; /* Padding bawah lebih besar untuk FAB */
+      padding: 1rem 1rem 100px; /* Padding bawah disesuaikan untuk Bottom Nav */
       min-height: 100vh;
       width: 100%;
     }
@@ -1520,22 +1523,12 @@
         align-items: stretch;
       }
 
-      .nav-menu {
-        right: 12px;
-        min-width: 170px;
-      }
-
-      .nav-fab,
       .fab {
         right: 14px;
       }
 
-      .nav-fab {
-        bottom: 18px;
-      }
-
       .fab {
-        bottom: 98px;
+        bottom: 95px; /* Sesuaikan posisi FAB di atas Bottom Nav */
       }
     }
 
@@ -1745,24 +1738,21 @@
       </div>
     </div>
 
-  <button class="nav-fab" id="navFab" onclick="toggleMenuNavigasi()">
-    <i class="material-icons">menu</i>
-  </button>
-
-  <div id="navMenu" class="nav-menu">
-    <div class="nav-menu-item" data-menu="warga">
+  <!-- New Bottom Navigation Bar -->
+  <nav class="nav-bar-bottom" id="bottomNav">
+    <button class="nav-item active" onclick="pilihMenu('warga')" id="nav-warga">
       <i class="material-icons">people</i><span>Warga</span>
-    </div>
-    <div class="nav-menu-item" data-menu="pkk">
+    </button>
+    <button class="nav-item" onclick="pilihMenu('pkk')" id="nav-pkk">
       <i class="material-icons">local_florist</i><span>PKK</span>
-    </div>
-    <div class="nav-menu-item" data-menu="karangtaruna">
-      <i class="material-icons">music_note</i><span>Karang Taruna</span>
-    </div>
-    <div class="nav-menu-item" data-menu="profil">
+    </button>
+    <button class="nav-item" onclick="pilihMenu('karangtaruna')" id="nav-karangtaruna">
+      <i class="material-icons">music_note</i><span>KT</span>
+    </button>
+    <button class="nav-item" onclick="tampilkanProfil()" id="nav-profil">
       <i class="material-icons">person</i><span>Profil</span>
-    </div>
-  </div>
+    </button>
+  </nav>
 
 <div id="dashboardView">
     <div class="welcome-banner">
@@ -3639,18 +3629,6 @@ function logout() {
     document.getElementById('navMenu').classList.remove('show');
   }
 
-  document.querySelectorAll('.nav-menu-item').forEach(function(item) {
-    item.addEventListener('click', function() {
-      var menu = this.getAttribute('data-menu');
-      tutupMenuNavigasi();
-      if (menu === 'profil') {
-        tampilkanProfil();
-      } else {
-        pilihMenu(menu);
-      }
-    });
-  });
-
   // Helper untuk cek izin
   function hasPermission(permKey) {
     if (currentUser.role === 'admin') return true;
@@ -3661,6 +3639,11 @@ function logout() {
   function pilihMenu(tabName) {
     currentTab = tabName;
     sembunyikanSemuaLayar();
+    
+    // Update Active Class on Bottom Nav
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    var activeNav = document.getElementById('nav-' + tabName.toLowerCase());
+    if(activeNav) activeNav.classList.add('active');
     
     // Update Theme Class on Body
     document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
