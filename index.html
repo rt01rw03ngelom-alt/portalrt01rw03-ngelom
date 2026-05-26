@@ -2880,7 +2880,7 @@
 
   // HELPER: Image Compression (Resize & Compress to < 1MB)
   function compressImage(file, callback, maxDim) {
-    showLoading('Mengompresi gambar...');
+    // showLoading is already called before compressImage, just update progress
     updateProgress(5, 'Membaca file...');
     
     const reader = new FileReader();
@@ -2888,6 +2888,7 @@
     reader.onload = function(event) {
       const img = new Image();
       img.src = event.target.result;
+      updateProgress(10, 'Memuat gambar...');
       img.onload = function() {
         updateProgress(15, 'Memproses resolusi...');
         const canvas = document.createElement('canvas');
@@ -2910,9 +2911,21 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
+        updateProgress(50, 'Mengompresi...');
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 0.6 is optimal for storage vs quality
-        callback(dataUrl.split(',')[1], 'image/jpeg');
+        updateProgress(70, 'Selesai kompresi.');
+        callback(dataUrl.split(',')[1], 'image/jpeg'); // Pass base64 data and mime type
       };
+      img.onerror = function() {
+        clearInterval(progressInterval);
+        Swal.close();
+        showError('Gagal memuat gambar untuk kompresi.');
+      };
+    };
+    reader.onerror = function() {
+      clearInterval(progressInterval);
+      Swal.close();
+      showError('Gagal membaca file gambar.');
     };
   }
 
@@ -3154,6 +3167,10 @@
   var iuranData = [];
   var daftarKategori = [];
   var allKasData = [];
+  
+  // Global variables for progress tracking
+  var progressInterval = null;
+  var currentProgress = 0;
 
   // ======================== PULL TO REFRESH LOGIC ========================
   var ptr = document.getElementById('pullToRefresh');
@@ -3352,7 +3369,7 @@
     });
   }
 
-  function showLoading(msg) {
+  function showLoading(msg, showProgressBar = false) { // Added showProgressBar parameter
     // loading custom: spinner modern + teks, terlihat jelas tanpa perlu ganti content halaman
     Swal.fire({
       title: '',
@@ -4246,6 +4263,7 @@
     if (fInput && fInput.files.length > 0) {
       var file = fInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      // showLoading is already called, now update progress
       compressImage(file, function(base64, mime) {
         processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
@@ -4537,7 +4555,7 @@
     if(!j) return showWarning('Judul wajib diisi!');
     
     if (type === 'video') {
-      if (!vLink) return showWarning('Link video wajib diisi!');
+      if (!vLink) return showWarning('Link media wajib diisi!');
       showLoading('Menyimpan Video Karang Taruna...');
       google.script.run.withSuccessHandler(function(res){ 
         Swal.close(); 
@@ -4552,10 +4570,11 @@
       return;
     }
 
-    if(!fInput.files.length && !id) return showWarning('Foto wajib dipilih!');
+    if(!fInput.files.length && !id) return showWarning('Gambar wajib dipilih!');
     var file = fInput.files[0];
     if (file && file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
-    compressImage(file, function(base64, mime) {
+    showLoading('Mengompresi Gambar...', true); // Start loading with progress bar
+    compressImage(file, function(base64, mime) { // showLoading is called inside compressImage
       startSimulatedUpload();
       google.script.run.withSuccessHandler(function(res){
         clearInterval(progressInterval);
@@ -5354,7 +5373,7 @@ function bukaJadwal() {
     btn.disabled = true;
 
     var saveProcess = function(dataFile, mimeType, fileName) {
-      google.script.run.withSuccessHandler(function(res) {
+      google.script.run.withSuccessHandler(function(res) { // This should be the actual server call
         btn.innerHTML = old;
         btn.disabled = false;
         if (res.status === 'success') {
@@ -5370,10 +5389,13 @@ function bukaJadwal() {
     if (fileInput.files.length > 0) {
       var file = fileInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      showLoading('Mengompresi gambar...', true); // Start loading with progress bar
       compressImage(file, function(base64, mime) {
-        saveProcess(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
+        startSimulatedUpload(); // Start simulated upload after compression
+        saveProcess(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg"); // Call saveProcess with compressed data
       }, 800); // Profile photos only need 800px
     } else {
+      showLoading('Menyimpan data kontak...', true); // Show loading for simple update
       saveProcess(null, null, null);
     }
   }
@@ -5938,7 +5960,8 @@ function bukaJadwal() {
       fileName: ''
     };
     var fileInput = document.getElementById('fotoPengaduan');
-    if (fileInput.files.length) {
+    showLoading('Mengirim laporan...', true); // Start loading with progress bar
+    if (fileInput.files.length) { // If there's a file, compress it first
       var file = fileInput.files[0];
       compressImage(file, function(base64, mime) {
         obj.dataFile = base64;
@@ -5952,7 +5975,9 @@ function bukaJadwal() {
   }
 
   function kirimLaporan(obj, btn) {
+    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
     google.script.run.withSuccessHandler(function(res) {
+      clearInterval(progressInterval); // Stop simulated progress
       btn.innerHTML = "Kirim Laporan";
       btn.disabled = false;
       if (res.status === 'success') {
@@ -5963,9 +5988,13 @@ function bukaJadwal() {
           kembaliKeDashboard();
         });
       } else {
+        clearInterval(progressInterval); // Stop simulated progress
         showError(res.pesan);
       }
-    }).prosesPengaduan(obj);
+    }).withFailureHandler(function(err) {
+      clearInterval(progressInterval); // Stop simulated progress
+      showError('Gagal mengirim laporan: ' + err.message);
+    }).prosesPengaduan(obj); // Call the server function
   }
 
   function bukaHistori() {
@@ -6582,6 +6611,31 @@ function bukaJadwal() {
     });
   }
 
+  // Function to update the SweetAlert progress
+  function updateProgress(percentage, message) {
+    currentProgress = percentage;
+    const progressBar = document.getElementById('swalProgressBar');
+    const loadingMessage = document.getElementById('swalLoadingMessage');
+    if (progressBar) {
+      progressBar.style.width = percentage + '%';
+    }
+    if (loadingMessage) {
+      loadingMessage.innerText = message + (percentage > 0 ? ` (${percentage}%)` : '');
+    }
+  }
+
+  // Function to start simulated upload progress
+  function startSimulatedUpload() {
+    currentProgress = 70; // Start after compression
+    updateProgress(currentProgress, 'Mengunggah ke server...');
+    progressInterval = setInterval(() => {
+      if (currentProgress < 95) { // Stop at 95% to wait for actual server response
+        currentProgress += Math.floor(Math.random() * 3) + 1; // Simulate random progress
+        if (currentProgress > 95) currentProgress = 95;
+        updateProgress(currentProgress, 'Mengunggah ke server...');
+      }
+    }, 300); // Update every 0.3 seconds
+  }
   function tampilkanDetailBulan(index, bulan, tahunGrafik) {
     var transaksi = [];
     for (var i = 0; i < allKasData.length; i++) {
@@ -7365,7 +7419,7 @@ function bukaJadwal() {
     var fileInput = document.getElementById('galeriFile');
     var vLink = document.getElementById('galeriVideoLink').value;
 
-    if (!caption) {
+    if (!caption && !id) { // Caption is optional for existing items if not changed
       return showWarning('Caption wajib diisi!');
     }
 
@@ -7378,28 +7432,55 @@ function bukaJadwal() {
       return;
     }
 
-    if (!fileInput.files.length) {
-      return showWarning('Pilih gambar!');
+    if (!fileInput.files.length && !id) { // If new item and no file, warn
+      return showWarning('Pilih gambar atau masukkan link video!');
     }
-    var file = fileInput.files[0];
-    if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+
     var btn = document.querySelector('#formCrudGaleri .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
 
-    compressImage(file, function(base64, mime) {
-      google.script.run.withSuccessHandler(function(res) {
-        btn.innerHTML = 'Upload';
-        btn.disabled = false;
-        if (res.status === 'success') {
-          showSuccess(res.pesan);
-          tutupForm('formCrudGaleri', 'wrapListGaleri');
-          muatDataGaleri();
-        } else {
-          showError(res.pesan);
-        }
-      }).simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "");
-    });
+    showLoading('Memproses data...', true); // Start loading with progress bar
+
+    if (fileInput.files.length > 0) {
+      var file = fileInput.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        Swal.close(); // Close initial loading
+        return showWarning('Ukuran file maksimal 10MB!');
+      }
+      compressImage(file, function(base64, mime) {
+        startSimulatedUpload();
+        google.script.run
+          .withSuccessHandler(function(res) {
+            clearInterval(progressInterval);
+            updateProgress(100, 'Selesai!');
+            btn.innerHTML = 'Upload';
+            btn.disabled = false;
+            if (res.status === 'success') {
+              showSuccess(res.pesan);
+              tutupForm('formCrudGaleri', 'wrapListGaleri');
+              muatDataGaleri();
+            } else { showError(res.pesan); }
+          })
+          .withFailureHandler(function(err) {
+            clearInterval(progressInterval);
+            Swal.close();
+            showError('Gagal mengunggah: ' + err.message);
+          })
+          .simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "");
+      });
+    } else { // No new file, but it's an existing item (id exists)
+      google.script.run
+        .withSuccessHandler(function(res) {
+          btn.innerHTML = 'Upload';
+          btn.disabled = false;
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            tutupForm('formCrudGaleri', 'wrapListGaleri');
+            muatDataGaleri();
+          } else { showError(res.pesan); }
+        }).simpanGaleriKegiatan(id, caption, null, '', '', "");
+    }
   }
 
   function hapusGaleri(id) {
@@ -7648,7 +7729,7 @@ function bukaJadwal() {
     if (!nama) return showWarning('Nama wajib diisi!');
 
     var processSave = function(dataFile, mimeType, fileName) {
-      showLoading('Menyimpan data kader PKK...');
+      // showLoading is already called before compressImage or here if no file
       google.script.run.withSuccessHandler(function(res) {
         Swal.close();
         if (res.status === 'success') {
@@ -7664,10 +7745,12 @@ function bukaJadwal() {
     if(fInput.files.length > 0) {
       var file = fInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      showLoading('Mengompresi gambar...', true); // Start loading with progress bar
       compressImage(file, function(base64, mime) {
         processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
+      showLoading('Menyimpan data kader...', true); // Show loading for simple update
       processSave(null, null, null);
     }
   }
@@ -7877,7 +7960,7 @@ function bukaJadwal() {
     if (!caption) return showWarning('Caption wajib diisi!');
 
     if (type === 'video') {
-      if (!vLink) return showWarning('Link video wajib diisi!');
+      if (!vLink) return showWarning('Link media wajib diisi!');
       showLoading('Menyimpan Video PKK...');
       google.script.run.withSuccessHandler(function(res) { // Added showLoading before server call
         Swal.close(); 
@@ -7892,10 +7975,12 @@ function bukaJadwal() {
       return;
     }
 
-    if (!fileInput.files.length && !id) return showWarning('Pilih gambar!');
+    if (!fileInput.files.length && !id) return showWarning('Pilih gambar atau masukkan link video!');
     var file = fileInput.files[0];
     if(file && file.size > 10 * 1024 * 1024) return showWarning('File terlalu besar (Maks 10MB)');
     
+    showLoading('Memproses data...', true); // Start loading with progress bar
+
     if (!fileInput.files.length && id) {
       // Update caption saja tanpa ganti gambar
       showLoading('Mengupdate data...');
@@ -7908,7 +7993,7 @@ function bukaJadwal() {
     var btn = document.querySelector('#formPkkCrudGaleri .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
-
+    // showLoading is already called
     var file = fileInput.files[0];
     compressImage(file, function(base64, mime) {
       showLoading('Mengoptimalkan Foto...');
