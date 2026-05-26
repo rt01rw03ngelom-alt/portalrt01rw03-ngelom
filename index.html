@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portal RT">
@@ -153,7 +152,6 @@
     body.theme-warga { --primary-color: var(--warga-red); --primary-color-rgb: 239, 68, 68; --primary-dark: #b91c1c; }
     body.theme-pkk { --primary-color: var(--pkk-green); --primary-color-rgb: 16, 185, 129; --primary-dark: #059669; }
     body.theme-karangtaruna { --primary-color: var(--kt-blue); --primary-color-rgb: 56, 189, 248; --primary-dark: #0284c7; }
-    body.theme-profil { --primary-color: #f59e0b; --primary-color-rgb: 245, 158, 11; --primary-dark: #d97706; }
 
     * {
       box-sizing: border-box;
@@ -1722,7 +1720,7 @@
     </p>
     
     <p style="margin-top:15px; font-size: 13px; color: var(--text-muted); padding-top: 15px; border-top: 1px dashed var(--border-color);">
-      Kendala akses? <a href="https://wa.me/6285236356569" id="linkHubungiAdmin" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Admin</a>
+      Kendala akses? <a href="https://wa.me/6285236356569" id="linkHubungiAdmin" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Dukungan</a>
     </p>
   </div>
 </div>
@@ -1920,9 +1918,9 @@
           </label>
         </div>
         
-        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
-          <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-            <i class="material-icons" style="color: #2563eb; font-size: 20px;">lock_reset</i>
+        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+          <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: #f59e0b; font-size: 20px;">lock_reset</i>
           </div>
           <div style="flex: 1;">
             <span style="font-weight: 600; color: var(--text-main); display: block;">Ubah Kata Sandi</span>
@@ -1932,9 +1930,9 @@
         </div>
 
         <div id="profAdminOnly" style="display: none;">
-          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
-            <div style="background: rgba(16, 185, 129, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-              <i class="material-icons" style="color: #10b981; font-size: 20px;">manage_accounts</i>
+          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+            <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: #f59e0b; font-size: 20px;">manage_accounts</i>
             </div>
             <div style="flex: 1;">
               <span style="font-weight: 600; color: var(--text-main); display: block;">Kelola User & Role</span>
@@ -1944,19 +1942,19 @@
           </div>
         </div>
 
-        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer;">
-        <div style="background: rgba(99, 102, 241, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-          <i class="material-icons" style="color: #6366f1; font-size: 20px;">logout</i>
+        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer; color: #f59e0b;">
+        <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #f59e0b; font-size: 20px;">logout</i>
           </div>
-        <span style="font-weight: 600; color: #6366f1;">Keluar dari Aplikasi</span>
+        <span style="font-weight: 600; color: #f59e0b;">Keluar dari Aplikasi</span>
         </div>
       </div>
 
       <div style="margin-top: 30px; text-align: center;">
         <p style="font-size: 12px; color: var(--text-muted);">
-          Portal RT01 RW03- Desa Ngelom
+          Portal RT01 RW03 - Desa Ngelom
         </p>
-        <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+        <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #f59e0b; text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
           <i class="material-icons" style="font-size: 18px;">support_agent</i> Hubungi Dukungan
         </a>
       </div>
@@ -2884,7 +2882,8 @@
 
   // HELPER: Image Compression (Resize & Compress to < 1MB)
   function compressImage(file, callback, maxDim) {
-    updateProgress(5, 'Menyiapkan kompresi...');
+    showLoading('Mengompresi gambar...');
+    updateProgress(5, 'Membaca file...');
     
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -3872,13 +3871,8 @@
     sembunyikanSemuaLayar();
     
     // Update Theme Class on Body
-    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil');
+    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
     document.body.classList.add('theme-' + tabName.toLowerCase());
-
-    // Sinkronisasi status aktif pada Navigasi Bawah
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    var navActive = document.getElementById('nav-' + tabName.toLowerCase());
-    if (navActive) navActive.classList.add('active');
 
     document.getElementById('dashboardView').style.display = 'block';
     history.pushState({view: 'dashboardView', tab: tabName}, '', '#' + tabName);
@@ -3917,10 +3911,6 @@
     sembunyikanSemuaLayar();
     document.getElementById('profilView').style.display = 'block';
     
-    // Sinkronisasi Tema Body (Kuning untuk Profil)
-    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
-    document.body.classList.add('theme-profil');
-
     // Update Status Aktif pada Navigasi Bawah
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     var navProf = document.getElementById('nav-profil');
@@ -4245,9 +4235,8 @@
     if (!n) return showWarning('Nama wajib diisi!');
 
     var processSave = function(dataFile, mimeType, fileName) {
-      if (!dataFile) showLoading('Menyimpan data...');
+      showLoading('Menyimpan data anggota...');
       google.script.run.withSuccessHandler(function(res) {
-        clearInterval(progressInterval);
         Swal.close();
         if (res.status === 'success') {
           showSuccess(res.pesan);
@@ -4262,9 +4251,7 @@
     if (fInput && fInput.files.length > 0) {
       var file = fInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
-      showLoading('Memproses foto...');
       compressImage(file, function(base64, mime) {
-        startSimulatedUpload('Mengunggah kader Karang Taruna...');
         processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
@@ -4557,17 +4544,15 @@
     if (type === 'video') {
       if (!vLink) return showWarning('Link video wajib diisi!');
       showLoading('Menyimpan Video Karang Taruna...');
-      google.script.run.withSuccessHandler(function(res) {
+      google.script.run.withSuccessHandler(function(res){ 
         Swal.close(); 
         if(res && res.status === 'success') {
           showSuccess(res.pesan || 'Tersimpan!'); 
           tutupForm('ktFormCrudGaleri','ktWrapListGaleri'); 
           ktMuatDataGaleri(); 
         } else {
-          showError(res.pesan);
+          showError(res ? res.pesan : 'Gagal menyimpan data');
         }
-      }).withFailureHandler(function(err) {
-        Swal.close(); showError('Gagal simpan video KT: ' + err.message);
       }).ktSimpanGaleri(id, j, null, '', '', d, vLink);
       return;
     }
@@ -4765,6 +4750,9 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus jadwal: ' + err.message);
         }).hapusJadwal(id);
       }
     });
@@ -4775,8 +4763,10 @@ function bukaJadwal() {
     var tahun = document.getElementById('rondaFilterTahun').value;
     var list = document.getElementById('listRonda');
     list.innerHTML = '<div class="skeleton" style="height:100px;"></div>';
+    showLoading('Memuat data ronda...');
     
     google.script.run.withSuccessHandler(function(res) {
+      Swal.close(); // Close loading modal
       if (res.status === 'success') {
         currentRondaData = res.data || [];
         filterRonda();
@@ -4784,6 +4774,9 @@ function bukaJadwal() {
         list.innerHTML = '';
         showError(res.pesan); 
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data ronda: ' + err.message);
     }).getRonda(bulan, tahun);
   }
 
@@ -4826,7 +4819,7 @@ function bukaJadwal() {
     nextWeekDate.setDate(d.getDate() + 7);
 
     google.script.run.withSuccessHandler(function(res) {
-      if (res.status === 'success' && res.data) {
+      if (res.status === 'success' && Array.isArray(res.data) && res.data.length > 0) {
         rondaSlides = [];
         var curWeek = Math.ceil(d.getDate() / 7);
         var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -4843,7 +4836,7 @@ function bukaJadwal() {
             var tgl = p[2];
             var isToday = (e.tanggal === todayStr);
             
-            // Structured names with professional Chips
+            // Structured names with professional Chips (HTML)
             var petugasArr = e.petugas ? e.petugas.split(/\r?\n/).filter(it => it.trim() !== "") : [];
             var namesHtml = petugasArr.length ? petugasArr.map(p => 
               `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(var(--primary-color-rgb), 0.08); color:var(--text-main); padding:4px 10px; border-radius:8px; font-size:13px; font-weight:600; margin:2px 2px 0 0; border:1px solid rgba(var(--primary-color-rgb), 0.1);">
@@ -4851,7 +4844,7 @@ function bukaJadwal() {
               </span>`
             ).join('') : '<span class="muted" style="font-size:13px;">-</span>';
 
-            // Plain text names for WhatsApp
+            // Plain text names for WhatsApp (Plain Text)
             var namesPlainText = petugasArr.length ? petugasArr.join(', ') : '-';
             
             var highlightStyle = isToday ? 'border-left:5px solid var(--primary-red); background:rgba(239,68,68,0.04); padding-left:12px;' : 'border-left:3px solid var(--border-color); padding-left:12px;';
@@ -4863,8 +4856,7 @@ function bukaJadwal() {
                       <div style="display:flex; flex-wrap:wrap; margin-top:8px;">${namesHtml}</div>
                     </div>`;
             
-            plainTextOutput += `${hari}, Tgl ${tgl} - ${e.kelompok}${todayTagPlainText}\n`;
-            plainTextOutput += `  Petugas: ${namesPlainText}\n`;
+            plainTextOutput += `${hari}, Tgl ${tgl} - ${e.kelompok}${todayTagPlainText}\n  Petugas: ${namesPlainText}\n`;
           });
           return { html: htmlOutput, plainText: plainTextOutput };
         };
@@ -4875,11 +4867,14 @@ function bukaJadwal() {
           return Math.ceil(parseInt(p[2]) / 7) === curWeek;
         });
 
-        rondaSlides.push({
-          title: 'Jadwal Ronda Minggu Ini',
-          content: formattedW1.html,
-          plainTextContent: formattedW1.plainText
-        });
+        var formattedW1 = formatMingguan(entriesW1);
+        if (entriesW1.length > 0) {
+          rondaSlides.push({
+            title: 'Jadwal Ronda Minggu Ini',
+            content: formattedW1.html,
+            plainTextContent: formattedW1.plainText
+          });
+        }
 
         // Slide 2: Minggu Depan
         var entriesW2 = res.data.filter(function(it) {
@@ -4887,23 +4882,43 @@ function bukaJadwal() {
           return Math.ceil(parseInt(p[2]) / 7) === curWeek + 1;
         });
 
+        var formattedW2 = formatMingguan(entriesW2);
         var slide2Title = (nextWeekDate.getMonth() !== d.getMonth()) 
           ? 'Jadwal Ronda ' + months[nextWeekDate.getMonth()] 
           : 'Jadwal Ronda Minggu Depan';
 
-        var formattedW2 = formatMingguan(entriesW2);
-        rondaSlides.push({
-          title: slide2Title,
-          content: formattedW2.html,
-          plainTextContent: formattedW2.plainText
-        });
+        if (entriesW2.length > 0) {
+          rondaSlides.push({
+            title: slide2Title,
+            content: formattedW2.html,
+            plainTextContent: formattedW2.plainText
+          });
+        }
 
-        displayRondaSlide(0);
-        initRondaSwipe();
+        if (rondaSlides.length === 0) {
+          var formattedAll = formatMingguan(res.data);
+          rondaSlides.push({
+            title: 'Jadwal Ronda Bulan Ini',
+            content: formattedAll.html || '<span style="font-size:12px; color:var(--text-muted);">Belum ada jadwal ronda untuk bulan ini.</span>',
+            plainTextContent: formattedAll.plainText || 'Belum ada jadwal ronda untuk bulan ini.'
+          });
+        }
+
+        if (rondaSlides.length > 0) {
+          displayRondaSlide(0);
+          initRondaSwipe();
+        } else {
+          info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Tidak ada jadwal ronda malam untuk minggu ini.</span>';
+        }
       } else {
-        info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Gagal memuat jadwal.</span>';
+        info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Tidak ada jadwal ronda malam untuk saat ini.</span>';
+        rondaSlides = [];
       }
+    }).withFailureHandler(function(err) {
+      info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Gagal memuat jadwal: ' + err.message + '</span>';
+      rondaSlides = [];
     }).getRonda(d.getMonth() + 1, d.getFullYear());
+    Swal.close(); // Close loading modal after data is loaded
   }
 
   function displayRondaSlide(idx) {
@@ -5143,7 +5158,19 @@ function bukaJadwal() {
   }
 
   function salinJadwalRondaToWhatsApp() {
-    if (!rondaSlides || rondaSlides.length === 0) {
+    var slidesToShare = Array.isArray(rondaSlides) ? rondaSlides.slice() : [];
+    if ((!slidesToShare || slidesToShare.length === 0) && Array.isArray(currentRondaData) && currentRondaData.length > 0) {
+      var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      slidesToShare.push({
+        title: 'Jadwal Ronda Saat Ini',
+        plainTextContent: currentRondaData.map(function(item) {
+          var petugasArr = item.petugas ? item.petugas.split(/\r?\n/).filter(function(v) { return v.trim() !== ''; }) : [];
+          return item.tanggal + ' - ' + item.kelompok + '\n  Petugas: ' + (petugasArr.length ? petugasArr.join(', ') : '-');
+        }).join('\n')
+      });
+    }
+
+    if (!slidesToShare || slidesToShare.length === 0) {
       return showWarning('Tidak ada jadwal ronda yang bisa disalin.');
     }
 
@@ -5253,6 +5280,9 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus jadwal ronda: ' + err.message);
         }).hapusRonda(row);
       }
     });
@@ -5271,6 +5301,7 @@ function bukaJadwal() {
     }
 
     muatDataKontak();
+    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
   }
 
   function muatDataKontak() {
@@ -5278,6 +5309,7 @@ function bukaJadwal() {
     list.innerHTML = '<div class="skeleton" style="height:80px;"></div>';
     
     google.script.run.withSuccessHandler(function(res) {
+      Swal.close(); // Close loading modal
       list.innerHTML = '';
       
       if (res.data && res.data.length) {
@@ -5328,6 +5360,9 @@ function bukaJadwal() {
       } else {
         list.innerHTML = '<p class="muted">Belum ada data kader pengurus.</p>';
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data kontak: ' + err.message);
     }).getKontakPengurus();
   }
 
@@ -5369,13 +5404,12 @@ function bukaJadwal() {
     }
     var btn = document.querySelector('#formCrudKontak .btn-primary');
     var old = btn.innerHTML;
+    showLoading('Menyimpan data kontak...', true); // Show loading with progress bar
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
 
     var saveProcess = function(dataFile, mimeType, fileName) {
-      if (!dataFile) showLoading('Menyimpan kontak...');
       google.script.run.withSuccessHandler(function(res) {
-        clearInterval(progressInterval);
         btn.innerHTML = old;
         btn.disabled = false;
         if (res.status === 'success') {
@@ -5385,13 +5419,20 @@ function bukaJadwal() {
         } else {
           showError(res.pesan);
         }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        btn.innerHTML = old;
+        btn.disabled = false;
+        showError('Gagal menyimpan kontak: ' + err.message);
       }).simpanKontak(id, nama, jabatan, nohp, "", dataFile, mimeType, fileName);
     };
 
     if (fileInput.files.length > 0) {
       var file = fileInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      // showLoading is already called, now update progress
       compressImage(file, function(base64, mime) {
+        startSimulatedUpload(); // Start simulated upload after compression
         saveProcess(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
@@ -5403,13 +5444,18 @@ function bukaJadwal() {
     if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk menghapus kontak.'); return; }
     showConfirm('Yakin hapus kontak?').then(function(res) {
       if (res.isConfirmed) {
+        showLoading('Menghapus kontak...');
         google.script.run.withSuccessHandler(function(r) {
+          Swal.close(); // Close loading modal
           if (r.status === 'success') {
             showSuccess(r.pesan);
             muatDataKontak();
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus kontak: ' + err.message);
         }).hapusKontak(id);
       }
     });
@@ -5443,6 +5489,7 @@ function bukaJadwal() {
     
     // Muat pengaturan admin jika yang buka adalah admin
     loadAdminSettingsUI();
+    history.pushState({view: 'kelolaUserView', tab: 'warga', onLoad: 'muatDataUser'}, '', '#kelolaUser');
     
     // Muat daftar role dulu baru muat data user
     muatDaftarRole(function() {
@@ -5470,7 +5517,7 @@ function bukaJadwal() {
     showLoading('Memuat data user...');
     document.getElementById('userSearchInput').value = ''; // Reset pencarian saat buka menu
     google.script.run.withSuccessHandler(function(res) {
-      Swal.close();
+      Swal.close(); // Close loading modal
       if (res.data && res.data.length) {
         allUsers = res.data;
         renderUserList(allUsers);
@@ -5478,7 +5525,8 @@ function bukaJadwal() {
         list.innerHTML = '<p>Belum ada user.</p>';
       }
     }).withFailureHandler(function(err) {
-      Swal.close(); showError('Gagal memuat user: ' + err.message);
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data user: ' + err.message);
     }).getAllUsersWithWarga();
   }
 
@@ -5529,6 +5577,9 @@ function bukaJadwal() {
           } else {
             showError(res.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal memperbarui notifikasi: ' + err.message);
         }).adminEditNotifikasi(id, result.value.judul, result.value.isi, result.value.role, it.targetPage);
       }
     });
@@ -5546,6 +5597,9 @@ function bukaJadwal() {
           } else {
             showError(res.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus notifikasi: ' + err.message);
         }).adminHapusNotifikasi(id);
       }
     });
@@ -5917,6 +5971,7 @@ function bukaJadwal() {
 
 
     showLoading('Menyimpan perubahan user...');
+    // No progress bar for user data as it's not a file upload
     google.script.run.withSuccessHandler(function(res) {
       Swal.close();
       if (res.status === 'success') {
@@ -5938,7 +5993,7 @@ function bukaJadwal() {
       }
     }).withFailureHandler(function(err) {
       Swal.close();
-      showError('Gagal menghubungi server: ' + err.message);
+      showError('Gagal menyimpan user: ' + err.message);
     }).simpanUser(id, nama, email, role, password, perms.join(','));
   }
 
@@ -5958,6 +6013,7 @@ function bukaJadwal() {
     var btn = document.querySelector('#formPengaduanView .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
+    showLoading('Mengirim laporan...', true); // Start loading with progress bar
     var obj = {
       pelapor: currentUser.nama,
       isi: isi,
@@ -5965,15 +6021,19 @@ function bukaJadwal() {
       mimeType: '',
       fileName: ''
     };
+    // Reset progress bar
+    currentProgress = 0;
+    updateProgress(0, 'Memulai...');
     var fileInput = document.getElementById('fotoPengaduan');
     if (fileInput.files.length) {
       var file = fileInput.files[0];
       compressImage(file, function(base64, mime) {
-        startSimulatedUpload('Mengunggah laporan...');
         obj.dataFile = base64;
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
         kirimLaporan(obj, btn);
+      }).withFailureHandler(function(err) {
+        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
       });
     } else {
       kirimLaporan(obj, btn);
@@ -5981,6 +6041,7 @@ function bukaJadwal() {
   }
 
   function kirimLaporan(obj, btn) {
+    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
     google.script.run.withSuccessHandler(function(res) {
       btn.innerHTML = "Kirim Laporan";
       btn.disabled = false;
@@ -6109,6 +6170,9 @@ function bukaJadwal() {
       } else {
         list.innerHTML = '<p>Belum ada laporan.</p>';
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat laporan pengaduan: ' + err.message);
     }).getSemuaPengaduan();
   }
 
@@ -6116,6 +6180,7 @@ function bukaJadwal() {
     if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk menghapus pengaduan.'); return; }
     showConfirm('Yakin hapus pengaduan?').then(function(res) {
       if (res.isConfirmed) {
+        showLoading('Menghapus pengaduan...');
         showLoading('Menghapus...');
         google.script.run.withSuccessHandler(function(r) {
           Swal.close();
@@ -6130,6 +6195,9 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus pengaduan: ' + err.message);
         }).hapusPengaduan(id);
       }
     });
@@ -6139,6 +6207,7 @@ function bukaJadwal() {
     if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk mengubah status pengaduan.'); return; }
     var statusBaru = document.getElementById('status_' + id).value;
     showLoading('Mengupdate...');
+    // No progress bar for status update as it's not a file upload
     google.script.run.withSuccessHandler(function(r) {
       Swal.close();
       if (r.status === 'success') {
@@ -6148,6 +6217,9 @@ function bukaJadwal() {
       } else {
         showError(r.pesan);
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memperbarui status pengaduan: ' + err.message);
     }).updateStatusPengaduan(id, statusBaru);
   }
 
@@ -6261,6 +6333,9 @@ function bukaJadwal() {
       if (callback) {
         callback();
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data kas: ' + err.message);
     }).getKasWarga();
   }
 
@@ -6843,6 +6918,9 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus transaksi: ' + err.message);
         }).hapusKasWarga(id);
       }
     });
@@ -6874,6 +6952,9 @@ function bukaJadwal() {
         select.value = tahunSekarang;
       }
       muatTabelIuran();
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar tahun iuran: ' + err.message);
     }).getTahunIuranList();
   }
 
@@ -6882,17 +6963,18 @@ function bukaJadwal() {
     // Reset pencarian saat ganti tahun
     var searchInput = document.getElementById('iuranSearchInput');
     if (searchInput) searchInput.value = '';
-    
+
     showLoading('Memuat data iuran...');
-    var p1 = new Promise(function(resolve) {
-      google.script.run.withSuccessHandler(resolve).getDaftarKategori();
+    var p1 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarKategori();
     });
-    var p2 = new Promise(function(resolve) {
-      google.script.run.withSuccessHandler(resolve).getDaftarWarga();
+    var p2 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarWarga();
     });
-    var p3 = new Promise(function(resolve) {
-      google.script.run.withSuccessHandler(resolve).getIuranPerTahun(tahun);
+    var p3 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getIuranPerTahun(tahun);
     });
+
     Promise.all([p1, p2, p3]).then(function(results) {
       Swal.close();
       daftarKategori = results[0] || [];
@@ -6929,6 +7011,9 @@ function bukaJadwal() {
       }
       iuranData = rows;
       renderTabelIuran(rows, tahun);
+    }).catch(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat data iuran: ' + (err && err.message ? err.message : err));
     });
   }
 
@@ -7092,6 +7177,9 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus data iuran: ' + err.message);
         }).hapusIuranWarga(nama, tahun);
       }
     });
@@ -7147,6 +7235,9 @@ function bukaJadwal() {
       } else {
         container.innerHTML = '<p>Belum ada kategori. Tambah baru.</p>';
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar kategori: ' + err.message);
     }).getDaftarKategori();
   }
 
@@ -7167,8 +7258,11 @@ function bukaJadwal() {
         muatDaftarKategoriIuran();
         muatTabelIuran();
       } else {
+        Swal.close(); // Ensure loading is closed if this fails
         showError(res.pesan);
       }
+    }).withFailureHandler(function(err) {
+      showError(err.message || 'Terjadi kesalahan saat menambah kategori.');
     }).tambahKategori(nama, nominal);
   }
 
@@ -7198,8 +7292,11 @@ function bukaJadwal() {
             muatDaftarKategoriIuran();
             muatTabelIuran();
           } else {
+            Swal.close(); // Ensure loading is closed if this fails
             showError(res.pesan);
           }
+        }).withFailureHandler(function(err) {
+          showError(err.message || 'Terjadi kesalahan saat mengubah kategori.');
         }).editKategori(id, v.nama, v.nominal);
       }
     });
@@ -7214,8 +7311,11 @@ function bukaJadwal() {
             muatDaftarKategoriIuran();
             muatTabelIuran();
           } else {
+            Swal.close(); // Ensure loading is closed if this fails
             showError(r.pesan);
           }
+        }).withFailureHandler(function(err) {
+          showError(err.message || 'Terjadi kesalahan saat menghapus kategori.');
         }).hapusKategori(id);
       }
     });
@@ -7251,6 +7351,9 @@ function bukaJadwal() {
           container.appendChild(item);
         });
       } else { container.innerHTML = '<p style="padding:15px; text-align:center;" class="muted">Belum ada data warga.</p>'; }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar warga: ' + err.message);
     }).getDaftarWarga();
   }
 
@@ -7266,8 +7369,11 @@ function bukaJadwal() {
         muatDaftarWargaIuran();
         muatTabelIuran();
       } else {
+        Swal.close(); // Ensure loading is closed if this fails
         showError(res.pesan);
       }
+    }).withFailureHandler(function(err) {
+      showError(err.message || 'Terjadi kesalahan saat menambah warga.');
     }).tambahWargaIuran(nama);
   }
 
@@ -7349,6 +7455,9 @@ function bukaJadwal() {
       } else {
         container.innerHTML = '<p>Belum ada foto di galeri.</p>';
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat galeri: ' + err.message);
     }).getGaleriKegiatan();
   }
 
@@ -7401,6 +7510,7 @@ function bukaJadwal() {
     if (type === 'video') {
       if (!vLink) return showWarning('Link video wajib diisi!');
       showLoading('Menyimpan Video...');
+      // No progress bar for video link as no file upload
       google.script.run.withSuccessHandler(function(res) {
         Swal.close(); showSuccess('Tersimpan!'); tutupForm('formCrudGaleri', 'wrapListGaleri'); muatDataGaleri();
       }).simpanGaleriKegiatan(id, caption, null, '', '', vLink);
@@ -7415,26 +7525,18 @@ function bukaJadwal() {
     var btn = document.querySelector('#formCrudGaleri .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
-    showLoading('Menyiapkan gambar...');
 
     compressImage(file, function(base64, mime) {
-      startSimulatedUpload('Mengirim dokumentasi...');
       google.script.run.withSuccessHandler(function(res) {
-        clearInterval(progressInterval);
         btn.innerHTML = 'Upload';
         btn.disabled = false;
         if (res.status === 'success') {
-          Swal.close();
           showSuccess(res.pesan);
           tutupForm('formCrudGaleri', 'wrapListGaleri');
           muatDataGaleri();
         } else {
-          Swal.close(); showError(res.pesan);
+          showError(res.pesan);
         }
-      }).withFailureHandler(function(err) {
-        clearInterval(progressInterval); Swal.close();
-        btn.innerHTML = 'Upload'; btn.disabled = false;
-        showError('Gagal terhubung ke server: ' + err.message);
       }).simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "");
     });
   }
@@ -7588,13 +7690,18 @@ function bukaJadwal() {
           showError(r.pesan);
         }
       }).pkkHapusJadwal(id);
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal menghapus jadwal PKK: ' + err.message);
     });
   }
 
   function pkkMuatDataJadwal() {
     var list = document.getElementById('pkkListJadwal');
     list.innerHTML = '<p>Memuat...</p>';
+    showLoading('Memuat jadwal PKK...');
     google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      Swal.close(); // Close loading modal
       list.innerHTML = '';
       if (res.data && res.data.length) {
         for (var i = 0; i < res.data.length; i++) {
@@ -7685,6 +7792,7 @@ function bukaJadwal() {
     if (!nama) return showWarning('Nama wajib diisi!');
 
     var processSave = function(dataFile, mimeType, fileName) {
+      showLoading('Menyimpan data kader PKK...', true); // Show loading with progress bar
       showLoading('Menyimpan data kader PKK...');
       google.script.run.withSuccessHandler(function(res) {
         Swal.close();
@@ -7695,13 +7803,18 @@ function bukaJadwal() {
         } else {
           showError(res.pesan);
         }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        showError('Gagal menyimpan kader PKK: ' + err.message);
       }).pkkSimpanKader(id, nama, jabatan, nohp, dataFile, mimeType, fileName);
     };
 
     if(fInput.files.length > 0) {
       var file = fInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      showLoading('Mengompresi gambar...', true); // Start loading with progress bar
       compressImage(file, function(base64, mime) {
+        startSimulatedUpload(); // Start simulated upload after compression
         processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
@@ -7713,6 +7826,7 @@ function bukaJadwal() {
     if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk menghapus kader PKK.'); return; }
     showConfirm('Yakin hapus kader PKK?').then(function(res) {
       if (!res.isConfirmed) return;
+      showLoading('Menghapus kader PKK...');
       google.script.run.withSuccessHandler(function(r) {
         if (r.status === 'success') {
           showSuccess(r.pesan);
@@ -7720,6 +7834,9 @@ function bukaJadwal() {
         } else {
           showError(r.pesan);
         }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        showError('Gagal menghapus kader PKK: ' + err.message);
       }).pkkHapusKader(id);
     });
   }
@@ -7777,6 +7894,7 @@ function bukaJadwal() {
     var btn = document.querySelector('#pkkKirimLaporanView .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
+    showLoading('Mengirim laporan...'); // Added loading indicator
     var obj = {
       pelapor: currentUser.nama,
       judul: judul,
@@ -7790,11 +7908,12 @@ function bukaJadwal() {
     if (fileInput.files.length) {
       var file = fileInput.files[0];
       compressImage(file, function(base64, mime) {
-        startSimulatedUpload('Mengirim laporan...');
         obj.dataFile = base64;
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
         kirimLaporanPkk(obj, btn);
+      }).withFailureHandler(function(err) {
+        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
       });
     } else {
       kirimLaporanPkk(obj, btn);
@@ -7802,6 +7921,7 @@ function bukaJadwal() {
   }
 
   function kirimLaporanPkk(obj, btn) {
+    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
     showLoading('Mengirim laporan...'); // Added loading indicator
     google.script.run.withSuccessHandler(function(res) {
       btn.innerHTML = 'Kirim';
@@ -7815,12 +7935,8 @@ function bukaJadwal() {
           kembaliKeDashboard();
         });
       } else {
-        Swal.close(); showError(res.pesan);
+        showError(res.pesan);
       }
-    }).withFailureHandler(function(err) {
-      clearInterval(progressInterval); Swal.close();
-      btn.innerHTML = 'Kirim'; btn.disabled = false;
-      showError('Gagal mengirim laporan: ' + err.message);
     }).pkkKirimLaporan(obj);
   }
 
@@ -7938,12 +8054,10 @@ function bukaJadwal() {
     if(file && file.size > 10 * 1024 * 1024) return showWarning('File terlalu besar (Maks 10MB)');
     
     if (!fileInput.files.length && id) {
+      // Update caption saja tanpa ganti gambar
       showLoading('Mengupdate data...');
       google.script.run.withSuccessHandler(function(res){
-        Swal.close(); showSuccess(res.pesan); 
-        tutupForm('formPkkCrudGaleri','pkkWrapListGaleri'); pkkMuatDataGaleri();
-      }).withFailureHandler(function(err) {
-        Swal.close(); showError('Gagal update: ' + err.message);
+        Swal.close(); showSuccess(res.pesan); tutupForm('formPkkCrudGaleri','pkkWrapListGaleri'); pkkMuatDataGaleri();
       }).pkkSimpanGaleri(id, caption, null, '', '', "");
       return;
     }
@@ -8017,6 +8131,9 @@ function bukaJadwal() {
       } else {
         container.innerHTML = '<p>Belum ada foto di galeri PKK.</p>';
       }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat galeri PKK: ' + err.message);
     }).pkkGetGaleri();
   }
   function bukaPkkLaporanAdmin() {
@@ -8029,6 +8146,7 @@ function bukaJadwal() {
   function pkkMuatDataLaporanAdmin() {
     var list = document.getElementById('pkkListLaporanAdmin'); 
     list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
+    showLoading('Memuat laporan admin PKK...');
     google.script.run.withSuccessHandler(function(res) {
       list.innerHTML = '';
       if (res.data && res.data.length) {
