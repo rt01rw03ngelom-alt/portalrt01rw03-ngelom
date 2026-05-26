@@ -1676,10 +1676,7 @@
     </div>
     
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
-      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 14px; color: var(--text-muted);">
-        <input type="checkbox" id="rememberMe" style="width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--primary-color);">
-        Ingat Saya
-      </label>
+      <div style="font-size: 14px; color: var(--text-muted); font-style: italic;">Sesi login tersimpan otomatis</div>
       <a href="#" onclick="lupaPassword(); return false;" style="color:var(--primary-red); font-size: 14px; font-weight: 600; text-decoration: none;">Lupa Password?</a>
     </div>
 
@@ -1726,6 +1723,88 @@
       </button>
     </div>
   </div>
+
+  <!-- LAYAR PROFIL PENGGUNA -->
+  <div id="profilView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Profil Saya</h3>
+    </div>
+    
+    <div class="card-item" style="padding: 30px 20px; text-align: center; border-left: none; border-bottom: 5px solid var(--primary-color);">
+      <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 15px;">
+        <div style="width: 100%; height: 100%; background: var(--bg-app); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color); border: 2px solid var(--border-color); overflow: hidden;">
+          <i class="material-icons" style="font-size: 64px;">person</i>
+        </div>
+        <div style="position: absolute; bottom: 0; right: 0; background: var(--primary-color); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--bg-surface);">
+          <i class="material-icons" style="font-size: 16px;">verified</i>
+        </div>
+      </div>
+      <h2 id="profNama" style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">-</h2>
+      <p id="profEmail" style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px; font-weight: 500;">-</p>
+      <div style="display: flex; justify-content: center;">
+        <span id="profRole" class="status-badge status-selesai" style="text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 6px 16px;">-</span>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 25px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">Preferensi & Keamanan</div>
+    <div class="card-item" style="padding: 0; overflow: hidden; border-left: none;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="background: rgba(var(--primary-color-rgb), 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: var(--primary-color); font-size: 20px;" id="profDarkIcon">dark_mode</i>
+          </div>
+          <span style="font-weight: 600; color: var(--text-main);">Mode Gelap</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="profilDarkToggle" onchange="toggleDarkMode()">
+          <span></span>
+        </label>
+      </div>
+      
+      <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
+        <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #2563eb; font-size: 20px;">lock_reset</i>
+        </div>
+        <div style="flex: 1;">
+          <span style="font-weight: 600; color: var(--text-main); display: block;">Ubah Kata Sandi</span>
+          <span style="font-size: 11px; color: var(--text-muted);">Perbarui keamanan akun Anda</span>
+        </div>
+        <i class="material-icons" style="color: var(--text-muted); font-size: 20px;">chevron_right</i>
+      </div>
+
+      <div id="profAdminOnly" style="display: none;">
+        <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
+          <div style="background: rgba(16, 185, 129, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: #10b981; font-size: 20px;">manage_accounts</i>
+          </div>
+          <div style="flex: 1;">
+            <span style="font-weight: 600; color: var(--text-main); display: block;">Kelola User & Role</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Manajemen akses warga (Admin)</span>
+          </div>
+          <i class="material-icons" style="color: var(--text-muted); font-size: 20px;">chevron_right</i>
+        </div>
+      </div>
+
+      <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer;">
+        <div style="background: rgba(239, 68, 68, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #ef4444; font-size: 20px;">logout</i>
+        </div>
+        <span style="font-weight: 600; color: #ef4444;">Keluar dari Aplikasi</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center;">
+      <p style="font-size: 12px; color: var(--text-muted);">
+        Portal RT Ngelom v2.5.0<br>
+        Dibuat dengan ❤️ untuk Warga RT 01
+      </p>
+      <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+        <i class="material-icons" style="font-size: 18px;">support_agent</i> Hubungi Dukungan
+      </a>
+    </div>
+  </div>
+
 </div>
 
 <div id="mainApp" style="display:none;">
@@ -2675,24 +2754,29 @@
   }
 
   // ======================== MEDIA HELPERS ========================
-  function requestNotificationPermission() {
+  function checkAndRequestNotificationPermission(silent) {
     if (!("Notification" in window)) {
-      bukaNotifikasi(); // Fallback ke popup biasa
+      if (!silent) bukaNotifikasi(); 
       return;
     }
 
     if (Notification.permission === "granted") {
-      bukaNotifikasi();
+      if (!silent) bukaNotifikasi();
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then(function (permission) {
         if (permission === "granted") {
-          showSuccess("Notifikasi sistem diaktifkan!");
+          if (silent) console.log("Notifikasi sistem diaktifkan otomatis.");
+          else showSuccess("Notifikasi sistem diaktifkan!");
         }
-        bukaNotifikasi();
+        if (!silent) bukaNotifikasi();
       });
     } else {
-      bukaNotifikasi();
+      if (!silent) bukaNotifikasi();
     }
+  }
+
+  function requestNotificationPermission() {
+    checkAndRequestNotificationPermission(false);
   }
 
   function triggerSystemNotification(judul, isi, targetPage) {
@@ -3374,9 +3458,19 @@
     // Inisialisasi interaksi awan
     initCloudInteraction();
 
-    // FIX: Periksa localStorage (Remember Me) DAN sessionStorage (Tab Saja)
-    var savedToken = localStorage.getItem('sessionToken') || sessionStorage.getItem('sessionToken');
+    // Otomatis Log In: Periksa token yang tersimpan di perangkat
+    var savedToken = localStorage.getItem('sessionToken');
     if (savedToken) {
+      // Tampilkan indikator loading saat memverifikasi sesi otomatis
+      var loginBox = document.querySelector('.login-box');
+      if (loginBox) {
+        loginBox.innerHTML = '<div style="padding:40px; text-align:center;">' +
+          '<div class="bbx-spinner" style="margin:0 auto 20px;"></div>' +
+          '<div style="font-weight:700; color:var(--primary-color); font-size:16px;">Memulihkan Sesi...</div>' +
+          '<div style="color:var(--text-muted); font-size:13px; margin-top:8px;">Menghubungkan ke server</div>' +
+          '</div>';
+      }
+
       google.script.run
         .withSuccessHandler(function(res) {
           if (res && res.status === 'success') {
@@ -3397,21 +3491,19 @@
               // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
             });
           }
+          checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
           // Jalankan polling notifikasi setelah login berhasil
           startNotifikasiPolling();
           showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
           } else {
             localStorage.removeItem('sessionToken');
-            sessionStorage.removeItem('sessionToken');
-            document.getElementById('loginScreen').style.display = 'flex';
+            location.reload(); // Sesi tidak valid, kembali ke tampilan awal
           }
         })
         .withFailureHandler(function(err) {
           console.error(err);
           localStorage.removeItem('sessionToken');
-          sessionStorage.removeItem('sessionToken');
-          document.getElementById('loginScreen').style.display = 'flex';
-          showError('Gagal memeriksa sesi: ' + err.message);
+          location.reload();
         })
         .checkSession(savedToken);
     } else {
@@ -3433,7 +3525,6 @@
   function doLogin() {
     var email = document.getElementById('email').value;
     var pass = document.getElementById('password').value;
-    var remember = document.getElementById('rememberMe').checked;
     if (!email || !pass) {
       return showWarning("Email dan Password harus diisi!");
     }
@@ -3451,11 +3542,7 @@
           var nameEl = document.getElementById('welcomeUserName');
           if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
 
-          if (remember) {
-            localStorage.setItem('sessionToken', res.token);
-          } else {
-            sessionStorage.setItem('sessionToken', res.token);
-          }
+          localStorage.setItem('sessionToken', res.token);
 
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('mainApp').style.display = 'block';
@@ -3490,12 +3577,12 @@
       headerBtn.innerHTML = isDark ? moonSVG : sunSVG;
     }
 
-    var profileImgIconCont = document.getElementById('profileDarkIconCont');
-    if (profileImgIconCont) {
-      profileImgIconCont.innerHTML = isDark ? moonSVG.replace('fill="white"', 'fill="var(--primary-color)"') : sunSVG.replace('fill="#fbbf24"', 'fill="var(--text-muted)"');
+    var profDarkIcon = document.getElementById('profDarkIcon');
+    if (profDarkIcon) {
+      profDarkIcon.innerText = isDark ? 'light_mode' : 'dark_mode';
     }
 
-    var profileToggle = document.getElementById('darkToggle');
+    var profileToggle = document.getElementById('profilDarkToggle');
     if (profileToggle) {
       profileToggle.checked = isDark;
       var span = profileToggle.nextElementSibling;
@@ -3738,81 +3825,44 @@ function logout() {
   }
 
   function tampilkanProfil() {
-    var nama = currentUser && currentUser.nama ? currentUser.nama : '-';
-    var email = currentUser && currentUser.email ? currentUser.email : '-';
-    var role = currentUser && currentUser.role ? String(currentUser.role).toUpperCase() : '-';
+    sembunyikanSemuaLayar();
+    document.getElementById('profilView').style.display = 'block';
+    
+    // Update Status Aktif pada Navigasi Bawah
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    var navProf = document.getElementById('nav-profil');
+    if(navProf) navProf.classList.add('active');
+    
+    history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
+    
+    // Isi data user
+    document.getElementById('profNama').innerText = currentUser.nama || '-';
+    document.getElementById('profEmail').innerText = currentUser.email || '-';
+    document.getElementById('profRole').innerText = currentUser.role ? currentUser.role.toUpperCase() : '-';
+    
+    // Tampilkan menu khusus admin jika perlu
+    if (currentUser.role === 'admin') {
+      document.getElementById('profAdminOnly').style.display = 'block';
+    } else {
+      document.getElementById('profAdminOnly').style.display = 'none';
+    }
+
+    // Sinkronisasi status toggle mode gelap
     var isDark = document.body.classList.contains('dark-mode');
-
-    // Hanya Admin yang bisa edit role
-    var canEditRole = currentUser && currentUser.role === 'admin';
-
-    Swal.fire({
-      title: 'Profil Pengguna',
-      background: 'var(--bg-surface)',
-      html:
-        '<div style="text-align:left; padding:6px 0;">'
-          + '<div style="font-size:14px; color:#64748b; margin-bottom:6px;">Akun Anda</div>'
-          + '<div style="font-weight:700; margin-bottom:6px;">' + nama + '</div>'
-          + '<div style="margin-bottom:4px;"><strong>Email:</strong> ' + email + '</div>'
-          + '<div style="margin-bottom:4px;"><strong>Role:</strong> ' + role + '</div>'
-          + '<div style="margin-top:20px; padding-top:15px; border-top:1px solid var(--border-color);">'
-          + '  <div style="display:flex; justify-content:space-between; align-items:center;">'
-          + '    <span><span id="profileDarkIconCont" style="display:inline-block; width:24px; height:24px; vertical-align:middle; margin-right:8px;"></span> Mode Gelap</span>'
-          + '    <label class="switch" style="position:relative; display:inline-block; width:44px; height:24px;">'
-          + '      <input type="checkbox" id="darkToggle" ' + (isDark ? 'checked' : '') + ' onchange="toggleDarkMode()" style="opacity:0; width:0; height:0;">'
-          + '      <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;"></span>'
-          + '    </label>'
-          + '  </div>'
-          + '</div>'
-          + '<div style="margin-top:15px;">'
-          + '  <button onclick="gantiPasswordUI()" style="width:100%; padding:12px; background:rgba(var(--primary-color-rgb), 0.08); color:var(--primary-color); border:1px solid rgba(var(--primary-color-rgb), 0.2); font-weight:700; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:0.2s; font-family:inherit;">'
-          + '    <i class="material-icons" style="font-size:20px;">lock_reset</i> Ubah Password'
-          + '  </button>'
-          + '</div>'
-          + '</div>',
-      didOpen: function() {
-        var toggle = document.getElementById('darkToggle');
-        var span = toggle.nextElementSibling;
-        if(span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)'; /* Menggunakan variabel tema */
-        toggle.addEventListener('change', function() {
-          span.style.backgroundColor = this.checked ? 'var(--primary-color)' : 'var(--border-color)'; /* Menggunakan variabel tema */
-        });
-      },
-      showCancelButton: true,
-      confirmButtonText: 'Logout',
-      cancelButtonText: 'Tutup',
-      confirmButtonColor: '#d32f2f',
-      cancelButtonColor: '#64748b',
-      showDenyButton: canEditRole,
-      denyButtonText: 'Edit Role Saya',
-      denyButtonColor: '#3b82f6'
-    }).then(function(result) {
-      if (result.isConfirmed) {
-        logout();
-      } else if (result.isDenied) {
-        // edit role self: pakai popup sederhana
-        var nextRole = role === 'WARGA' ? 'pengurus rt' : 'warga';
-        Swal.fire({
-          title: 'Konfirmasi Edit Role',
-          text: 'Ubah role saya menjadi: ' + nextRole + '?',
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: 'Ya, ubah',
-          cancelButtonText: 'Batal',
-          confirmButtonColor: '#d32f2f'
-        }).then(function(r2) {
-          if (!r2.isConfirmed) return;
-          // Simpan perubahan role (backend: simpanUser masih dipakai untuk admin)
-          // Untuk role saya, kita pakai endpoint simpanUser dengan id=email tidak ada—jadi butuh implementasi khusus.
-          // Sementara: tampilkan pesan bahwa edit role hanya via menu Kelola User.
-          Swal.fire({
-            icon: 'info',
-            title: 'Edit Role',
-            text: 'Gunakan menu "Kelola User" untuk mengubah role warga (fitur ini hanya UI profil).'
-          });
-        });
+    var toggle = document.getElementById('profilDarkToggle');
+    if (toggle) {
+      toggle.checked = isDark;
+      var span = toggle.nextElementSibling;
+      if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
+    }
+    
+    // Muat Link Hubungi Admin
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'success' && res.data.admin_whatsapp) {
+        var wa = String(res.data.admin_whatsapp).replace(/\D/g, '');
+        document.getElementById('profAdminContact').href = "https://wa.me/" + wa;
       }
-    });
+    }).getSettings();
   }
 
   // Fungsi untuk memfilter Bottom FAB Navigasi berdasarkan Role
