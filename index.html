@@ -1909,8 +1909,8 @@
       <div class="card-item" style="padding: 0; overflow: hidden; border-left: none;">
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
           <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="background: rgba(var(--primary-color-rgb), 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-              <i class="material-icons" style="color: var(--primary-color); font-size: 20px;" id="profDarkIcon">dark_mode</i>
+            <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: #f59e0b; font-size: 20px;" id="profDarkIcon">dark_mode</i>
             </div>
             <span style="font-weight: 600; color: var(--text-main);">Mode Gelap</span>
           </div>
@@ -1920,9 +1920,9 @@
           </label>
         </div>
         
-        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
-          <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-            <i class="material-icons" style="color: #2563eb; font-size: 20px;">lock_reset</i>
+        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+          <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: #f59e0b; font-size: 20px;">lock_reset</i>
           </div>
           <div style="flex: 1;">
             <span style="font-weight: 600; color: var(--text-main); display: block;">Ubah Kata Sandi</span>
@@ -1932,9 +1932,9 @@
         </div>
 
         <div id="profAdminOnly" style="display: none;">
-          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
-            <div style="background: rgba(16, 185, 129, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-              <i class="material-icons" style="color: #10b981; font-size: 20px;">manage_accounts</i>
+          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+            <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: #f59e0b; font-size: 20px;">manage_accounts</i>
             </div>
             <div style="flex: 1;">
               <span style="font-weight: 600; color: var(--text-main); display: block;">Kelola User & Role</span>
@@ -1944,9 +1944,9 @@
           </div>
         </div>
 
-        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer;">
-        <div style="background: rgba(99, 102, 241, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-          <i class="material-icons" style="color: #6366f1; font-size: 20px;">logout</i>
+        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer; color: #f59e0b;">
+        <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #f59e0b; font-size: 20px;">logout</i>
           </div>
         <span style="font-weight: 600; color: #6366f1;">Keluar dari Aplikasi</span>
         </div>
@@ -1956,7 +1956,7 @@
         <p style="font-size: 12px; color: var(--text-muted);">
           Portal RT01 RW03- Desa Ngelom
         </p>
-        <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+        <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #f59e0b; text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
           <i class="material-icons" style="font-size: 18px;">support_agent</i> Hubungi Dukungan
         </a>
       </div>
@@ -3650,9 +3650,9 @@
 
     var profileToggle = document.getElementById('profilDarkToggle');
     if (profileToggle) {
-      profileToggle.checked = isDark;
-      var span = profileToggle.nextElementSibling;
-      if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
+      profileToggle.checked = isDark; // Set checked state
+      var span = profileToggle.nextElementSibling; // Get the slider span
+      if (span) span.style.backgroundColor = isDark ? '#f59e0b' : 'var(--border-color)'; // Update background color
     }
   }
 
@@ -3965,8 +3965,8 @@
     var toggle = document.getElementById('profilDarkToggle');
     if (toggle) {
       toggle.checked = isDark;
-      var span = toggle.nextElementSibling;
-      if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
+      var span = toggle.nextElementSibling; // Get the slider span
+      if (span) span.style.backgroundColor = isDark ? '#f59e0b' : 'var(--border-color)'; // Update background color
     }
     
     // Muat Link Hubungi Admin
