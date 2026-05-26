@@ -1321,14 +1321,26 @@
     }
 
     /* Sticky Kolom Nama (Kolom 1) */
+    .iuran-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .iuran-table th,
+    .iuran-table td {
+      box-sizing: border-box;
+      vertical-align: middle;
+    }
+
     .iuran-table th:nth-child(1),
     .iuran-table td:nth-child(1) {
       position: sticky !important; 
       left: 0;
       z-index: 30;
       background-color: var(--bg-surface) !important;
-      min-width: 130px;
-      max-width: 130px;
+      min-width: 150px;
+      max-width: 150px;
       white-space: normal;
       word-break: break-word;
       box-shadow: 4px 0 8px -2px rgba(0,0,0,0.2);
@@ -1339,11 +1351,11 @@
     .iuran-table th:nth-child(2),
     .iuran-table td:nth-child(2) {
       position: sticky !important;
-      left: 130px; /* Harus sama dengan lebar kolom pertama */
+      left: 150px; /* Harus sama dengan lebar kolom pertama */
       z-index: 30;
       background-color: var(--bg-surface) !important;
-      min-width: 110px;
-      max-width: 110px;
+      min-width: 120px;
+      max-width: 120px;
       border-right: 2px solid var(--primary-color) !important;
       box-shadow: 4px 0 8px -2px rgba(0,0,0,0.15);
     }
@@ -3424,6 +3436,7 @@
       document.getElementById('dashboardView').style.display = 'block';
       if (typeof refreshNavVisibility === 'function') refreshNavVisibility();
       renderMenu(currentTab);
+      updateNavActiveState(currentTab);
     }
   }
 
@@ -3433,9 +3446,12 @@
     if (history.state && history.state.view) {
       var state = history.state;
       document.getElementById(state.view).style.display = 'block';
-      if (state.tab) { 
-        currentTab = state.tab; 
-        renderMenu(currentTab); 
+      if (state.tab) {
+        currentTab = state.tab;
+        if (state.view === 'dashboardView' || state.view === 'home') {
+          renderMenu(currentTab);
+        }
+        updateNavActiveState(currentTab);
       }
       // Jalankan fungsi muat data jika ada
       if (state.onLoad && typeof window[state.onLoad] === 'function') {
@@ -3444,6 +3460,7 @@
     } else {
       document.getElementById('dashboardView').style.display = 'block';
       renderMenu(currentTab);
+      updateNavActiveState(currentTab);
     }
   });
 
@@ -3538,6 +3555,7 @@
           checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
           // Jalankan polling notifikasi setelah login berhasil
           startNotifikasiPolling();
+          updateAdminContactLink();
           showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
           } else {
             localStorage.removeItem('sessionToken');
@@ -3558,15 +3576,20 @@
 
   function updateAdminContactLink() {
     var defaultWa = '6285236356569';
+    var wa = defaultWa;
+    var link = document.getElementById('linkHubungiAdmin');
+    var profLink = document.getElementById('profAdminContact');
+    if (link) link.href = 'https://wa.me/' + wa;
+    if (profLink) profLink.href = 'https://wa.me/' + wa;
     google.script.run.withSuccessHandler(function(res) {
-      var wa = defaultWa;
-      if (res.status === 'success' && res.data && res.data.admin_whatsapp) {
-        wa = String(res.data.admin_whatsapp).trim().replace(/\D/g, '');
-        if (wa.startsWith('0')) wa = '62' + wa.substring(1);
-        if (!wa) wa = defaultWa;
+      if (res && res.status === 'success' && res.data && res.data.admin_whatsapp) {
+        var customWa = String(res.data.admin_whatsapp).trim().replace(/\D/g, '');
+        if (customWa.startsWith('0')) customWa = '62' + customWa.substring(1);
+        if (customWa) wa = customWa;
       }
-      var link = document.getElementById('linkHubungiAdmin');
-      var profLink = document.getElementById('profAdminContact');
+      if (link) link.href = 'https://wa.me/' + wa;
+      if (profLink) profLink.href = 'https://wa.me/' + wa;
+    }).withFailureHandler(function() {
       if (link) link.href = 'https://wa.me/' + wa;
       if (profLink) profLink.href = 'https://wa.me/' + wa;
     }).getSettings();
@@ -3870,8 +3893,15 @@
     return currentUser.permissions.indexOf(permKey) !== -1;
   }
 
+  function updateNavActiveState(tabName) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    var navItem = document.getElementById('nav-' + tabName);
+    if (navItem) navItem.classList.add('active');
+  }
+
   function pilihMenu(tabName) {
     currentTab = tabName;
+    updateNavActiveState(tabName);
     sembunyikanSemuaLayar();
     
     // Update Theme Class on Body
@@ -3912,13 +3942,12 @@
   }
 
   function tampilkanProfil() {
+    currentTab = 'profil';
     sembunyikanSemuaLayar();
     document.getElementById('profilView').style.display = 'block';
     
     // Update Status Aktif pada Navigasi Bawah
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    var navProf = document.getElementById('nav-profil');
-    if(navProf) navProf.classList.add('active');
+    updateNavActiveState('profil');
     
     history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
     
@@ -3944,13 +3973,7 @@
     }
     
     // Muat Link Hubungi Admin
-    google.script.run.withSuccessHandler(function(res) {
-      if (res.status === 'success' && res.data.admin_whatsapp) {
-        var wa = String(res.data.admin_whatsapp).replace(/\D/g, '');
-        if (wa.startsWith('0')) wa = '62' + wa.substring(1);
-        document.getElementById('profAdminContact').href = "https://wa.me/" + wa;
-      }
-    }).getSettings();
+    updateAdminContactLink();
   }
 
   window.addEventListener('load', function() {
