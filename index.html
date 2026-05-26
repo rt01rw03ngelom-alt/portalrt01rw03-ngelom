@@ -645,7 +645,11 @@
 
     /* Styling khusus untuk menu Profil agar menonjol */
     .nav-item#nav-profil.active i {
-      color: var(--accent-blue) !important;
+      color: #fbbf24 !important;
+    }
+
+    .nav-item#nav-profil.active::before {
+      background: #fbbf24;
     }
 
     .nav-menu-item {
@@ -2285,6 +2289,11 @@
         <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">south</i> Ke Bulan Sekarang
       </button>
     </div>
+    <div style="margin-bottom:1.2rem; text-align:center;">
+      <button id="btnSalinRondaWa" class="btn-small" onclick="salinJadwalRondaToWhatsApp()" style="width:auto; padding:10px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:none;">
+        <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">whatsapp</i> Salin Jadwal ke WhatsApp
+      </button>
+    </div>
     <div id="rondaFormCrud" class="crud-form">
       <h4 id="rondaJudulForm">Tambah Jadwal Ronda</h4> 
       <input type="hidden" id="rondaRow">
@@ -3239,7 +3248,6 @@
   var currentRondaData = [];
   var rondaChart = null;
   let touchStartX = 0;
-  let touchEndX = 0;
 
   var originalPemasukanList = [];
   var originalPengeluaranList = [];
@@ -3818,9 +3826,17 @@
 
   function handleSwipe() {
     const deltaX = touchEndX - touchStartX;
-    const threshold = 100;
-    const modules = ['warga', 'pkk', 'karangtaruna'];
-    const currentIdx = modules.indexOf(currentTab);
+    const threshold = 70; // Mengurangi threshold agar lebih responsif
+    const modules = ['warga', 'pkk', 'karangtaruna', 'profil']; // Tambahkan 'profil'
+    let currentIdx = modules.indexOf(currentTab);
+    if (document.getElementById('profilView').style.display === 'block') {
+        currentIdx = modules.indexOf('profil'); // Jika profil aktif, set currentIdx ke profil
+    }
+
+    if (currentIdx === -1) {
+        // Jika tidak berada di salah satu modul utama atau profil, abaikan swipe
+        return;
+    }
 
     if (deltaX > threshold && currentIdx > 0) {
       // Geser Kanan (Ke modul sebelumnya)
@@ -3829,6 +3845,10 @@
       // Geser Kiri (Ke modul berikutnya)
       pilihMenu(modules[currentIdx + 1]);
     }
+  }
+
+  function pilihMenuOrProfil(moduleName) {
+    if (moduleName === 'profil') tampilkanProfil(); else pilihMenu(moduleName);
   }
 
   function tutupMenuNavigasi() {
@@ -3844,11 +3864,6 @@
   function pilihMenu(tabName) {
     currentTab = tabName;
     sembunyikanSemuaLayar();
-    
-    // Update Active Class on Bottom Nav
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    var activeNav = document.getElementById('nav-' + tabName.toLowerCase());
-    if(activeNav) activeNav.classList.add('active');
     
     // Update Theme Class on Body
     document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
@@ -4249,7 +4264,7 @@
   function bukaKtKas() {
     sembunyikanSemuaLayar();
     document.getElementById('ktKasView').style.display = 'block';
-    history.pushState({view: 'ktKasView', onLoad: 'ktMuatDataKas'}, '', '#ktkas');
+    history.pushState({view: 'ktKasView', tab: 'karangtaruna', onLoad: 'ktMuatDataKas'}, '', '#ktkas');
     
     var actionDiv = document.getElementById('ktActionButtonsKas');
     if (hasPermission('kt_kas_crud')) {
@@ -4587,8 +4602,12 @@
   function bukaRonda() {
     sembunyikanSemuaLayar();
     document.getElementById('rondaView').style.display = 'block';
-    history.pushState({view: 'rondaView', onLoad: 'muatTahunRondaList'}, '', '#ronda');
+    history.pushState({view: 'rondaView', tab: 'warga', onLoad: 'muatTahunRondaList'}, '', '#ronda');
     muatTahunRondaList();
+    // Muat Slide Ronda untuk fitur Salin WhatsApp
+    muatRondaHariIni();
+    // Control visibility of the new button
+    document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
   }
 function bukaJadwal() {
     sembunyikanSemuaLayar();
@@ -4793,24 +4812,41 @@ function bukaJadwal() {
         var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         var todayStr = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
 
-        // Helper untuk memformat daftar regu dalam satu minggu
+        // Helper profesional untuk memformat daftar regu (HTML & Plain Text)
         var formatMingguan = function(entries) {
-          return entries.map(function(e) {
+          let htmlOutput = '';
+          let plainTextOutput = '';
+          entries.forEach(function(e) {
             var p = e.tanggal.split('-');
             var dObj = new Date(p[0], p[1] - 1, p[2]);
             var hari = daysIndo[dObj.getDay()];
             var tgl = p[2];
             var isToday = (e.tanggal === todayStr);
-            var names = e.petugas ? e.petugas.split(/\r?\n/).filter(function(it){ return it.trim() !== ""; }).join(', ') : '-';
             
-            var highlightStyle = isToday ? 'border-left:4px solid var(--primary-red); background:rgba(239,68,68,0.05);' : 'border-left:3px solid rgba(217,119,6,0.2);';
-            var todayTag = isToday ? ' <span style="background:var(--primary-red); color:white; font-size:9px; padding:1px 6px; border-radius:4px; vertical-align:middle; margin-left:4px;">HARI INI</span>' : '';
+            // Structured names with professional Chips
+            var petugasArr = e.petugas ? e.petugas.split(/\r?\n/).filter(it => it.trim() !== "") : [];
+            var namesHtml = petugasArr.length ? petugasArr.map(p => 
+              `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(var(--primary-color-rgb), 0.08); color:var(--text-main); padding:4px 10px; border-radius:8px; font-size:13px; font-weight:600; margin:2px 2px 0 0; border:1px solid rgba(var(--primary-color-rgb), 0.1);">
+                <i class="material-icons" style="font-size:14px; color:var(--primary-color);">person</i>${p}
+              </span>`
+            ).join('') : '<span class="muted" style="font-size:13px;">-</span>';
 
-            return '<div style="margin-bottom:10px; padding:4px 0 4px 10px; ' + highlightStyle + '">' +
-                   '<div style="font-size:12px; font-weight:800; color:var(--text-main);">' + hari + ', Tgl ' + tgl + ': ' + e.kelompok + todayTag + '</div>' +
-                   '<div style="font-size:11px; color:var(--text-muted); line-height:1.3; margin-top:2px;">' + names + '</div>' +
-                   '</div>';
-          }).join('');
+            // Plain text names for WhatsApp
+            var namesPlainText = petugasArr.length ? petugasArr.join(', ') : '-';
+            
+            var highlightStyle = isToday ? 'border-left:5px solid var(--primary-red); background:rgba(239,68,68,0.04); padding-left:12px;' : 'border-left:3px solid var(--border-color); padding-left:12px;';
+            var todayTagHtml = isToday ? ' <span style="background:var(--primary-red); color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; vertical-align:middle; margin-left:8px; box-shadow:0 2px 6px rgba(239,68,68,0.3);">HARI INI</span>' : '';
+            var todayTagPlainText = isToday ? ' (HARI INI)' : '';
+
+            htmlOutput += `<div style="margin-bottom:15px; padding:6px 0; ${highlightStyle}">
+                      <div style="font-size:14px; font-weight:800; color:var(--text-main); display:flex; align-items:center;">${hari}, ${tgl} - ${e.kelompok}${todayTagHtml}</div>
+                      <div style="display:flex; flex-wrap:wrap; margin-top:8px;">${namesHtml}</div>
+                    </div>`;
+            
+            plainTextOutput += `${hari}, Tgl ${tgl} - ${e.kelompok}${todayTagPlainText}\n`;
+            plainTextOutput += `  Petugas: ${namesPlainText}\n`;
+          });
+          return { html: htmlOutput, plainText: plainTextOutput };
         };
 
         // Slide 1: Minggu Ini
@@ -4818,10 +4854,12 @@ function bukaJadwal() {
           var p = it.tanggal.split('-');
           return Math.ceil(parseInt(p[2]) / 7) === curWeek;
         });
+        var formattedW1 = formatMingguan(entriesW1);
 
         rondaSlides.push({
           title: 'Jadwal Ronda Minggu Ini',
-          content: entriesW1.length ? formatMingguan(entriesW1) : '<span style="color:var(--primary-red); font-weight:800;">🚨 LIBUR RONDA MINGGU INI</span>'
+          content: entriesW1.length ? formattedW1.html : '<span style="color:var(--primary-red); font-weight:800;">🚨 LIBUR RONDA MINGGU INI</span>',
+          plainTextContent: entriesW1.length ? formattedW1.plainText : 'LIBUR RONDA MINGGU INI\n'
         });
 
         // Slide 2: Minggu Depan
@@ -4829,6 +4867,7 @@ function bukaJadwal() {
           var p = it.tanggal.split('-');
           return Math.ceil(parseInt(p[2]) / 7) === curWeek + 1;
         });
+        var formattedW2 = formatMingguan(entriesW2);
 
         var slide2Title = (nextWeekDate.getMonth() !== d.getMonth()) 
           ? 'Jadwal Ronda ' + months[nextWeekDate.getMonth()] 
@@ -4836,7 +4875,8 @@ function bukaJadwal() {
 
         rondaSlides.push({
           title: slide2Title,
-          content: entriesW2.length ? formatMingguan(entriesW2) : '<span style="color:var(--text-muted);">Belum ada jadwal / Libur</span>'
+          content: entriesW2.length ? formattedW2.html : '<span style="color:var(--text-muted);">Belum ada jadwal / Libur</span>',
+          plainTextContent: entriesW2.length ? formattedW2.plainText : 'Belum ada jadwal / Libur\n'
         });
 
         displayRondaSlide(0);
@@ -5045,6 +5085,8 @@ function bukaJadwal() {
         rondaFilterTahunSelect.value = currentYear;
       }
       rondaFilterBulanSelect.value = new Date().getMonth() + 1; // Default ke bulan sekarang
+      // Ensure button visibility is updated here too
+      document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
       muatDataRonda();
     }).getTahunRondaList();
   }
@@ -5081,6 +5123,27 @@ function bukaJadwal() {
     });
   }
 
+  function salinJadwalRondaToWhatsApp() {
+    if (!rondaSlides || rondaSlides.length === 0) {
+      return showWarning('Tidak ada jadwal ronda yang bisa disalin.');
+    }
+
+    const today = new Date();
+    const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+    const formattedDate = today.toLocaleDateString('id-ID', options);
+
+    let message = `*Jadwal Ronda Malam RT01/RW03*\n_Diperbarui: ${formattedDate}_\n\n`;
+
+    rondaSlides.forEach((slide, index) => {
+      message += `*${slide.title}*\n`;
+      message += slide.plainTextContent + '\n'; // Use the pre-formatted plain text
+    });
+
+    message += `_Informasi ini dibagikan melalui Portal RT01/RW03._`;
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  }
   function updateStatusPkkLaporan(id) {
     if (!hasPermission('pkk_laporan_admin_crud')) return;
     var statusBaru = document.getElementById('pkkStatus_' + id).value;
@@ -5180,6 +5243,7 @@ function bukaJadwal() {
   function bukaKontak() {
     sembunyikanSemuaLayar();
     document.getElementById('kontakView').style.display = 'block';
+    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
 
     if (hasPermission('rt_kontak_crud')) { // Kontrol visibilitas tombol Tambah
       document.getElementById('btnTambahKontak').style.display = 'flex';
@@ -5907,7 +5971,11 @@ function bukaJadwal() {
   function bukaHistori() {
     sembunyikanSemuaLayar();
     document.getElementById('historiPengaduanView').style.display = 'block';
-    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'bukaHistori'}, '', '#historiPengaduan');
+    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'muatHistoriPengaduan'}, '', '#historiPengaduan');
+    muatHistoriPengaduan();
+  }
+
+  function muatHistoriPengaduan() {
     var list = document.getElementById('listHistori');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -5949,7 +6017,11 @@ function bukaJadwal() {
   function bukaLaporanAdmin() {
     sembunyikanSemuaLayar();
     document.getElementById('laporanPengaduanAdminView').style.display = 'block';
-    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'bukaLaporanAdmin'}, '', '#adminPengaduan');
+    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'muatLaporanPengaduanAdmin'}, '', '#adminPengaduan');
+    muatLaporanPengaduanAdmin();
+  }
+
+  function muatLaporanPengaduanAdmin() {
     var list = document.getElementById('listLaporanSemua');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -7179,7 +7251,7 @@ function bukaJadwal() {
   function bukaKas() {
     sembunyikanSemuaLayar();
     document.getElementById('kasView').style.display = 'block';
-    history.pushState({view: 'kasView', onLoad: 'muatDataKas'}, '', '#kas');
+    history.pushState({view: 'kasView', tab: 'warga', onLoad: 'muatDataKas'}, '', '#kas');
     var actionDiv = document.getElementById('actionButtonsKas');
     var iuranAdminDiv = document.getElementById('iuranAdminButtons');
     if (hasPermission('rt_kas_crud')) { // Kontrol visibilitas tombol Tambah/Kurang Kas
@@ -7202,7 +7274,7 @@ function bukaJadwal() {
   function bukaGaleri() {
     sembunyikanSemuaLayar();
     document.getElementById('galeriView').style.display = 'block';
-    history.pushState({view: 'galeriView', onLoad: 'muatDataGaleri'}, '', '#galeri');
+    history.pushState({view: 'galeriView', tab: 'warga', onLoad: 'muatDataGaleri'}, '', '#galeri');
     if (hasPermission('rt_galeri_crud')) { // Kontrol visibilitas tombol Tambah Galeri
       document.getElementById('btnTambahGaleri').style.display = 'flex';
     } else {
@@ -7714,7 +7786,11 @@ function bukaJadwal() {
   function bukaPkkHistori() {
     sembunyikanSemuaLayar();
     document.getElementById('pkkHistoriView').style.display = 'block';
-    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'bukaPkkHistori'}, '', '#pkkHistori');
+    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'pkkMuatDataHistori'}, '', '#pkkHistori');
+    pkkMuatDataHistori();
+  }
+
+  function pkkMuatDataHistori() {
     var list = document.getElementById('pkkListHistori');
     list.innerHTML = '<p>Memuat...</p>';
 
@@ -7903,7 +7979,12 @@ function bukaJadwal() {
   function bukaPkkLaporanAdmin() {
     sembunyikanSemuaLayar();
     document.getElementById('pkkLaporanAdminView').style.display = 'block'; // Use the new dedicated view
-    var list = document.getElementById('pkkListLaporanAdmin'); // Target the new list container
+    history.pushState({view: 'pkkLaporanAdminView', tab: 'pkk', onLoad: 'pkkMuatDataLaporanAdmin'}, '', '#pkkLaporanAdmin');
+    pkkMuatDataLaporanAdmin();
+  }
+
+  function pkkMuatDataLaporanAdmin() {
+    var list = document.getElementById('pkkListLaporanAdmin'); 
     list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
     google.script.run.withSuccessHandler(function(res) {
       list.innerHTML = '';
