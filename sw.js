@@ -17,19 +17,53 @@
     event.waitUntil(sw.clients.claim());
   });
 
+  // Handler untuk menerima pesan "Push" dari server saat HP terkunci
+  sw.addEventListener('push', function(event) {
+    let data = { 
+      title: 'Portal RT Ngelom', 
+      body: 'Ada informasi terbaru untuk warga.',
+      url: './'
+    };
+
+    if (event.data) {
+      try {
+        data = event.data.json();
+      } catch (e) {
+        data.body = event.data.text();
+      }
+    }
+
+    const options = {
+      body: data.body,
+      icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+      badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+      vibrate: [200, 100, 200],
+      data: { url: data.url || './' },
+      tag: 'portal-rt-push', // Mencegah penumpukan notifikasi yang sama
+      renotify: true
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  });
+
   // Handler klik notifikasi
   sw.addEventListener('notificationclick', function(event) {
     event.notification.close();
-    const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : './';
+    // Ambil data targetPage jika ada
+    const targetPage = (event.notification.data && event.notification.data.targetPage) ? event.notification.data.targetPage : '';
     
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
         if (clientList.length > 0) {
           let client = clientList[0];
           if (client.focus) client.focus();
-          return client.navigate(targetUrl);
+          // Kirim pesan ke Index.html untuk navigasi ke halaman spesifik
+          if (targetPage) client.postMessage({ action: 'navigate', page: targetPage });
+          return;
         }
-        return clients.openWindow(targetUrl);
+        return clients.openWindow('./');
       })
     );
   });
