@@ -5791,8 +5791,9 @@ function bukaJadwal() {
     document.getElementById('uNama').value = '';
     document.getElementById('uEmail').value = '';
     document.getElementById('uRole').value = 'warga';
-    generatePermissionCheckboxes([]);
+    applyRoleDefaults('warga'); 
     document.getElementById('judulFormUser').innerText = 'Tambah User';
+    document.querySelector('#formCrudUser .btn-primary').innerText = 'Tambah User';
     bukaFormMode('formCrudUser', 'wrapListUser');
   }
 
@@ -5881,16 +5882,20 @@ function bukaJadwal() {
   function simpanDataUser() {
     if (!hasPermission('rt_user_crud')) { showError('Anda tidak memiliki izin untuk menyimpan user.'); return; }
     var id = document.getElementById('uId').value;
-    var nama = document.getElementById('uNama').value;
-    var email = document.getElementById('uEmail').value;
+    var nama = document.getElementById('uNama').value.trim();
+    var email = document.getElementById('uEmail').value.trim();
     var role = document.getElementById('uRole').value;
-    var password = document.getElementById('uPassword') ? document.getElementById('uPassword').value : '';
+    var password = document.getElementById('uPassword') ? document.getElementById('uPassword').value.trim() : '';
     
     var perms = [];
     document.querySelectorAll('.u-perm-chk:checked').forEach(function(c) { perms.push(c.value); });
 
     if (!nama || !email) {
-      return showWarning('Nama dan Email wajib diisi!');
+      showWarning('Nama dan Email wajib diisi!'); return;
+    }
+
+    if (!id && !password) {
+      showWarning('Password wajib diisi untuk user baru!'); return;
     }
 
 
