@@ -1,21 +1,32 @@
 {
   "name": "Portal RT01/RW03",
-  "short_name": "Portal RT01/RW03 - Ngelom",
+  "short_name": "Portal RT",
   "description": "Aplikasi Manajemen Warga RT01/RW03 Ngelom",
-  "start_url": ".",
+  "id": "/?source=pwa",
+  "start_url": "./?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#ef4444",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w512",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w180",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
