@@ -318,7 +318,7 @@
     .header-clouds {
       position: absolute;
       inset: 0;
-      background-image: url('https://www.transparenttextures.com/patterns/cloud.png');
+      background-image: url('https://www.transparenttextures.com/patterns/clouds.png');
       opacity: 0;
       pointer-events: none;
       z-index: 0;
@@ -2719,6 +2719,21 @@
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
   // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
+
+  /**
+   * Registrasi Service Worker untuk PWA
+   */
+  async function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register('sw.js');
+        console.log('Service Worker registered with scope:', registration.scope);
+        return registration;
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
+      }
+    }
+  }
   const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
 
   /**
@@ -2960,20 +2975,6 @@
     var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     var match = url.match(regExp);
     return (match && match[2].length == 11) ? match[2] : null;
-  }
-
-  async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-      try {
-        // Pastikan file 'sw.js' ada di folder yang sama dengan file ini
-        const registration = await navigator.serviceWorker.register('sw.js');
-        console.log('Service Worker registered with scope:', registration.scope);
-        return registration;
-      } catch (error) {
-        console.error('Service Worker registration failed:', error);
-        throw error;
-      }
-    }
   }
 
   // HELPER: Image Compression (Resize & Compress to < 1MB)
@@ -3404,8 +3405,8 @@
       showConfirmButton: false,
       showCloseButton: true,
       padding: '0',
-      width: '90%',
-      maxWidth: '350px',
+      width: 'min(90%, 350px)',
+          width: 'min(90%, 500px)',
       background: 'transparent',
       html: `
         <div style="background:var(--bg-surface); border-radius:28px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--border-color);">
@@ -3489,8 +3490,7 @@
       showConfirmButton: false,
       showCancelButton: false,
       background: 'var(--bg-surface)',
-      width: 'calc(100% - 40px)',
-      maxWidth: '420px',
+      width: 'min(calc(100% - 40px), 420px)',
       padding: '16px',
       customClass: {
         popup: 'swal2-modern-loading'
@@ -6948,8 +6948,7 @@ function bukaJadwal() {
       title: '<div style="font-size:18px; font-weight:800; color:var(--text-main);">Detail Transaksi ' + bulan + ' ' + tahunGrafik + '</div>',
       background: 'var(--bg-surface)',
       html: html,
-      width: '90%',
-      maxWidth: '450px',
+      width: 'min(90%, 450px)',
       showCloseButton: true,
       showConfirmButton: false,
       customClass: {
