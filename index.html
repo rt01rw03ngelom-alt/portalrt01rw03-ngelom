@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <meta name="theme-color" content="#d32f2f">
@@ -2816,22 +2817,67 @@
   // ======================== MEDIA HELPERS ========================
   function checkAndRequestNotificationPermission(silent) {
     if (!("Notification" in window)) {
-      if (!silent) bukaNotifikasi(); 
+      if (!silent) showWarning('Browser ini tidak mendukung notifikasi.');
       return;
     }
 
     if (Notification.permission === "granted") {
-      if (!silent) bukaNotifikasi();
+      subscribeUserToPush(silent);
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then(function (permission) {
         if (permission === "granted") {
-          if (silent) console.log("Notifikasi sistem diaktifkan otomatis.");
-          else showSuccess("Notifikasi sistem diaktifkan!");
+          subscribeUserToPush(silent);
         }
-        if (!silent) bukaNotifikasi();
       });
-    } else {
-      if (!silent) bukaNotifikasi();
+    }
+  }
+
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  function subscribeUserToPush(silent) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    navigator.serviceWorker.ready.then(function(registration) {
+      return registration.pushManager.getSubscription().then(function(subscription) {
+        if (subscription) {
+          updatePushSubscriptionOnServer(subscription);
+          return subscription;
+        }
+
+        return registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        }).then(function(newSubscription) {
+          updatePushSubscriptionOnServer(newSubscription);
+          if (!silent) showSuccess('Notifikasi latar belakang aktif!');
+          return newSubscription;
+        });
+      });
+    }).catch(function(err) {
+      console.error('Push Subscription Error:', err);
+    });
+  }
+
+  function updatePushSubscriptionOnServer(subscription) {
+    if (!subscription) return;
+    try {
+      google.script.run.withSuccessHandler(function(res) {
+        if (res && res.status === 'success') {
+          console.log('Token perangkat tersimpan di database.');
+        }
+      }).savePushSubscription(JSON.stringify(subscription));
+    } catch (e) {
+      console.error('Gagal mengirim token ke GAS:', e);
     }
   }
 
@@ -2956,6 +3002,27 @@
     const minutes = d.getMinutes().toString().padStart(2, '0');
     
     return `${dayName}, ${date} ${monthName} ${d.getFullYear()} Pukul ${hours}:${minutes} WIB`;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function(char) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char];
+    });
+  }
+
+  function escapeJsString(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
   }
 
   function toggleGaleriType(prefix) {
@@ -3174,6 +3241,7 @@
   var lightboxImages = [];
   var lightboxCurrentIndex = 0;
   var currentTab = 'warga';
+  var adminWhatsappNumber = '6285236356569';
   var kasChart = null;
   var iuranData = [];
   var daftarKategori = [];
@@ -3472,6 +3540,9 @@
       renderMenu(currentTab);
       updateNavActiveState(currentTab);
     }
+    if (history.state && history.state.view === 'profilView') {
+      setAdminContactLinks(adminWhatsappNumber);
+    }
   });
 
   // ======================== CLOUD INTERACTION ========================
@@ -3529,6 +3600,11 @@
     // Inisialisasi interaksi awan
     initCloudInteraction();
 
+    // Daftarkan Service Worker untuk Web Push / background notifications
+    registerServiceWorker().catch(function(err) {
+      console.warn('Service Worker tidak dapat didaftarkan:', err.message);
+    });
+
     // Otomatis Log In: Periksa token yang tersimpan di perangkat
     updateAdminContactLink();
     var savedToken = localStorage.getItem('sessionToken');
@@ -3585,24 +3661,34 @@
     }
   });
 
-  function updateAdminContactLink() {
-    var defaultWa = '6285236356569';
-    var wa = defaultWa;
+  function normalizeAdminWhatsapp(value) {
+    if (!value) return '6285236356569';
+    var normalized = String(value).trim().replace(/\D/g, '');
+    if (normalized.startsWith('0')) normalized = '62' + normalized.substring(1);
+    return normalized || '6285236356569';
+  }
+
+  function setAdminContactLinks(number) {
+    if (!number) number = '6285236356569';
     var link = document.getElementById('linkHubungiAdmin');
     var profLink = document.getElementById('profAdminContact');
-    if (link) link.href = 'https://wa.me/' + wa;
-    if (profLink) profLink.href = 'https://wa.me/' + wa;
+    if (link) link.href = 'https://wa.me/' + number;
+    if (profLink) profLink.href = 'https://wa.me/' + number;
+  }
+
+  function updateAdminContactLink() {
+    adminWhatsappNumber = normalizeAdminWhatsapp(adminWhatsappNumber);
+    setAdminContactLinks(adminWhatsappNumber);
     google.script.run.withSuccessHandler(function(res) {
       if (res && res.status === 'success' && res.data && res.data.admin_whatsapp) {
-        var customWa = String(res.data.admin_whatsapp).trim().replace(/\D/g, '');
-        if (customWa.startsWith('0')) customWa = '62' + customWa.substring(1);
-        if (customWa) wa = customWa;
+        adminWhatsappNumber = normalizeAdminWhatsapp(res.data.admin_whatsapp);
+      } else {
+        adminWhatsappNumber = '6285236356569';
       }
-      if (link) link.href = 'https://wa.me/' + wa;
-      if (profLink) profLink.href = 'https://wa.me/' + wa;
+      setAdminContactLinks(adminWhatsappNumber);
     }).withFailureHandler(function() {
-      if (link) link.href = 'https://wa.me/' + wa;
-      if (profLink) profLink.href = 'https://wa.me/' + wa;
+      adminWhatsappNumber = '6285236356569';
+      setAdminContactLinks(adminWhatsappNumber);
     }).getSettings();
   }
 
@@ -3961,6 +4047,9 @@
     updateNavActiveState('profil');
     
     history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
+    
+    // Reset nomor WhatsApp profil sebelum memuat data lagi
+    setAdminContactLinks(adminWhatsappNumber);
     
     // Isi data user
     document.getElementById('profNama').innerText = currentUser.nama || '-';
@@ -4632,10 +4721,15 @@
       if (res.data && res.data.length) {
         var allMedia = res.data.map(function(it){ return it.url; });
         res.data.forEach(function(item, idx) {
-          var del = hasPermission('kt_galeri_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditGaleri(\''+item.id+'\',\''+item.judul.replace(/'/g,"\\'")+'\',\''+item.url+'\',\''+(item.deskripsi||'').replace(/'/g,"\\'")+'\')">Edit</button><button class="btn-small danger" onclick="ktHapusGaleri(\''+item.id+'\')">Hapus</button>' : '';
+          var safeJudul = escapeHtml(item.judul || '-');
+          var safeTanggal = escapeHtml(item.tanggal || '-');
+          var safeDescription = escapeJsString(item.deskripsi || '');
+          var safeUrl = escapeJsString(item.url);
+          var safeItemId = escapeJsString(item.id);
+          var del = hasPermission('kt_galeri_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.judul || '') + '\',\'' + safeUrl + '\',\'' + safeDescription + '\')">Edit</button><button class="btn-small danger" onclick="ktHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
           var thumb = getMediaThumbnail(item.url);
           var icon = isVideoLink(item.url) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
-          list.innerHTML += '<div class="galeri-card" style="position:relative;">'+icon+'<img src="'+thumb+'" class="galeri-img" onclick="openLightbox(\''+item.url+'\','+JSON.stringify(allMedia).replace(/"/g,'&quot;')+','+idx+')"><div style="padding:12px;"><strong style="color:var(--text-main);">'+item.judul+'</strong><br><span class="muted">'+item.tanggal+'</span>'+del+'</div></div>';
+          list.innerHTML += '<div class="galeri-card" style="position:relative;">'+icon+'<img src="'+thumb+'" class="galeri-img" onclick="openLightbox(\''+safeUrl+'\','+JSON.stringify(allMedia).replace(/"/g,'&quot;')+','+idx+')"><div style="padding:12px;"><div style="font-weight:600; color:var(--text-main);">'+safeJudul+'</div><div style="font-size:12px; color:#64748b; margin-top:4px;">'+safeTanggal+'</div><div style="margin-top:8px; color:var(--text-main); font-size:14px;">'+escapeHtml(item.deskripsi || '-')+'</div>'+del+'</div></div>';
         });
       } else {
         list.innerHTML = '<p>Belum ada dokumentasi Karang Taruna.</p>';
@@ -4861,7 +4955,18 @@ function bukaJadwal() {
     google.script.run.withSuccessHandler(function(res) {
       if (res.status === 'success' && Array.isArray(res.data) && res.data.length > 0) {
         rondaSlides = [];
-        var curWeek = Math.ceil(d.getDate() / 7);
+        function getWeekBoundaries(date) {
+          var weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          weekStart.setHours(0,0,0,0);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+          var weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 7);
+          return { start: weekStart, end: weekEnd };
+        }
+        var thisWeek = getWeekBoundaries(d);
+        var nextWeekStart = new Date(thisWeek.end);
+        var nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekStart.getDate() + 7);
         var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         var todayStr = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
 
@@ -4903,8 +5008,8 @@ function bukaJadwal() {
 
         // Slide 1: Minggu Ini
         var entriesW1 = res.data.filter(function(it) {
-          var p = it.tanggal.split('-');
-          return Math.ceil(parseInt(p[2]) / 7) === curWeek;
+          var entryDate = new Date(it.tanggal);
+          return entryDate >= thisWeek.start && entryDate < thisWeek.end;
         });
 
         var formattedW1 = formatMingguan(entriesW1);
@@ -4918,13 +5023,13 @@ function bukaJadwal() {
 
         // Slide 2: Minggu Depan
         var entriesW2 = res.data.filter(function(it) {
-          var p = it.tanggal.split('-');
-          return Math.ceil(parseInt(p[2]) / 7) === curWeek + 1;
+          var entryDate = new Date(it.tanggal);
+          return entryDate >= nextWeekStart && entryDate < nextWeekEnd;
         });
 
         var formattedW2 = formatMingguan(entriesW2);
-        var slide2Title = (nextWeekDate.getMonth() !== d.getMonth()) 
-          ? 'Jadwal Ronda ' + months[nextWeekDate.getMonth()] 
+        var slide2Title = (nextWeekStart.getMonth() !== d.getMonth() || nextWeekStart.getFullYear() !== d.getFullYear())
+          ? 'Jadwal Ronda ' + months[nextWeekStart.getMonth()]
           : 'Jadwal Ronda Minggu Depan';
 
         if (entriesW2.length > 0) {
@@ -5032,10 +5137,13 @@ function bukaJadwal() {
     // Logika Deteksi Minggu Berjalan
     var today = new Date();
     var months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    var curDay = today.getDate();
     var curMonth = today.getMonth() + 1;
     var curYear = today.getFullYear();
-    var curWeek = Math.ceil(curDay / 7);
+    var currentWeekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    currentWeekStart.setHours(0,0,0,0);
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+    var currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 7);
 
     // Definisi Warna per Minggu (Sesuai permintaan: otomatis berubah warna)
     var weekColors = {
@@ -5062,7 +5170,8 @@ function bukaJadwal() {
         var iYear = parseInt(parts[0]);
         var iMonth = parseInt(parts[1]);
         var iDay = parseInt(parts[2]);
-        var iWeek = Math.ceil(iDay / 7);
+        var itemDate = new Date(iYear, iMonth - 1, iDay);
+        var iWeek = Math.ceil((iDay + new Date(iYear, iMonth - 1, 1).getDay()) / 7);
 
         // Tambahkan Divider Bulan jika mode tahunan aktif
         if (isYearly) {
@@ -5074,7 +5183,7 @@ function bukaJadwal() {
         }
 
         // Cek apakah ini minggu yang sedang bertugas sekarang
-        var isCurrentWeek = (iWeek === curWeek && iMonth === curMonth && iYear === curYear);
+        var isCurrentWeek = (itemDate >= currentWeekStart && itemDate < currentWeekEnd);
         var rowStyle = "";
         
         if (isCurrentWeek) {
@@ -7476,19 +7585,23 @@ function bukaJadwal() {
           var item = res.data[j];
           var thumb = getMediaThumbnail(item.imageUrl);
           var isVideo = isVideoLink(item.imageUrl); // Check if it's a video link
+          var safeCaption = escapeHtml(item.caption || '-');
+          var safeTanggal = escapeHtml(item.tanggal || '-');
+          var safeImageUrl = escapeJsString(item.imageUrl);
+          var safeItemId = escapeJsString(item.id);
           var aksiButtons = '';
           if (hasPermission('rt_galeri_crud')) {
-            aksiButtons = '<button class="btn-small" onclick="editGaleri(\''+item.id+'\',\''+item.caption.replace(/'/g,"\\'")+'\',\''+item.imageUrl+'\')">Edit</button>'
-                        + '<button class="btn-small danger" onclick="hapusGaleri(\'' + item.id + '\')">Hapus</button>';
+            aksiButtons = '<button class="btn-small" onclick="editGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\')">Edit</button>'
+                        + '<button class="btn-small danger" onclick="hapusGaleri(\'' + safeItemId + '\')">Hapus</button>';
           }
           var videoIcon = isVideo ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
           container.innerHTML += '<div class="galeri-card" style="position:relative;">'
             + videoIcon
-            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + item.imageUrl + '\', '
+            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + safeImageUrl + '\', '
             + JSON.stringify(allMedia).replace(/"/g, '&quot;') + ',' + j + ')">'
             + '<div style="padding:12px;">'
-            + '<div style="font-weight:600;">' + item.caption + '</div>'
-            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + item.tanggal + '</div>'
+            + '<div style="font-weight:600;">' + safeCaption + '</div>'
+            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + safeTanggal + '</div>'
             + '<div style="margin-top:10px;">' + aksiButtons + '</div>'
             + '</div></div>';
         }
@@ -8151,20 +8264,24 @@ function bukaJadwal() {
         for (var i = 0; i < res.data.length; i++) { allMediaUrls.push(res.data[i].imageUrl); }
         for (var j = 0; j < res.data.length; j++) {
           var item = res.data[j];
+          var safeCaption = escapeHtml(item.caption || '-');
+          var safeTanggal = escapeHtml(item.tanggal || '-');
+          var safeImageUrl = escapeJsString(item.imageUrl);
+          var safeItemId = escapeJsString(item.id);
           var aksiButtons = hasPermission('pkk_galeri_crud') ? 
-            '<div class="hr-light"></div><button class="btn-small" onclick="pkkEditGaleri(\''+item.id+'\',\''+item.caption.replace(/'/g,"\\'")+'\',\''+item.imageUrl+'\')">Edit</button>' +
-            '<button class="btn-small danger" onclick="pkkHapusGaleri(\'' + item.id + '\')">Hapus</button>' : '';
+            '<div class="hr-light"></div><button class="btn-small" onclick="pkkEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\')">Edit</button>' +
+            '<button class="btn-small danger" onclick="pkkHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
             
           var thumb = getMediaThumbnail(item.imageUrl);
           var icon = isVideoLink(item.imageUrl) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
 
           container.innerHTML += '<div class="galeri-card" style="position:relative;">'
             + icon
-            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + item.imageUrl + '\', '
+            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + safeImageUrl + '\', '
             + JSON.stringify(allMediaUrls).replace(/"/g, '&quot;') + ',' + j + ')">'
             + '<div style="padding:12px;">'
-            + '<div style="font-weight:600;">' + (item.caption || '-') + '</div>'
-            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + (item.tanggal || '-') + '</div>'
+            + '<div style="font-weight:600;">' + safeCaption + '</div>'
+            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + safeTanggal + '</div>'
             + (aksiButtons ? '<div style="margin-top:10px;">' + aksiButtons + '</div>' : '')
             + '</div></div>';
         }
@@ -8275,6 +8392,15 @@ function bukaJadwal() {
     showSuccess("Aplikasi berhasil terpasang di layar utama!");
   });
 
+  // Listener untuk pesan dari Service Worker (Navigasi saat notifikasi diklik)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function(event) {
+      if (event.data.action === 'navigate' && event.data.page) {
+        handleNotifLihat(event.data.page);
+      }
+    });
+  }
+
   refreshNavVisibility();
 </script>
-</body>
+      const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k'; // Diisi dari key yang Anda hasilkan
