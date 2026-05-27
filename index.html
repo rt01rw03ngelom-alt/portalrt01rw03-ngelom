@@ -255,10 +255,10 @@
     .login-box {
       width: 100%;
       max-width: 400px;
-      background: var(--bg-surface);
+      background: rgba(var(--bg-surface-rgb), 0.95);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      padding: 35px 25px;
+      padding: clamp(25px, 8vw, 35px) clamp(15px, 5vw, 25px);
       border-radius: 24px;
       box-shadow: var(--shadow-lg);
       border: 1px solid var(--border-color);
@@ -503,7 +503,7 @@
       text-align: left;
       padding: clamp(15px, 5vw, 25px);
       border-radius: 20px;
-      margin: -25px 20px 0;
+      margin: -25px clamp(12px, 4vw, 20px) 0;
       box-shadow: var(--shadow-lg);
       position: relative;
       transition: background-color 0.3s ease;
@@ -512,7 +512,7 @@
 
 
     .menu-container {
-      padding: 20px;
+      padding: clamp(12px, 4vw, 20px);
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: clamp(12px, 4vw, 20px);
@@ -525,8 +525,8 @@
       background: var(--bg-surface);
       border-radius: 24px;
       width: 100%;
-      aspect-ratio: 1 / 0.9;
-      height: auto;
+      aspect-ratio: auto;
+      min-height: 105px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -552,7 +552,7 @@
 
     .menu-item i {
       color: var(--primary-color);
-      font-size: 36px;
+      font-size: clamp(32px, 10vw, 42px);
       margin-bottom: 10px;
     }
 
@@ -1558,12 +1558,17 @@
 
     @media (max-width: 640px) {
       #mainApp {
-        padding: 12px 0 140px;
+        padding: 0 0 120px;
+      }
+
+      .screen {
+        padding: 1rem 0 100px;
       }
 
       .filter-bar {
         flex-direction: column;
         align-items: stretch;
+        margin: 0 clamp(10px, 4vw, 20px) 1.5rem;
       }
 
       .filter-group select,
@@ -1577,16 +1582,17 @@
 
       .menu-container {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: 16px;
-        padding: 18px;
+        gap: clamp(10px, 3.5vw, 16px);
+        padding: clamp(12px, 4.5vw, 20px);
         margin-top: 5px;
       }
 
       .menu-item {
         width: 100%;
         height: auto;
-        aspect-ratio: 1 / 0.85;
-        padding: 22px 12px;
+        aspect-ratio: auto;
+        min-height: 100px;
+        padding: 18px 10px;
         border-radius: 28px;
       }
 
@@ -1596,9 +1602,15 @@
       }
 
       .menu-item span {
-        font-size: 13.5px;
+        font-size: clamp(11.5px, 3.5vw, 13px);
         font-weight: 800;
         line-height: 1.2;
+      }
+
+      .card-item {
+        margin-left: clamp(10px, 4vw, 20px);
+        margin-right: clamp(10px, 4vw, 20px);
+        padding: 1.25rem 1rem;
       }
 
       .filter-table {
@@ -2723,14 +2735,7 @@
 
               return async (...args) => {
                 try {
-                  // Menggunakan POST tanpa header Content-Type khusus untuk menghindari preflight OPTIONS request
-                  // Google Apps Script tidak mendukung request OPTIONS (CORS preflight)
-                  const res = await fetch(GAS_WEB_APP_URL, { 
-                    method: 'POST', 
-                    mode: 'cors',
-                    body: JSON.stringify({ action: prop, data: args }) 
-                  });
-                  
+                  const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: prop, data: args }) });
                   const text = await res.text();
                   if (!text) throw new Error("Respon kosong dari server.");
                   
@@ -2839,20 +2844,8 @@
     }
   }
 
-  // Fungsi yang hilang dan menyebabkan ReferenceError
-  function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('SW not supported')); 
-    return navigator.serviceWorker.register('sw.js', { scope: './' })
-      .then(function(registration) {
-        console.log('Service Worker terdaftar:', registration.scope);
-        return registration;
-      }).catch(function(err) {
-        console.error('Pendaftaran SW Gagal:', err);
-      });
-  }
-
   // VAPID Public Key (Wajib untuk Push Notification standar)
-  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k'; // Pastikan ini sama
+  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -4165,7 +4158,7 @@
       if (document.getElementById('rondaTodayBanner')) document.getElementById('rondaTodayBanner').style.display = 'none';
       if (summaryContainer) {
         summaryContainer.style.display = 'grid';
-        summaryContainer.style.gridTemplateColumns = '1fr';
+        summaryContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(100%, 1fr))';
       }
       if (val1) val1.style.fontSize = '1.6rem';
       val1.classList.add('skeleton-text');
@@ -4184,7 +4177,7 @@
       if (rb) { rb.style.display = 'flex'; muatRondaHariIni(); }
       if (summaryContainer) {
         summaryContainer.style.display = 'grid';
-        summaryContainer.style.gridTemplateColumns = '1fr 1fr';
+        summaryContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
       }
       if (val1) val1.style.fontSize = '1.2rem';
       // Kembalikan ke nilai kas RT yang sudah ada di memori
