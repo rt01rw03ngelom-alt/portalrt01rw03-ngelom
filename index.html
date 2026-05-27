@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portal RT">
   <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192">
@@ -255,10 +255,10 @@
     .login-box {
       width: 100%;
       max-width: 400px;
-      background: var(--bg-surface);
+      background: rgba(var(--bg-surface-rgb), 0.95);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      padding: 35px 25px;
+      padding: clamp(25px, 8vw, 35px) clamp(15px, 5vw, 25px);
       border-radius: 24px;
       box-shadow: var(--shadow-lg);
       border: 1px solid var(--border-color);
@@ -503,7 +503,8 @@
       text-align: left;
       padding: clamp(15px, 5vw, 25px);
       border-radius: 20px;
-      margin: -25px 20px 0;
+      margin: -25px auto 0;
+      width: calc(100% - clamp(24px, 8vw, 40px));
       box-shadow: var(--shadow-lg);
       position: relative;
       transition: background-color 0.3s ease;
@@ -512,11 +513,13 @@
 
 
     .menu-container {
-      padding: 20px;
+      padding: clamp(16px, 5vw, 24px);
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: clamp(12px, 4vw, 20px);
-      justify-items: center;
+      justify-content: center;
+      align-items: stretch;
+      width: 100%;
       margin-top: 10px;
     }
 
@@ -525,8 +528,8 @@
       background: var(--bg-surface);
       border-radius: 24px;
       width: 100%;
-      aspect-ratio: 1 / 0.9;
-      height: auto;
+      aspect-ratio: auto;
+      min-height: 105px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -552,7 +555,7 @@
 
     .menu-item i {
       color: var(--primary-color);
-      font-size: 36px;
+      font-size: clamp(32px, 10vw, 42px);
       margin-bottom: 10px;
     }
 
@@ -1286,10 +1289,12 @@
 
     /* Compact & Modern Iuran Table for Mobile */
     .iuran-table {
-      min-width: 850px; /* Diperlebar sedikit agar kolom aksi tidak terpotong */
+      width: 100%;
+      min-width: 850px;
       font-size: 13px;
       border-collapse: separate; /* Penting agar sticky border bekerja dengan benar */
       border-spacing: 0;
+      margin: 0 auto;
     }
 
     /* Perbaikan Responsivitas Tabel Iuran untuk Layar HP Sangat Kecil */
@@ -1558,12 +1563,19 @@
 
     @media (max-width: 640px) {
       #mainApp {
-        padding: 12px 0 140px;
+        padding: 0 0 100px;
+        width: 100vw;
+      }
+
+      .screen {
+        padding: 1rem 12px 100px;
+        width: 100%;
       }
 
       .filter-bar {
         flex-direction: column;
         align-items: stretch;
+        margin: 0 clamp(10px, 4vw, 20px) 1.5rem;
       }
 
       .filter-group select,
@@ -1577,16 +1589,17 @@
 
       .menu-container {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: 16px;
-        padding: 18px;
+        gap: clamp(10px, 3.5vw, 16px);
+        padding: clamp(12px, 4.5vw, 20px);
         margin-top: 5px;
       }
 
       .menu-item {
         width: 100%;
         height: auto;
-        aspect-ratio: 1 / 0.85;
-        padding: 22px 12px;
+        aspect-ratio: auto;
+        min-height: 100px;
+        padding: 18px 10px;
         border-radius: 28px;
       }
 
@@ -1596,9 +1609,15 @@
       }
 
       .menu-item span {
-        font-size: 13.5px;
+        font-size: clamp(11.5px, 3.5vw, 13px);
         font-weight: 800;
         line-height: 1.2;
+      }
+
+      .card-item {
+        margin: 0 auto 1rem;
+        width: 100%;
+        padding: 1.25rem 1rem;
       }
 
       .filter-table {
@@ -2830,15 +2849,6 @@
         }
       });
     }
-  }
-
-  function registerServiceWorker() {
-    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service Worker tidak didukung')); 
-    return navigator.serviceWorker.register('sw.js', { scope: './' })
-      .then(function(registration) {
-        console.log('Service Worker terdaftar:', registration.scope);
-        return registration;
-      });
   }
 
   // VAPID Public Key (Wajib untuk Push Notification standar)
@@ -4155,7 +4165,7 @@
       if (document.getElementById('rondaTodayBanner')) document.getElementById('rondaTodayBanner').style.display = 'none';
       if (summaryContainer) {
         summaryContainer.style.display = 'grid';
-        summaryContainer.style.gridTemplateColumns = '1fr';
+        summaryContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(100%, 1fr))';
       }
       if (val1) val1.style.fontSize = '1.6rem';
       val1.classList.add('skeleton-text');
@@ -4174,7 +4184,7 @@
       if (rb) { rb.style.display = 'flex'; muatRondaHariIni(); }
       if (summaryContainer) {
         summaryContainer.style.display = 'grid';
-        summaryContainer.style.gridTemplateColumns = '1fr 1fr';
+        summaryContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
       }
       if (val1) val1.style.fontSize = '1.2rem';
       // Kembalikan ke nilai kas RT yang sudah ada di memori
