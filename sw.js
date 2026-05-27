@@ -2,76 +2,76 @@
 // Note: Apps Script deployments may not support full SW scope/caching.
 // Ensure SW context is available
 // Avoid referencing `self` directly at parse-time (some runtimes may not define it).
-(function() {
-  var sw = (typeof self !== 'undefined') ? self : undefined;
-  if (!sw) {
-    // Not running inside a Service Worker context.
-    return;
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+// Handler untuk menerima sinyal "Push" dari server (Bekerja saat aplikasi ditutup)
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'Portal RT Ngelom',
+    body: 'Ada informasi terbaru untuk warga.',
+    targetPage: ''
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
   }
 
-  sw.addEventListener('install', function(event) {
-    sw.skipWaiting();
-  });
+  const options = {
+    body: data.body,
+    icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+    badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+    vibrate: [200, 100, 200],
+    data: {
+      targetPage: data.targetPage || ''
+    },
+    tag: 'portal-rt-push',
+    renotify: true
+  };
 
-  sw.addEventListener('activate', function(event) {
-    event.waitUntil(sw.clients.claim());
-  });
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
 
-  // Handler untuk menerima pesan "Push" dari server saat HP terkunci
-  sw.addEventListener('push', function(event) {
-    let data = { 
-      title: 'Portal RT Ngelom', 
-      body: 'Ada informasi terbaru untuk warga.',
-      url: './'
-    };
+// Handler klik notifikasi
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const notificationData = event.notification.data;
+  const targetPage = notificationData.targetPage || '';
 
-    if (event.data) {
-      try {
-        data = event.data.json();
-      } catch (e) {
-        data.body = event.data.text();
-      }
-    }
-
-    const options = {
-      body: data.body,
-      icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
-      badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
-      vibrate: [200, 100, 200],
-      data: { url: data.url || './' },
-      tag: 'portal-rt-push', // Mencegah penumpukan notifikasi yang sama
-      renotify: true
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  });
-
-  // Handler klik notifikasi
-  sw.addEventListener('notificationclick', function(event) {
-    event.notification.close();
-    // Ambil data targetPage jika ada
-    const targetPage = (event.notification.data && event.notification.data.targetPage) ? event.notification.data.targetPage : '';
-    
-    event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        if (clientList.length > 0) {
-          let client = clientList[0];
-          if (client.focus) client.focus();
-          // Kirim pesan ke Index.html untuk navigasi ke halaman spesifik
-          if (targetPage) client.postMessage({ action: 'navigate', page: targetPage });
-          return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Jika aplikasi sudah terbuka, fokus dan navigasi
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if (targetPage) {
+            client.postMessage({ action: 'navigate', page: targetPage });
+          }
+          return client.focus();
         }
-        return clients.openWindow('./');
-      })
-    );
-  });
+      }
+      // Jika belum terbuka, buka jendela baru dengan hash halaman tujuan
+      let destination = './';
+      if (targetPage) destination += '#' + targetPage;
+      if (self.clients.openWindow) return self.clients.openWindow(destination);
+    })
+  );
+});
 
-  sw.addEventListener('fetch', function(event) {
-    // Network-first: simple behavior (no offline cache by default)
-    event.respondWith(fetch(event.request).catch(function() {
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    fetch(event.request).catch(() => {
       return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
-    }));
-  });
-})();
+    })
+  );
+});
