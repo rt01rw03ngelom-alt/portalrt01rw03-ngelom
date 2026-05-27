@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portal RT">
   <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192">
@@ -2723,7 +2723,14 @@
 
               return async (...args) => {
                 try {
-                  const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: prop, data: args }) });
+                  // Menggunakan POST tanpa header Content-Type khusus untuk menghindari preflight OPTIONS request
+                  // Google Apps Script tidak mendukung request OPTIONS (CORS preflight)
+                  const res = await fetch(GAS_WEB_APP_URL, { 
+                    method: 'POST', 
+                    mode: 'cors',
+                    body: JSON.stringify({ action: prop, data: args }) 
+                  });
+                  
                   const text = await res.text();
                   if (!text) throw new Error("Respon kosong dari server.");
                   
@@ -2832,6 +2839,20 @@
     }
   }
 
+  // Fungsi yang hilang dan menyebabkan ReferenceError
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('SW not supported')); 
+    return navigator.serviceWorker.register('sw.js', { scope: './' })
+      .then(function(registration) {
+        console.log('Service Worker terdaftar:', registration.scope);
+        return registration;
+      }).catch(function(err) {
+        console.error('Pendaftaran SW Gagal:', err);
+      });
+  }
+
+  // VAPID Public Key (Wajib untuk Push Notification standar)
+  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k'; // Pastikan ini sama
 
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
