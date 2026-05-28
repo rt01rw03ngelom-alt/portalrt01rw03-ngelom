@@ -1722,6 +1722,11 @@
 </head>
 <body>
 
+<div id="offlineIndicator" style="display:none; position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; text-align:center; padding:10px; z-index:20002; font-size:13px; font-weight:700; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+  <i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">cloud_off</i>
+  Koneksi Terputus. Anda sedang menggunakan mode offline.
+</div>
+
 <div id="pullToRefresh" class="ptr-container">
   <div class="ptr-icon"><i class="material-icons">refresh</i></div>
 </div>
@@ -2805,19 +2810,31 @@
               if (prop === 'withFailureHandler') return (h) => createRunner({ ...handlers, failure: h });
 
               return async (...args) => {
+                // Cek status koneksi sebelum melakukan fetch
+                if (!navigator.onLine) {
+                  const offErr = new Error("Koneksi Terputus: Periksa jaringan internet Anda.");
+                  if (handlers.failure) handlers.failure(offErr);
+                  else showError(offErr.message);
+                  return;
+                }
+
                 try {
                   const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: prop, data: args }) });
                   const text = await res.text();
                   if (!text) throw new Error("Respon kosong dari server.");
-                  
+
                   let json;
                   try { json = JSON.parse(text); } catch(e) { throw new Error("Format data server tidak valid (Bukan JSON)."); }
                   
                   // Masukkan hasil ke success handler (biar UI yang menangani status 'success' atau 'error' di dalamnya)
                   if (handlers.success) handlers.success(json);
                 } catch (err) {
-                  if (handlers.failure) handlers.failure(err);
-                  else console.error("GAS Server Error:", err);
+                  const errorToReport = !navigator.onLine ? new Error("Gagal terhubung ke server. Anda sedang offline.") : err;
+                  if (handlers.failure) handlers.failure(errorToReport);
+                  else {
+                    console.error("GAS Server Error:", errorToReport);
+                    showError("Gangguan Jaringan: Pastikan internet Anda stabil.");
+                  }
                 }
               };
             }
@@ -3642,8 +3659,7 @@
       }
     } else {
       document.getElementById('dashboardView').style.display = 'block';
-      renderMenu(currentTab);
-      updateNavActiveState(currentTab);
+      setAplikasiActiveTab(currentTab);
     }
   });
 
@@ -3688,6 +3704,38 @@
     header.addEventListener('touchend', resetPosition);
   }
 
+  // Helper untuk sinkronisasi token ke IndexedDB agar bisa dibaca sw.js
+  function syncTokenToIDB(token) {
+    const request = indexedDB.open('AuthDB', 1);
+    request.onupgradeneeded = (e) => {
+      e.target.result.createObjectStore('session', { keyPath: 'id' });
+    };
+    request.onsuccess = (e) => {
+      const db = e.target.result;
+      const transaction = db.transaction('session', 'readwrite');
+      const store = transaction.objectStore('session');
+      store.put({ id: 'currentToken', token: token, updatedAt: Date.now() });
+    };
+  }
+
+  /**
+   * Menangani perubahan status koneksi internet
+   */
+  function updateOnlineStatus() {
+    const indicator = document.getElementById('offlineIndicator');
+    if (!indicator) return;
+
+    if (navigator.onLine) {
+      indicator.style.display = 'none';
+      // Opsional: Refresh data otomatis saat kembali online jika user sudah login
+      if (currentToken && document.getElementById('dashboardView').style.display === 'block') {
+        refreshActiveViewData();
+      }
+    } else {
+      indicator.style.display = 'block';
+    }
+  }
+
   // ======================== SESSION & LOGIN ========================
   window.addEventListener('load', function () {
     applyDarkModePreference();
@@ -3698,6 +3746,11 @@
         applyDarkModePreference();
       }
     });
+
+    // Listener Koneksi Internet
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus(); // Cek status saat pertama kali load
 
     // Inisialisasi interaksi awan
     initCloudInteraction();
@@ -3726,13 +3779,20 @@
           if (res && res.status === 'success') {
             currentUser = res;
             currentToken = res.token;
+            syncTokenToIDB(res.token); // Sinkronisasi ke IDB
+
             // Perbaikan: Update nama di dashboard saat load awal
             var nameEl = document.getElementById('welcomeUserName');
             if (nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
 
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
-            // Set state awal saat berhasil masuk
+            
+            // Deep Linking Logic: Cek apakah ada parameter redirect dari notifikasi
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectPage = urlParams.get('redirect');
+            if (redirectPage) handleNotifLihat(redirectPage);
+
             history.replaceState({ view: 'dashboardView', tab: 'warga' }, '', '#warga');
             currentTab = 'warga';
             kembaliKeDashboard();
@@ -3820,6 +3880,7 @@
           if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
 
           localStorage.setItem('sessionToken', res.token);
+          syncTokenToIDB(res.token); // Sinkronisasi ke IDB
 
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('mainApp').style.display = 'block';
@@ -4097,10 +4158,44 @@
     return currentUser.permissions.indexOf(permKey) !== -1;
   }
 
+  /**
+   * MASALAH 2: Sinkronisasi Navigasi Terpusat (Idempotent)
+   * Mengatur warna aktif menu (khususnya Profil) secara konsisten.
+   */
+  function setAplikasiActiveTab(targetTabId) {
+    try {
+      // 1. Bersihkan semua state aktif dari elemen navigasi
+      // Menggunakan querySelectorAll agar mencakup semua elemen dengan class .nav-item
+      const allNavs = document.querySelectorAll('.nav-item');
+      allNavs.forEach(el => {
+        el.classList.remove('active');
+        // Reset manual style jika ada inline-style dari manipulasi DOM liar
+        el.style.color = ''; 
+      });
+
+      // 2. Force Bind class 'active' ke target yang dituju
+      const targetEl = document.getElementById('nav-' + targetTabId);
+      if (targetEl) {
+        targetEl.classList.add('active');
+      }
+
+      // 3. Sinkronisasi Tema Body (Termasuk tema kuning untuk profil)
+      const themes = ['theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil'];
+      document.body.classList.remove(...themes);
+      document.body.classList.add('theme-' + targetTabId.replace('-', ''));
+
+      // 4. Update Global State
+      currentTab = targetTabId;
+      
+      console.log(`Navigation State: ${targetTabId} is now locked active.`);
+    } catch (err) {
+      console.error("Navigation State Error:", err);
+    }
+  }
+
+  // Refactor updateNavActiveState lama agar memanggil fungsi baru
   function updateNavActiveState(tabName) {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    var navItem = document.getElementById('nav-' + tabName);
-    if (navItem) navItem.classList.add('active');
+    setAplikasiActiveTab(tabName);
   }
 
   function pilihMenu(tabName) {
@@ -4111,7 +4206,7 @@
     document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil');
     document.body.classList.add('theme-' + tabName.toLowerCase());
     
-    updateNavActiveState(tabName);
+    setAplikasiActiveTab(tabName);
 
     document.getElementById('dashboardView').style.display = 'block';
     history.pushState({view: 'dashboardView', tab: tabName}, '', '#' + tabName);
@@ -4151,8 +4246,7 @@
     sembunyikanSemuaLayar();
     document.getElementById('profilView').style.display = 'block';
     
-    // Update Status Aktif pada Navigasi Bawah
-    updateNavActiveState('profil');
+    setAplikasiActiveTab('profil');
     
     history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
 
@@ -5060,7 +5154,7 @@ function bukaJadwal() {
   }
 
   // ======================== PERBAIKAN SWIPE & LOGIKA RONDA ========================
-  var rondaSlides = [];
+  var rondaSlides = []; // Global variable to store prepared slides
   var currentRondaSlideIdx = 0;
 
   /**
@@ -5108,7 +5202,7 @@ function bukaJadwal() {
       let combinedData = [];
       results.forEach(res => { if (res && res.status === 'success') combinedData = combinedData.concat(res.data || []); });
 
-      prosesDataJadwalRonda(combinedData);
+      renderJadwalRondaOtomatis(combinedData);
     } catch (e) {
       info.innerHTML = '<span class="muted">Gagal memuat jadwal. Tarik untuk coba lagi.</span>';
     }
@@ -5134,7 +5228,7 @@ function bukaJadwal() {
       end.setDate(start.getDate() + days);
       return { start, end };
     };
-
+    
     // Hitung awal minggu ini (Minggu) tanpa memodifikasi objek 'today'
     const startOfCurrentWeek = new Date(today);
     startOfCurrentWeek.setDate(today.getDate() - today.getDay()); // Set ke hari Minggu dari minggu berjalan
@@ -5143,7 +5237,7 @@ function bukaJadwal() {
     const mingguDepan = getRange(mingguIni.end, 7);
 
     const filterByRange = (range) => data.filter(it => {
-      const tgl = new Date(it.tanggal);
+      const tgl = new Date(it.tanggal + 'T00:00:00'); // Pastikan perbandingan tanggal saja
       return tgl >= range.start && tgl < range.end;
     });
 
