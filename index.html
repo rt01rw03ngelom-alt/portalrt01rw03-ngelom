@@ -3787,15 +3787,22 @@
 
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
-            
-            // Deep Linking Logic: Cek apakah ada parameter redirect dari notifikasi
+
+            // Deep Linking Logic: Tangkap parameter redirect
             const urlParams = new URLSearchParams(window.location.search);
             const redirectPage = urlParams.get('redirect');
-            if (redirectPage) handleNotifLihat(redirectPage);
 
+            if (redirectPage) {
+              // Bersihkan URL dari parameter agar tidak redirect berulang saat refresh
+              window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+              // Jalankan navigasi spesifik
+              handleNotifLihat(redirectPage);
+            } else {
             history.replaceState({ view: 'dashboardView', tab: 'warga' }, '', '#warga');
             currentTab = 'warga';
             kembaliKeDashboard();
+            }
+
             if (typeof muatDataKas === 'function') {
               muatDataKas(function () {
                 // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
@@ -5312,6 +5319,28 @@ function bukaJadwal() {
   function initRondaInteractions() {
     const banner = document.getElementById('rondaTodayBanner');
     if (!banner) return;
+
+    // PULL TO REFRESH WIDGET LOGIC
+    let touchY = 0;
+    banner.addEventListener('touchstart', (e) => {
+      touchY = e.touches[0].clientY;
+    }, {passive: true});
+
+    banner.addEventListener('touchend', (e) => {
+      let deltaY = e.changedTouches[0].clientY - touchY;
+      // Jika user swipe ke bawah lebih dari 50px
+      if (deltaY > 50) {
+        // Berikan feedback visual
+        banner.style.transform = 'scale(0.98)';
+        setTimeout(() => banner.style.transform = 'scale(1)', 200);
+        
+        // Coba muat ulang data
+        muatRondaHariIni();
+        
+        // Tampilkan toast mini
+        Swal.fire({ toast: true, position: 'top', showConfirmButton: false, timer: 1500, icon: 'info', title: 'Memperbarui Jadwal...' });
+      }
+    }, {passive: true});
 
     // Menggunakan Utility yang sama (Variabel startX/endX di sini berbeda dengan di navigasi)
     setupSwipeHandler(banner, 
