@@ -3462,6 +3462,11 @@
   var rondaChart = null;
   let touchStartX = 0;
 
+  // Global Promise to track login status (for Point 2: Race Condition Auto-Login)
+  let loginReadyPromise = new Promise(resolve => {
+    window.resolveLoginReady = resolve; // Expose resolve function globally
+  });
+
   var originalPemasukanList = [];
   var originalPengeluaranList = [];
 
@@ -3779,6 +3784,7 @@
           if (res && res.status === 'success') {
             currentUser = res;
             currentToken = res.token;
+          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
             syncTokenToIDB(res.token); // Sinkronisasi ke IDB
 
             // Perbaikan: Update nama di dashboard saat load awal
@@ -3893,6 +3899,7 @@
           document.getElementById('mainApp').style.display = 'block';
           // Set state awal setelah login
           history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
+          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
           currentTab = 'warga';
           kembaliKeDashboard();
           showSuccess('Selamat datang, ' + currentUser.nama + '!');
@@ -5171,117 +5178,215 @@ function bukaJadwal() {
    *
    * @returns {Promise<void>}
    */
-      /**
-       * PERBAIKAN A: Logika Penanggalan (Date Bridge)
-       * Mengambil data bulan ini & bulan depan jika di akhir bulan
-       */
-  async function muatRondaHariIni() {
+  /**
+   * PERBAIKAN A: Logika Penanggalan (Date Bridge)
+   * Mengambil data bulan ini & bulan depan jika di akhir bulan
+   */
+  /**
+   * SPESIFIKASI 2: Antisipasi Race Condition Auto-Login
+   * SPESIFIKASI 3: Logika Transisi Tanggal Dua Bulan (Dual-Fetch)
+   *
+   * Memuat data ronda untuk bulan berjalan dan bulan berikutnya (jika mendekati akhir bulan).
+   * Menunggu hingga proses login selesai sebelum memicu fetch data.
+   */
+  /**
+   * SPESIFIKASI 2 & 3: fetchJadwalRonda dengan Race Condition Check & Dual-Fetch
+   */
+  async function muatRondaHariIni(isManualRefresh = false) {
     const info = document.getElementById('rondaTodayInfo');
     const banner = document.getElementById('rondaTodayBanner');
     if (!info || !banner) return;
 
-    // Sinkronisasi Warna Banner (Light/Dark)
     const isDark = document.body.classList.contains('dark-mode');
     banner.style.background = isDark ? '#1e293b' : 'rgba(251,191,36,0.1)';
-    banner.style.borderColor = isDark ? 'rgba(251,191,36,0.4)' : 'rgba(251,191,36,0.2)';
+
+    // Animasi Loading Lokal
+    info.innerHTML = `<div style="display:flex; justify-content:center; padding:10px;"><div class="bbx-spinner" style="width:22px; height:22px; border-width:2px;"></div></div>`;
+
+    // ANTISIPASI RACE CONDITION: Tunggu hingga login siap
+    await loginReadyPromise;
 
     const d = new Date();
     const currentMonth = d.getMonth() + 1;
     const currentYear = d.getFullYear();
     
-    // Cek apakah 7 hari lagi masuk bulan depan
-    const checkDate = new Date();
-    checkDate.setDate(d.getDate() + 7);
-    const nextMonth = checkDate.getMonth() + 1;
-    const nextYear = checkDate.getFullYear();
+    const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const isNearMonthEnd = (lastDayOfMonth - d.getDate()) <= 3;
 
     try {
-      // Siapkan daftar tugas pengambilan data secara paralel
       const fetchTasks = [
-        new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(currentMonth, currentYear))
+        new Promise(resolve => google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(() => resolve({ status: 'offline' }))
+          .getRonda(currentMonth, currentYear)
+        )
       ];
 
-      if (nextMonth !== currentMonth) {
-        fetchTasks.push(new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(nextMonth, nextYear)));
+      if (isNearMonthEnd) {
+        const nextM = currentMonth === 12 ? 1 : currentMonth + 1;
+        const nextY = currentMonth === 12 ? currentYear + 1 : currentYear;
+        fetchTasks.push(
+          new Promise(resolve => google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(() => resolve({ status: 'offline' }))
+            .getRonda(nextM, nextY)
+          )
+        );
       }
 
       const results = await Promise.all(fetchTasks);
       let combinedData = [];
-      results.forEach(res => { if (res && res.status === 'success') combinedData = combinedData.concat(res.data || []); });
+      results.forEach(res => { if (res.data) combinedData = combinedData.concat(res.data); });
 
-      renderJadwalRondaOtomatis(combinedData);
+      prosesDataJadwalRonda(combinedData, results);
+      if (isManualRefresh) Swal.fire({ toast: true, position: 'top', timer: 1000, showConfirmButton: false, icon: 'success', title: 'Jadwal Diperbarui' });
     } catch (e) {
-      info.innerHTML = '<span class="muted">Gagal memuat jadwal. Tarik untuk coba lagi.</span>';
+      info.innerHTML = '<div style="font-size:12px; color:#ef4444; font-weight:600;">⚠️ Gagal memuat. Tarik untuk coba lagi.</div>';
     }
   }
 
-  function prosesDataJadwalRonda(data) {
-    if (!data || data.length === 0) {
-      const info = document.getElementById('rondaTodayInfo');
-      if (info) info.innerHTML = '<span class="muted">Tidak ada jadwal ronda untuk minggu ini atau minggu depan.</span>';
-      rondaSlides = []; // Pastikan slides dikosongkan
+  /**
+   * SPESIFIKASI 3: Smart Rendering (Monthly Horizontal Structure)
+   * Memproses data ronda yang mungkin berasal dari dua bulan dan merendernya.
+   * Jika data bulan kosong, tampilkan pesan fallback.
+   *
+   * @param {Array} data - Array data ronda gabungan dari backend.
+   * @param {Set} fetchedMonthLabels - Label bulan yang berhasil diambil dari backend.
+   */
+  /**
+   * SPESIFIKASI 3: Smart Rendering Logic
+   */
+  function prosesDataJadwalRonda(data, rawResults) {
+    const info = document.getElementById('rondaTodayInfo');
+    if (!info) return;
+    rondaSlides = [];
+
+    rawResults.forEach(res => {
+      if (!res.targetBulan) return;
+      
+      const list = (res.data || []).map(it => it.kategori);
+      let contentHtml = '';
+
+      if (list.length === 0) {
+        // Desain rapi untuk fallback jadwal kosong
+        contentHtml = `<div style="color:var(--text-muted); border:1px dashed var(--border-color); padding:10px; border-radius:10px; font-size:12px; text-align:center; font-style:italic;">Jadwal Belum Dirilis / LIBUR</div>`;
+      } else {
+        contentHtml = `<div style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">` + 
+          list.map(c => `<span class="status-badge" style="background:rgba(var(--primary-color-rgb),0.1); color:var(--text-main); font-size:10px; padding:3px 8px;">${c}</span>`).join('') + 
+          `</div>`;
+      }
+
+      rondaSlides.push({
+        title: `Jadwal Ronda: ${res.targetBulan}`,
+        html: contentHtml,
+        plainTextContent: list.length > 0 ? list.join(', ') : 'Belum dirilis'
+      });
+    });
+
+    if (rondaSlides.length === 0) {
+      info.innerHTML = '<div class="muted">Belum ada jadwal bulan ini.</div>';
       return;
     }
 
-    const today = new Date(); // Gunakan variabel baru untuk tanggal hari ini
-    rondaSlides = [];
-    
-    // Helper Batas Minggu
-    const getRange = (startDate, days) => {
-      // Pastikan startDate tidak dimodifikasi langsung
-      const start = new Date(startDate);
-      start.setHours(0,0,0,0);
-      const end = new Date(start);
-      end.setDate(start.getDate() + days);
-      return { start, end };
-    };
-    
-    // Hitung awal minggu ini (Minggu) tanpa memodifikasi objek 'today'
-    const startOfCurrentWeek = new Date(today);
-    startOfCurrentWeek.setDate(today.getDate() - today.getDay()); // Set ke hari Minggu dari minggu berjalan
-    startOfCurrentWeek.setHours(0,0,0,0); // Normalisasi waktu
-    const mingguIni = getRange(startOfCurrentWeek, 7);
-    const mingguDepan = getRange(mingguIni.end, 7);
+    currentRondaSlideIdx = 0;
+    displayRondaSlide(0);
+    initRondaInteractions(); // Panggil interaksi setelah slide dibuat
+  }
 
-    const filterByRange = (range) => data.filter(it => {
-      const tgl = new Date(it.tanggal + 'T00:00:00'); // Pastikan perbandingan tanggal saja
-      return tgl >= range.start && tgl < range.end;
+  /**
+   * Menampilkan slide ronda yang dipilih dan memperbarui indikator dot.
+   * @param {number} idx - Indeks slide yang akan ditampilkan.
+   */
+  function displayRondaSlide(idx) {
+    const container = document.getElementById('rondaBannerContent');
+    if (!rondaSlides[idx]) return;
+
+    // Animasi fade out/in
+    container.style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('rondaBannerTitle').innerText = rondaSlides[idx].title;
+      document.getElementById('rondaTodayInfo').innerHTML = rondaSlides[idx].html;
+      container.style.opacity = '1';
+      updateRondaDots(idx);
+    }, 200); // Jeda singkat untuk efek transisi
+  }
+
+  /**
+   * Memperbarui indikator dot di bawah banner ronda.
+   * @param {number} activeIdx - Indeks slide yang sedang aktif.
+   */
+  function updateRondaDots(activeIdx) {
+    const dotContainer = document.querySelector('#rondaTodayBanner .summary-info > div:last-child'); // Target div yang berisi dots
+    if (!dotContainer) return;
+
+    dotContainer.innerHTML = ''; // Bersihkan dots yang ada
+    rondaSlides.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = `ronda-dot ${i === activeIdx ? 'active' : ''}`;
+      dot.style.cssText = `width:${i === activeIdx ? '12px' : '6px'}; height:4px; border-radius:2px; background:${i === activeIdx ? '#d97706' : 'rgba(217,119,6,0.2)'}; transition:0.3s; cursor:pointer;`;
+      dot.onclick = (e) => {
+        e.stopPropagation(); // Mencegah event click banner utama
+        currentRondaSlideIdx = i;
+        displayRondaSlide(i);
+      };
+      dotContainer.appendChild(dot);
     });
+  }
 
-    // Build Slides
-    const buildSlide = (entries, title) => {
-      if (entries.length === 0) return; // Jangan buat slide jika tidak ada entri
-      let html = '';
-      let plainText = ''; // Variabel baru untuk konten teks biasa
-      entries.forEach(e => {
-        const isToday = e.tanggal === today.toISOString().split('T')[0]; // Bandingkan dengan string tanggal hari ini
-        const petugasArray = e.petugas ? e.petugas.split('\n').filter(p => p.trim()) : [];
-        const petugasHtml = petugasArray.map(p => 
-          `<span style="display:inline-block; background:rgba(var(--primary-color-rgb),0.1); padding:2px 8px; border-radius:6px; margin:2px; font-size:12px;">${p}</span>`
-        ).join('');
-        const petugasPlainText = petugasArray.length ? petugasArray.join(', ') : 'LIBUR / Kosong';
+  /**
+   * SPESIFIKASI 4: Realisasi Fitur Refresh Sentuh (Pull-to-Refresh Widget)
+   * Menginisialisasi event listener untuk swipe pada banner ronda.
+   */
+  function initRondaInteractions() {
+    const banner = document.getElementById('rondaTodayBanner');
+    if (!banner) return;
 
-        html += `<div style="margin-bottom:10px; border-left:3px solid ${isToday ? 'var(--primary-color)' : 'var(--border-color)'}; padding-left:10px;">
-          <div style="font-size:12px; font-weight:800;">${e.tanggal} ${isToday ? ' (HARI INI)' : ''}</div>
-          <div style="margin-top:4px;">${petugasHtml || '<i style="color:var(--text-muted)">LIBUR / Kosong</i>'}</div>
-        </div>`;
-        plainText += `${e.tanggal} ${isToday ? ' (HARI INI)' : ''} - ${petugasPlainText}\n`; // Bangun konten teks biasa
-      });
-      rondaSlides.push({ title, html, plainTextContent: plainText.trim() }); // Tambahkan plainTextContent
+    let touchY = 0;
+    let isSwipingDown = false;
+    const PULL_THRESHOLD = 60; // Jarak tarikan untuk memicu refresh
+
+    banner.addEventListener('touchstart', (e) => {
+      touchY = e.touches[0].clientY;
+      banner.style.transition = 'none'; // Matikan transisi CSS saat mulai menyentuh
+      isSwipingDown = false;
+    }, { passive: true }); // passive: true untuk performa scroll yang lebih baik
+
+    banner.addEventListener('touchmove', (e) => {
+      const deltaY = e.touches[0].clientY - touchY;
+      // Hanya aktifkan efek pull-to-refresh jika scroll berada di paling atas (scrollY === 0)
+      // dan gerakan ke bawah (deltaY > 0)
+      if (window.scrollY === 0 && deltaY > 0) {
+        isSwipingDown = true;
+        // Berikan efek pegas (friction) saat ditarik ke bawah
+        const translateY = Math.min(deltaY / 2.5, PULL_THRESHOLD * 1.5); // Batasi tarikan visual
+        banner.style.transform = `translateY(${translateY}px)`;
+      } else {
+        isSwipingDown = false;
+      }
+    }, { passive: true });
+
+    banner.addEventListener('touchend', (e) => {
+      const deltaY = e.changedTouches[0].clientY - touchY;
+      banner.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; // Aktifkan transisi kembali
+      banner.style.transform = 'translateY(0)'; // Kembalikan posisi banner
+      
+      // Trigger refresh jika tarikan ke bawah melebihi ambang batas
+      if (isSwipingDown && deltaY > PULL_THRESHOLD) {
+        muatRondaHariIni(); // Panggil fungsi refresh data
+        const title = document.getElementById('rondaBannerTitle');
+        if (title) title.innerText = 'Memperbarui data...'; // Berikan feedback loading
+      }
+      isSwipingDown = false;
+    }, { passive: true });
+
+    // Support Click/Tap untuk navigasi slide (jika tidak ada swipe)
+    banner.onclick = () => {
+      // Hanya ganti slide jika tidak ada gerakan swipe yang signifikan
+      if (!isSwipingDown) {
+        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
+      }
     };
-
-    buildSlide(filterByRange(mingguIni), 'Jadwal Ronda Minggu Ini');
-    buildSlide(filterByRange(mingguDepan), 'Jadwal Ronda Minggu Depan');
-
-    // Jika ada slide yang dibuat, tampilkan slide pertama dan inisialisasi interaksi
-    if (rondaSlides.length > 0) {
-      currentRondaSlideIdx = 0;
-      displayRondaSlide(0);
-      initRondaInteractions();
-    } else {
-        // Jika tidak ada slide yang dibuat (tidak ada jadwal untuk minggu ini/depan)
-        info.innerHTML = '<span class="muted">Belum ada jadwal terbit untuk minggu ini atau minggu depan.</span>';
-    }
   }
 
   /**
@@ -5316,53 +5421,45 @@ function bukaJadwal() {
     });
   }
 
+
   /**
-   * PERBAIKAN B: Swipe & Klik
+   * SPESIFIKASI 4: Pull-to-Refresh khusus Widget Ronda
    */
   function initRondaInteractions() {
     const banner = document.getElementById('rondaTodayBanner');
     if (!banner) return;
 
-    // PULL TO REFRESH WIDGET LOGIC
     let touchY = 0;
+    let startX = 0;
+
     banner.addEventListener('touchstart', (e) => {
       touchY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
     }, {passive: true});
 
     banner.addEventListener('touchend', (e) => {
-      let deltaY = e.changedTouches[0].clientY - touchY;
-      // Jika user swipe ke bawah lebih dari 50px
-      if (deltaY > 50) {
-        // Berikan feedback visual
-        banner.style.transform = 'scale(0.98)';
-        setTimeout(() => banner.style.transform = 'scale(1)', 200);
-        
-        // Coba muat ulang data
-        muatRondaHariIni();
-        
-        // Tampilkan toast mini
-        Swal.fire({ toast: true, position: 'top', showConfirmButton: false, timer: 1500, icon: 'info', title: 'Memperbarui Jadwal...' });
+      const deltaY = e.changedTouches[0].clientY - touchY;
+      const deltaX = e.changedTouches[0].clientX - startX;
+
+      // PULL DOWN DETECTED (Threshold 60px)
+      if (deltaY > 60 && Math.abs(deltaX) < 30) {
+        muatRondaHariIni(true);
+        return;
+      }
+
+      // SWIPE HORIZONTAL (Pindah Slide)
+      if (Math.abs(deltaX) > 40 && Math.abs(deltaY) < 30) {
+        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
       }
     }, {passive: true});
 
-    // Menggunakan Utility yang sama (Variabel startX/endX di sini berbeda dengan di navigasi)
-    setupSwipeHandler(banner, 
-      // Swipe Kiri (Slide Selanjutnya)
-      () => {
+    // Klik fallback
+    banner.onclick = () => {
+      if (rondaSlides.length > 1) {
         currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
         displayRondaSlide(currentRondaSlideIdx);
-      },
-      // Swipe Kanan (Slide Sebelumnya)
-      () => {
-        currentRondaSlideIdx = (currentRondaSlideIdx - 1 + rondaSlides.length) % rondaSlides.length;
-        displayRondaSlide(currentRondaSlideIdx);
       }
-    );
-
-    // Click Fallback (Desktop)
-    banner.onclick = () => {
-      currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
-      displayRondaSlide(currentRondaSlideIdx);
     };
   }
 
