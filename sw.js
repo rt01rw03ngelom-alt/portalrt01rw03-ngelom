@@ -4,6 +4,8 @@ const CACHE_NAME = 'portal-rt-v1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './manifest.json',
+  './clouds.png',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
   'https://fonts.googleapis.com/icon?family=Material+Icons'
 ];
@@ -31,25 +33,28 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       data = event.data.json();
+      // Jika payload dari Cloudflare/GAS terbungkus dalam properti 'payload'
+      if (data.payload) data = data.payload;
     } catch (e) {
       data.body = event.data.text();
     }
   }
 
   const options = {
-    body: data.body,
+    body: data.body || 'Ada informasi terbaru untuk warga.',
     icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
     badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
-    vibrate: [200, 100, 200],
+    vibrate: [100, 50, 100],
     data: {
-      targetPage: data.targetPage || ''
+      targetPage: data.targetPage || '',
+      url: self.location.origin + (data.targetPage ? '#' + data.targetPage : '')
     },
     tag: 'portal-rt-push',
     renotify: true
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'Portal RT Ngelom', options) // Judul default jika kosong
   );
 });
 
@@ -71,9 +76,9 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       // Jika belum terbuka, buka jendela baru dengan hash halaman tujuan
-      let destination = './';
-      if (targetPage) destination += '#' + targetPage;
-      if (self.clients.openWindow) return self.clients.openWindow(destination);
+      let url = '/';
+      if (targetPage) url += '#' + targetPage;
+      if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
 });
