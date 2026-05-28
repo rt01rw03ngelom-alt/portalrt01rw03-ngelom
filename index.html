@@ -318,8 +318,10 @@
     .header-clouds {
       position: absolute;
       inset: 0;
-      background-image: url('https://www.transparenttextures.com/patterns/clouds.png');
-      opacity: 0;
+      /* MASALAH 3: Mengganti clouds.png yang 404 dengan CSS Gradient estetik */
+      background: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
+                  radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 30%);
+      opacity: 0.6; /* Membuat efek awan halus terlihat */
       pointer-events: none;
       z-index: 0;
       transition: opacity 0.8s ease;
@@ -2899,18 +2901,31 @@
   // ======================== MEDIA HELPERS ========================
   function checkAndRequestNotificationPermission(silent) {
     if (!("Notification" in window)) {
-      if (!silent) showWarning('Browser ini tidak mendukung notifikasi.');
+      console.warn('Browser ini tidak mendukung notifikasi.');
       return;
     }
 
     if (Notification.permission === "granted") {
       subscribeUserToPush(silent);
     } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(function (permission) {
-        if (permission === "granted") {
-          subscribeUserToPush(silent);
-        }
-      });
+      // iOS 16.4+ Memerlukan interaksi manual. 
+      // Jangan panggil otomatis jika silent = true
+      if (!silent) {
+        Swal.fire({
+          title: 'Aktifkan Notifikasi?',
+          text: 'Agar Anda menerima info ronda dan iuran secara real-time di HP.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Aktifkan',
+          confirmButtonColor: 'var(--primary-color)'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            Notification.requestPermission().then(permission => {
+              if (permission === "granted") subscribeUserToPush(false);
+            });
+          }
+        });
+      }
     }
   }
 
@@ -3325,7 +3340,10 @@
   var lightboxImages = [];
   var lightboxCurrentIndex = 0;
   var currentTab = 'warga';
-  var adminWhatsappNumber = '6285236356569';
+  
+  // MASALAH 1: Deklarasi Konstanta Global DEFAULT_ADMIN_WA
+  const DEFAULT_ADMIN_WA = '6285236356569';
+  var adminWhatsappNumber = DEFAULT_ADMIN_WA;
   var kasChart = null;
   var iuranData = [];
   var daftarKategori = [];
@@ -3669,11 +3687,11 @@
   }
 
   // ======================== SESSION & LOGIN ========================
-  window.addEventListener('load', function() {
+  window.addEventListener('load', function () {
     applyDarkModePreference();
 
     // Dengar perubahan pengaturan sistem secara real-time
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
       if (localStorage.getItem('darkMode') === null) {
         applyDarkModePreference();
       }
@@ -3683,7 +3701,7 @@
     initCloudInteraction();
 
     // Daftarkan Service Worker untuk Web Push / background notifications
-    registerServiceWorker().catch(function(err) {
+    registerServiceWorker().catch(function (err) {
       console.warn('Service Worker tidak dapat didaftarkan:', err.message);
     });
 
@@ -3702,36 +3720,36 @@
       }
 
       google.script.run
-        .withSuccessHandler(function(res) {
+        .withSuccessHandler(function (res) {
           if (res && res.status === 'success') {
             currentUser = res;
             currentToken = res.token;
             // Perbaikan: Update nama di dashboard saat load awal
             var nameEl = document.getElementById('welcomeUserName');
-            if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
-            
+            if (nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
+
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
             // Set state awal saat berhasil masuk
-            history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
-          currentTab = 'warga';
-          kembaliKeDashboard();
-          if (typeof muatDataKas === 'function') {
-            muatDataKas(function() {
-              // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
-            });
-          }
-          checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
-          // Jalankan polling notifikasi setelah login berhasil
-          startNotifikasiPolling();
-          updateAdminContactLink();
-          showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
+            history.replaceState({ view: 'dashboardView', tab: 'warga' }, '', '#warga');
+            currentTab = 'warga';
+            kembaliKeDashboard();
+            if (typeof muatDataKas === 'function') {
+              muatDataKas(function () {
+                // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
+              });
+            }
+            checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
+            // Jalankan polling notifikasi setelah login berhasil
+            startNotifikasiPolling();
+            updateAdminContactLink();
+            showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
           } else {
             localStorage.removeItem('sessionToken');
             location.reload(); // Sesi tidak valid, kembali ke tampilan awal
           }
         })
-        .withFailureHandler(function(err) {
+        .withFailureHandler(function (err) {
           console.error(err);
           localStorage.removeItem('sessionToken');
           location.reload();
@@ -4019,46 +4037,46 @@
   }
 
   // ======================== MENU NAVIGATION ========================
-  function toggleMenuNavigasi() {
-  }
-
   function initSwipeNavigation() {
+    let touchStartX = 0; // Isolated for this function
+    let touchEndX = 0;   // Isolated for this function
+
     const mainApp = document.getElementById('mainApp');
     mainApp.addEventListener('touchstart', e => {
       touchStartX = e.changedTouches[0].screenX;
     }, {passive: true});
 
     mainApp.addEventListener('touchend', e => {
-      // Swipe hanya aktif jika sedang di dashboard untuk menghindari konflik scroll form/tabel
+      // Swipe hanya aktif jika sedang di dashboard untuk menghindari konflik dengan scroll form/tabel
       if (document.getElementById('dashboardView').style.display !== 'block') return;
       
       touchEndX = e.changedTouches[0].screenX;
       handleSwipe();
     }, {passive: true});
-  }
 
-  function handleSwipe() {
-    const deltaX = touchEndX - touchStartX;
-    const threshold = 70; 
-    const modules = ['warga', 'pkk', 'karangtaruna', 'profil']; 
-    let currentIdx = modules.indexOf(currentTab);
-    
-    if (document.getElementById('profilView').style.display === 'block') currentIdx = modules.indexOf('profil');
-    if (currentIdx === -1) return;
+    function handleSwipe() { // Also moved inside to form a closure
+      const deltaX = touchEndX - touchStartX;
+      const threshold = 70; 
+      const modules = ['warga', 'pkk', 'karangtaruna', 'profil']; 
+      let currentIdx = modules.indexOf(currentTab);
+      
+      if (document.getElementById('profilView').style.display === 'block') currentIdx = modules.indexOf('profil');
+      if (currentIdx === -1) return;
 
-    let targetIdx = -1;
-    if (deltaX > threshold && currentIdx > 0) {
-      targetIdx = currentIdx - 1;
-    } else if (deltaX < -threshold && currentIdx < modules.length - 1) {
-      targetIdx = currentIdx + 1;
-    }
+      let targetIdx = -1;
+      if (deltaX > threshold && currentIdx > 0) {
+        targetIdx = currentIdx - 1;
+      } else if (deltaX < -threshold && currentIdx < modules.length - 1) {
+        targetIdx = currentIdx + 1;
+      }
 
-    if (targetIdx !== -1) {
-      const targetModule = modules[targetIdx];
-      if (targetModule === 'profil') {
-        tampilkanProfil();
-      } else {
-        pilihMenu(targetModule);
+      if (targetIdx !== -1) {
+        const targetModule = modules[targetIdx];
+        if (targetModule === 'profil') {
+          tampilkanProfil();
+        } else {
+          pilihMenu(targetModule);
+        }
       }
     }
   }
@@ -5038,215 +5056,159 @@ function bukaJadwal() {
     }).getRonda(bulan, tahun);
   }
 
-  // ======================== SWIPE RONDA LOGIC ========================
+  // ======================== PERBAIKAN SWIPE & LOGIKA RONDA ========================
   var rondaSlides = [];
   var currentRondaSlideIdx = 0;
-  var rondaTouchX = 0;
 
-  // Fungsi untuk memuat petugas ronda hari ini di Dashboard Beranda
-  function muatRondaHariIni() {
-    var info = document.getElementById('rondaTodayInfo');
-    var banner = document.getElementById('rondaTodayBanner');
+  /**
+   * PERBAIKAN A: Logika Penanggalan (Date Bridge)
+   * Mengambil data bulan ini & bulan depan jika di akhir bulan
+   */
+  async function muatRondaHariIni() {
+    const info = document.getElementById('rondaTodayInfo');
+    const banner = document.getElementById('rondaTodayBanner');
     if (!info || !banner) return;
+
+    // Sinkronisasi Warna Banner (Light/Dark)
+    const isDark = document.body.classList.contains('dark-mode');
+    banner.style.background = isDark ? '#1e293b' : 'rgba(251,191,36,0.1)';
+    banner.style.borderColor = isDark ? 'rgba(251,191,36,0.4)' : 'rgba(251,191,36,0.2)';
+
+    const d = new Date();
+    const currentMonth = d.getMonth() + 1;
+    const currentYear = d.getFullYear();
     
-    // Gunakan status tema aplikasi, bukan berdasarkan jam otomatis
-    var isNight = document.body.classList.contains('dark-mode');
-    
-    if (isNight) {
-      banner.style.background = '#1e293b'; // Slate Dark
-      banner.style.borderColor = 'rgba(251,191,36,0.4)';
-      banner.querySelector('.summary-icon').style.background = 'rgba(251,191,36,0.2)';
-      banner.querySelector('.summary-icon').style.color = '#fbbf24';
-      document.getElementById('rondaBannerTitle').style.color = '#fbbf24';
-      info.style.color = '#f8fafc';
-    } else {
-      banner.style.background = 'rgba(251,191,36,0.1)';
-      banner.style.borderColor = 'rgba(251,191,36,0.2)';
-      banner.querySelector('.summary-icon').style.background = 'rgba(251,191,36,0.1)';
-      banner.querySelector('.summary-icon').style.color = '#d97706';
-      document.getElementById('rondaBannerTitle').style.color = '#d97706';
-      info.style.color = 'var(--text-main)';
-    }
+    // Cek apakah 7 hari lagi masuk bulan depan
+    const checkDate = new Date();
+    checkDate.setDate(d.getDate() + 7);
+    const nextMonth = checkDate.getMonth() + 1;
+    const nextYear = checkDate.getFullYear();
 
-    // Dapatkan waktu hari ini
-    var d = new Date();
-    var months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    try {
+      // Fetch data bulan ini
+      const res1 = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(currentMonth, currentYear));
+      let combinedData = res1.status === 'success' ? res1.data : [];
 
-    // Cek apakah 7 hari lagi sudah masuk bulan baru
-    var nextWeekDate = new Date(d);
-    nextWeekDate.setDate(d.getDate() + 7);
-
-    google.script.run.withSuccessHandler(function(res) {
-      if (res.status === 'success' && Array.isArray(res.data) && res.data.length > 0) {
-        rondaSlides = [];
-        function getWeekBoundaries(date) {
-          var weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-          weekStart.setHours(0,0,0,0);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          var weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekStart.getDate() + 7);
-          return { start: weekStart, end: weekEnd };
-        }
-        var thisWeek = getWeekBoundaries(d);
-        var nextWeekStart = new Date(thisWeek.end);
-        var nextWeekEnd = new Date(nextWeekStart);
-        nextWeekEnd.setDate(nextWeekStart.getDate() + 7);
-        var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        var todayStr = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-
-        // Helper untuk memformat daftar regu dalam satu minggu
-        var formatMingguan = function(entries) {
-          let htmlOutput = '';
-          let plainTextOutput = '';
-          entries.forEach(function(e) {
-            var p = e.tanggal.split('-');
-            var dObj = new Date(p[0], p[1] - 1, p[2]);
-            var hari = daysIndo[dObj.getDay()];
-            var tgl = p[2];
-            var isToday = (e.tanggal === todayStr);
-            
-            // Structured names with professional Chips (HTML)
-            var petugasArr = e.petugas ? e.petugas.split(/\r?\n/).filter(it => it.trim() !== "") : [];
-            var namesHtml = petugasArr.length ? petugasArr.map(p => 
-              `<span style="display:inline-flex; align-items:center; gap:4px; background:rgba(var(--primary-color-rgb), 0.08); color:var(--text-main); padding:4px 10px; border-radius:8px; font-size:13px; font-weight:600; margin:2px 2px 0 0; border:1px solid rgba(var(--primary-color-rgb), 0.1);">
-                <i class="material-icons" style="font-size:14px; color:var(--primary-color);">person</i>${p}
-              </span>`
-            ).join('') : '<span class="muted" style="font-size:13px;">-</span>';
-
-            // Plain text names for WhatsApp (Plain Text)
-            var namesPlainText = petugasArr.length ? petugasArr.join(', ') : '-';
-            
-            var highlightStyle = isToday ? 'border-left:5px solid var(--primary-red); background:rgba(239,68,68,0.04); padding-left:12px;' : 'border-left:3px solid var(--border-color); padding-left:12px;';
-            var todayTagHtml = isToday ? ' <span style="background:var(--primary-red); color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; vertical-align:middle; margin-left:8px; box-shadow:0 2px 6px rgba(239,68,68,0.3);">HARI INI</span>' : '';
-            var todayTagPlainText = isToday ? ' (HARI INI)' : '';
-
-            htmlOutput += `<div style="margin-bottom:15px; padding:6px 0; ${highlightStyle}">
-                      <div style="font-size:14px; font-weight:800; color:var(--text-main); display:flex; align-items:center;">${hari}, ${tgl} - ${e.kelompok}${todayTagHtml}</div>
-                      <div style="display:flex; flex-wrap:wrap; margin-top:8px;">${namesHtml}</div>
-                    </div>`;
-            
-            plainTextOutput += `${hari}, Tgl ${tgl} - ${e.kelompok}${todayTagPlainText}\n  Petugas: ${namesPlainText}\n`;
-          });
-          return { html: htmlOutput, plainText: plainTextOutput };
-        };
-
-        // Slide 1: Minggu Ini
-        var entriesW1 = res.data.filter(function(it) {
-          var entryDate = new Date(it.tanggal);
-          return entryDate >= thisWeek.start && entryDate < thisWeek.end;
-        });
-
-        var formattedW1 = formatMingguan(entriesW1);
-        if (entriesW1.length > 0) {
-          rondaSlides.push({
-            title: 'Jadwal Ronda Minggu Ini',
-            content: formattedW1.html,
-            plainTextContent: formattedW1.plainText
-          });
-        }
-
-        // Slide 2: Minggu Depan
-        var entriesW2 = res.data.filter(function(it) {
-          var entryDate = new Date(it.tanggal);
-          return entryDate >= nextWeekStart && entryDate < nextWeekEnd;
-        });
-
-        var formattedW2 = formatMingguan(entriesW2);
-        var slide2Title = (nextWeekStart.getMonth() !== d.getMonth() || nextWeekStart.getFullYear() !== d.getFullYear())
-          ? 'Jadwal Ronda ' + months[nextWeekStart.getMonth()]
-          : 'Jadwal Ronda Minggu Depan';
-
-        if (entriesW2.length > 0) {
-          rondaSlides.push({
-            title: slide2Title,
-            content: formattedW2.html,
-            plainTextContent: formattedW2.plainText
-          });
-        }
-
-        if (rondaSlides.length === 0) {
-          var formattedAll = formatMingguan(res.data);
-          rondaSlides.push({
-            title: 'Jadwal Ronda Bulan Ini',
-            content: formattedAll.html || '<span style="font-size:12px; color:var(--text-muted);">Belum ada jadwal ronda untuk bulan ini.</span>',
-            plainTextContent: formattedAll.plainText || 'Belum ada jadwal ronda untuk bulan ini.'
-          });
-        }
-
-        if (rondaSlides.length > 0) {
-          displayRondaSlide(0);
-          initRondaSwipe();
-        } else {
-          info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Tidak ada jadwal ronda malam untuk minggu ini.</span>';
-        }
-      } else {
-        info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Tidak ada jadwal ronda malam untuk saat ini.</span>';
-        rondaSlides = [];
+      // Jika menyeberang bulan, fetch bulan depan dan gabungkan
+      if (nextMonth !== currentMonth) {
+        const res2 = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(nextMonth, nextYear));
+        if (res2.status === 'success') combinedData = combinedData.concat(res2.data);
       }
-    }).withFailureHandler(function(err) {
-      info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Gagal memuat jadwal: ' + err.message + '</span>';
-      rondaSlides = [];
-    }).getRonda(d.getMonth() + 1, d.getFullYear());
-    Swal.close(); // Close loading modal after data is loaded
+
+      prosesDataJadwalRonda(combinedData);
+    } catch (e) {
+      info.innerHTML = '<span class="muted">Gagal memuat jadwal. Tarik untuk coba lagi.</span>';
+    }
   }
 
-  function displayRondaSlide(idx) {
-    var title = document.getElementById('rondaBannerTitle');
-    var info = document.getElementById('rondaTodayInfo');
-    var content = document.getElementById('rondaBannerContent');
-    var dots = document.querySelectorAll('.ronda-dot');
-    
-    var isNight = document.body.classList.contains('dark-mode');
-    var activeColor = isNight ? '#fbbf24' : '#d97706';
-    var inactiveColor = isNight ? 'rgba(251, 191, 36, 0.2)' : 'rgba(217,119,6,0.2)';
+  function prosesDataJadwalRonda(data) {
+    if (!data || data.length === 0) return;
 
-    if (!rondaSlides[idx]) return;
+    const d = new Date();
+    rondaSlides = [];
     
-    content.style.opacity = '0';
-    setTimeout(function() {
-      title.innerText = rondaSlides[idx].title;
-      info.innerHTML = rondaSlides[idx].content;
-      content.style.opacity = '1';
-      
-      // Update dots
-      dots.forEach(function(dot, i) {
-        if (i === idx) {
-          dot.classList.add('active');
-          dot.style.width = '12px';
-          dot.style.background = activeColor;
-        } else {
-          dot.classList.remove('active');
-          dot.style.width = '6px';
-          dot.style.background = inactiveColor;
-        }
+    // Helper Batas Minggu
+    const getRange = (startDate, days) => {
+      const start = new Date(startDate);
+      start.setHours(0,0,0,0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + days);
+      return { start, end };
+    };
+
+    const mingguIni = getRange(new Date(d.setDate(d.getDate() - d.getDay())), 7);
+    const mingguDepan = getRange(mingguIni.end, 7);
+
+    const filterByRange = (range) => data.filter(it => {
+      const tgl = new Date(it.tanggal);
+      return tgl >= range.start && tgl < range.end;
+    });
+
+    // Build Slides
+    const buildSlide = (entries, title) => {
+      if (entries.length === 0) return;
+      let html = '';
+      entries.forEach(e => {
+        const isToday = e.tanggal === new Date().toISOString().split('T')[0];
+        const petugas = e.petugas ? e.petugas.split('\n').filter(p => p.trim()).map(p => 
+          `<span style="display:inline-block; background:rgba(var(--primary-color-rgb),0.1); padding:2px 8px; border-radius:6px; margin:2px; font-size:12px;">${p}</span>`
+        ).join('') : '<i style="color:var(--text-muted)">LIBUR / Kosong</i>';
+
+        html += `<div style="margin-bottom:10px; border-left:3px solid ${isToday ? 'var(--primary-color)' : 'var(--border-color)'}; padding-left:10px;">
+          <div style="font-size:12px; font-weight:800;">${e.tanggal} ${isToday ? ' (HARI INI)' : ''}</div>
+          <div style="margin-top:4px;">${petugas}</div>
+        </div>`;
       });
-    }, 200);
-    
-    currentRondaSlideIdx = idx;
+      rondaSlides.push({ title, html });
+    };
+
+    buildSlide(filterByRange(mingguIni), 'Jadwal Ronda Minggu Ini');
+    buildSlide(filterByRange(mingguDepan), 'Jadwal Ronda Minggu Depan');
+
+    if (rondaSlides.length > 0) {
+      currentRondaSlideIdx = 0;
+      displayRondaSlide(0);
+      initRondaInteractions();
+    }
   }
 
-  function initRondaSwipe() {
-    var banner = document.getElementById('rondaTodayBanner');
+  /**
+   * PERBAIKAN C: Render & State Management
+   */
+  function displayRondaSlide(idx) {
+    const container = document.getElementById('rondaBannerContent');
+    if (!rondaSlides[idx]) return;
+
+    container.style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('rondaBannerTitle').innerText = rondaSlides[idx].title;
+      document.getElementById('rondaTodayInfo').innerHTML = rondaSlides[idx].html;
+      container.style.opacity = '1';
+      updateRondaDots(idx);
+    }, 200);
+  }
+
+  function updateRondaDots(activeIdx) {
+    const dotContainer = document.querySelector('.ronda-dot').parentElement;
+    dotContainer.innerHTML = ''; // Re-render dots
+    rondaSlides.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = `ronda-dot ${i === activeIdx ? 'active' : ''}`;
+      dot.style.cssText = `width:${i === activeIdx ? '12px' : '6px'}; height:4px; border-radius:2px; background:${i === activeIdx ? '#d97706' : 'rgba(217,119,6,0.2)'}; transition:0.3s; cursor:pointer;`;
+      dot.onclick = (e) => {
+        e.stopPropagation();
+        currentRondaSlideIdx = i;
+        displayRondaSlide(i);
+      };
+      dotContainer.appendChild(dot);
+    });
+  }
+
+  /**
+   * PERBAIKAN B: Swipe & Klik
+   */
+  function initRondaInteractions() {
+    const banner = document.getElementById('rondaTodayBanner');
     if (!banner) return;
 
-    banner.addEventListener('touchstart', function(e) {
-      rondaTouchX = e.touches[0].clientX;
-    }, {passive: true});
-
-    banner.addEventListener('touchend', function(e) {
-      var deltaX = e.changedTouches[0].clientX - rondaTouchX;
-      if (Math.abs(deltaX) > 40) { // Threshold swipe
-        if (deltaX < 0) { // Swipe Kiri (Next)
-          displayRondaSlide(currentRondaSlideIdx === 0 ? 1 : 0);
-        } else { // Swipe Kanan (Prev)
-          displayRondaSlide(currentRondaSlideIdx === 1 ? 0 : 1);
-        }
+    // Menggunakan Utility yang sama (Variabel startX/endX di sini berbeda dengan di navigasi)
+    setupSwipeHandler(banner, 
+      // Swipe Kiri (Slide Selanjutnya)
+      () => {
+        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
+      },
+      // Swipe Kanan (Slide Sebelumnya)
+      () => {
+        currentRondaSlideIdx = (currentRondaSlideIdx - 1 + rondaSlides.length) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
       }
-    }, {passive: true});
-    
-    // Support Klik juga untuk desktop
-    banner.onclick = function() {
-      displayRondaSlide(currentRondaSlideIdx === 0 ? 1 : 0);
+    );
+
+    // Click Fallback (Desktop)
+    banner.onclick = () => {
+      currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+      displayRondaSlide(currentRondaSlideIdx);
     };
   }
 
@@ -8518,11 +8480,13 @@ function bukaJadwal() {
   const pwaBanner = document.getElementById('pwaInstallBanner');
 
   window.addEventListener('beforeinstallprompt', (e) => {
-    // Mencegah browser menampilkan prompt default secara otomatis
+    // MASALAH 2: Menangkap event instalasi untuk dipicu secara manual via UI kustom
     e.preventDefault();
-    // Simpan event agar bisa dipicu nanti melalui tombol "Instal"
     deferredPrompt = e;
     
+    // Log untuk debug (opsional)
+    console.log('PWA: Event beforeinstallprompt berhasil ditangkap dan disimpan.');
+
     // Cek apakah user pernah menutup banner ini sebelumnya
     const lastDismissed = localStorage.getItem('pwaDismissedTs');
     const now = Date.now();
