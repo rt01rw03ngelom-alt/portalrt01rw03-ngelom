@@ -153,6 +153,8 @@
     body.theme-warga { --primary-color: var(--warga-red); --primary-color-rgb: 239, 68, 68; --primary-dark: #b91c1c; }
     body.theme-pkk { --primary-color: var(--pkk-green); --primary-color-rgb: 16, 185, 129; --primary-dark: #059669; }
     body.theme-karangtaruna { --primary-color: var(--kt-blue); --primary-color-rgb: 56, 189, 248; --primary-dark: #0284c7; }
+    /* Tambahkan tema khusus profil */
+    body.theme-profil { --primary-color: #f59e0b; --primary-color-rgb: 245, 158, 11; --primary-dark: #d97706; }
 
     * {
       box-sizing: border-box;
@@ -4103,12 +4105,13 @@
 
   function pilihMenu(tabName) {
     currentTab = tabName;
-    updateNavActiveState(tabName);
     sembunyikanSemuaLayar();
     
     // Update Theme Class on Body
-    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
+    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil');
     document.body.classList.add('theme-' + tabName.toLowerCase());
+    
+    updateNavActiveState(tabName);
 
     document.getElementById('dashboardView').style.display = 'block';
     history.pushState({view: 'dashboardView', tab: tabName}, '', '#' + tabName);
@@ -5061,9 +5064,16 @@ function bukaJadwal() {
   var currentRondaSlideIdx = 0;
 
   /**
-   * PERBAIKAN A: Logika Penanggalan (Date Bridge)
-   * Mengambil data bulan ini & bulan depan jika di akhir bulan
+   * PERBAIKAN: Logika Penanggalan (Date Bridge)
+   * Memastikan pengambilan data ronda mencakup akhir bulan dan awal bulan berikutnya
+   * jika tanggal saat ini mendekati akhir bulan.
+   *
+   * @returns {Promise<void>}
    */
+      /**
+       * PERBAIKAN A: Logika Penanggalan (Date Bridge)
+       * Mengambil data bulan ini & bulan depan jika di akhir bulan
+       */
   async function muatRondaHariIni() {
     const info = document.getElementById('rondaTodayInfo');
     const banner = document.getElementById('rondaTodayBanner');
@@ -5085,15 +5095,18 @@ function bukaJadwal() {
     const nextYear = checkDate.getFullYear();
 
     try {
-      // Fetch data bulan ini
-      const res1 = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(currentMonth, currentYear));
-      let combinedData = res1.status === 'success' ? res1.data : [];
+      // Siapkan daftar tugas pengambilan data secara paralel
+      const fetchTasks = [
+        new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(currentMonth, currentYear))
+      ];
 
-      // Jika menyeberang bulan, fetch bulan depan dan gabungkan
       if (nextMonth !== currentMonth) {
-        const res2 = await new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(nextMonth, nextYear));
-        if (res2.status === 'success') combinedData = combinedData.concat(res2.data);
+        fetchTasks.push(new Promise(resolve => google.script.run.withSuccessHandler(resolve).getRonda(nextMonth, nextYear)));
       }
+
+      const results = await Promise.all(fetchTasks);
+      let combinedData = [];
+      results.forEach(res => { if (res && res.status === 'success') combinedData = combinedData.concat(res.data || []); });
 
       prosesDataJadwalRonda(combinedData);
     } catch (e) {
@@ -5102,13 +5115,19 @@ function bukaJadwal() {
   }
 
   function prosesDataJadwalRonda(data) {
-    if (!data || data.length === 0) return;
+    if (!data || data.length === 0) {
+      const info = document.getElementById('rondaTodayInfo');
+      if (info) info.innerHTML = '<span class="muted">Tidak ada jadwal ronda untuk minggu ini atau minggu depan.</span>';
+      rondaSlides = []; // Pastikan slides dikosongkan
+      return;
+    }
 
-    const d = new Date();
+    const today = new Date(); // Gunakan variabel baru untuk tanggal hari ini
     rondaSlides = [];
     
     // Helper Batas Minggu
     const getRange = (startDate, days) => {
+      // Pastikan startDate tidak dimodifikasi langsung
       const start = new Date(startDate);
       start.setHours(0,0,0,0);
       const end = new Date(start);
@@ -5116,7 +5135,11 @@ function bukaJadwal() {
       return { start, end };
     };
 
-    const mingguIni = getRange(new Date(d.setDate(d.getDate() - d.getDay())), 7);
+    // Hitung awal minggu ini (Minggu) tanpa memodifikasi objek 'today'
+    const startOfCurrentWeek = new Date(today);
+    startOfCurrentWeek.setDate(today.getDate() - today.getDay()); // Set ke hari Minggu dari minggu berjalan
+    startOfCurrentWeek.setHours(0,0,0,0); // Normalisasi waktu
+    const mingguIni = getRange(startOfCurrentWeek, 7);
     const mingguDepan = getRange(mingguIni.end, 7);
 
     const filterByRange = (range) => data.filter(it => {
@@ -5126,25 +5149,30 @@ function bukaJadwal() {
 
     // Build Slides
     const buildSlide = (entries, title) => {
-      if (entries.length === 0) return;
+      if (entries.length === 0) return; // Jangan buat slide jika tidak ada entri
       let html = '';
+      let plainText = ''; // Variabel baru untuk konten teks biasa
       entries.forEach(e => {
-        const isToday = e.tanggal === new Date().toISOString().split('T')[0];
-        const petugas = e.petugas ? e.petugas.split('\n').filter(p => p.trim()).map(p => 
+        const isToday = e.tanggal === today.toISOString().split('T')[0]; // Bandingkan dengan string tanggal hari ini
+        const petugasArray = e.petugas ? e.petugas.split('\n').filter(p => p.trim()) : [];
+        const petugasHtml = petugasArray.map(p => 
           `<span style="display:inline-block; background:rgba(var(--primary-color-rgb),0.1); padding:2px 8px; border-radius:6px; margin:2px; font-size:12px;">${p}</span>`
-        ).join('') : '<i style="color:var(--text-muted)">LIBUR / Kosong</i>';
+        ).join('');
+        const petugasPlainText = petugasArray.length ? petugasArray.join(', ') : 'LIBUR / Kosong';
 
         html += `<div style="margin-bottom:10px; border-left:3px solid ${isToday ? 'var(--primary-color)' : 'var(--border-color)'}; padding-left:10px;">
           <div style="font-size:12px; font-weight:800;">${e.tanggal} ${isToday ? ' (HARI INI)' : ''}</div>
-          <div style="margin-top:4px;">${petugas}</div>
+          <div style="margin-top:4px;">${petugasHtml || '<i style="color:var(--text-muted)">LIBUR / Kosong</i>'}</div>
         </div>`;
+        plainText += `${e.tanggal} ${isToday ? ' (HARI INI)' : ''} - ${petugasPlainText}\n`; // Bangun konten teks biasa
       });
-      rondaSlides.push({ title, html });
+      rondaSlides.push({ title, html, plainTextContent: plainText.trim() }); // Tambahkan plainTextContent
     };
 
     buildSlide(filterByRange(mingguIni), 'Jadwal Ronda Minggu Ini');
     buildSlide(filterByRange(mingguDepan), 'Jadwal Ronda Minggu Depan');
 
+    // Jika ada slide yang dibuat, tampilkan slide pertama dan inisialisasi interaksi
     if (rondaSlides.length > 0) {
       currentRondaSlideIdx = 0;
       displayRondaSlide(0);
