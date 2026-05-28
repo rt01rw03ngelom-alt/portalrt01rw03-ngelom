@@ -5,10 +5,11 @@
   "id": "/?source=pwa",
   "start_url": "./?source=pwa",
   "scope": "/",
-  "display": "standalone",
+  "display": "standalone", 
   "background_color": "#f1f5f9",
   "theme_color": "#ef4444",
-  "orientation": "portrait",
+  "orientation": "portrait", 
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192",
