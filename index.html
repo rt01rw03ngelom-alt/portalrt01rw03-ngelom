@@ -1292,43 +1292,43 @@
     /* Compact & Modern Iuran Table for Mobile */
     .iuran-table {
       width: 100%;
-      min-width: 850px;
-      font-size: 13px;
+      min-width: 1050px; /* Diperlebar sedikit untuk font yang lebih besar */
+      font-size: 16px; /* Standar aksesibilitas minimal 16px */
       border-collapse: separate; /* Penting agar sticky border bekerja dengan benar */
-      border-spacing: 0;
+      border-spacing: 0; 
       margin: 0 auto;
     }
 
     /* Perbaikan Responsivitas Tabel Iuran untuk Layar HP Sangat Kecil */
     @media (max-width: 500px) {
       .iuran-table {
-        min-width: 680px;
-        font-size: 10.5px;
+        min-width: 880px;
+        font-size: 14px;
         border-collapse: separate;
       }
       
       /* Perkecil kolom sticky agar area scroll lebih luas di layar HP */
       .iuran-table th:nth-child(1),
       .iuran-table td:nth-child(1) {
-        min-width: 95px;
-        max-width: 95px;
+        min-width: 140px; /* Tetap cukup lebar untuk nama di HP */
+        max-width: 140px;
       }
       
       .iuran-table th:nth-child(2),
       .iuran-table td:nth-child(2) {
-        left: 95px; /* Harus sinkron dengan lebar kolom pertama */
-        min-width: 85px;
-        max-width: 85px;
+        left: 140px;
+        min-width: 100px;
+        max-width: 100px;
       }
       
       /* Kolom bulan lebih ramping dan rapat */
       .iuran-table td:nth-child(n+3):nth-child(-n+14) {
-        width: 32px;
+        width: 40px;
         padding: 4px 1px !important;
       }
       .iuran-table input[type="checkbox"] {
-        width: 20px !important;
-        height: 20px !important;
+        width: 28px !important; /* Area sentuh jari lebih besar */
+        height: 28px !important;
       }
     }
 
@@ -1351,40 +1351,49 @@
     .iuran-table td:nth-child(1) {
       position: sticky !important; 
       left: 0;
-      z-index: 50;
+      z-index: 60; /* Lebih tinggi dari header bulan */
       background-color: var(--bg-surface) !important;
       background-clip: padding-box;
-      width: 180px;
-      min-width: 180px;
-      max-width: 180px;
+      width: 200px;
+      min-width: 200px;
+      max-width: 200px;
       white-space: normal;
       word-break: break-word;
-      box-shadow: 4px 0 8px -2px rgba(0,0,0,0.2);
-      border-right: 1px solid var(--border-color) !important;
+      font-size: 1.1rem; /* Ramah usia 40+ */
+      font-weight: 800; /* Nama warga lebih menonjol */
+      color: var(--text-main);
+      border-right: 1px solid var(--border-color);
     }
 
     /* Sticky Kolom Kategori (Kolom 2) */
     .iuran-table th:nth-child(2),
     .iuran-table td:nth-child(2) {
       position: sticky !important;
-      left: 180px; /* Harus sama dengan lebar kolom pertama */
-      z-index: 49;
+      left: 200px; /* Harus sama dengan lebar kolom pertama */
+      z-index: 59;
       background-color: var(--bg-surface) !important;
       background-clip: padding-box;
-      width: 140px;
-      min-width: 140px;
-      max-width: 140px;
-      border-right: 2px solid var(--primary-color) !important;
-      box-shadow: 4px 0 8px -2px rgba(0,0,0,0.15);
+      width: 150px;
+      min-width: 150px;
+      max-width: 150px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      /* Border kanan tegas sebagai pemisah visual saat scroll */
+      border-right: 3px solid var(--primary-color) !important;
+      box-shadow: 5px 0 10px -5px rgba(0,0,0,0.3);
     }
 
     .iuran-table th:nth-child(1),
     .iuran-table th:nth-child(2) {
       background-color: var(--bg-app) !important;
-      z-index: 40 !important; /* Peningkatan z-index header sticky */
+      z-index: 70 !important; /* Header paling atas */
     }
 
-    
+    /* Padding baris yang longgar untuk jari orang tua */
+    .iuran-table td {
+      padding: 16px 8px !important;
+      border-bottom: 1px solid var(--border-color);
+    }
 
     body.dark-mode .iuran-table th:nth-child(1),
     body.dark-mode .iuran-table td:nth-child(1),
@@ -3746,18 +3755,23 @@
   }
 
   function updateAdminContactLink() {
-    adminWhatsappNumber = normalizeAdminWhatsapp(adminWhatsappNumber);
+    // 1. ISOLASI & RESET: Paksa reset variabel ke nomor default setiap kali fungsi dipanggil
+    // Jangan gunakan nilai adminWhatsappNumber yang tersisa di memory
+    adminWhatsappNumber = normalizeAdminWhatsapp(DEFAULT_ADMIN_WA);
+    
+    // 2. IDEMPOTENSI: Segera bind ulang UI dengan nomor yang benar tanpa menunggu server
     setAdminContactLinks(adminWhatsappNumber);
+
+    // 3. SINKRONISASI DINAMIS: Ambil data terbaru dari database (jika ada perubahan oleh Admin)
     google.script.run.withSuccessHandler(function(res) {
       if (res && res.status === 'success' && res.data && res.data.admin_whatsapp) {
-        adminWhatsappNumber = normalizeAdminWhatsapp(res.data.admin_whatsapp);
-      } else {
-        adminWhatsappNumber = '6285236356569';
+        var latestNumber = normalizeAdminWhatsapp(res.data.admin_whatsapp);
+        // Pastikan hanya update jika datanya valid dan berbeda
+        if (latestNumber !== adminWhatsappNumber) {
+          adminWhatsappNumber = latestNumber;
+          setAdminContactLinks(adminWhatsappNumber);
+        }
       }
-      setAdminContactLinks(adminWhatsappNumber);
-    }).withFailureHandler(function() {
-      adminWhatsappNumber = '6285236356569';
-      setAdminContactLinks(adminWhatsappNumber);
     }).getSettings();
   }
 
@@ -4140,6 +4154,10 @@
     
     // Selalu paksa refresh nomor admin dari server setiap kali profil dibuka
     updateAdminContactLink();
+    
+    // Tambahan: Pastikan href link di profil di-hard reset secara eksplisit 
+    // untuk mencegah data leakage dari manipulasi DOM di modul lain
+    setAdminContactLinks(DEFAULT_ADMIN_WA);
   }
 
   window.addEventListener('load', function() {
