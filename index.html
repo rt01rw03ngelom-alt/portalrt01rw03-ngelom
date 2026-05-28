@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portal RT">
   <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192">
@@ -25,7 +24,6 @@
       --warga-red: #ef4444;
       
       --bg-surface: #ffffff;
-      --bg-surface-rgb: 255, 255, 255;
       --bg-app: #f1f5f9;
       --text-main-rgb: 15, 23, 42;
       --accent-blue: #2563eb;
@@ -42,7 +40,6 @@
     body.dark-mode {
       --bg-app: #0f172a;
       --bg-surface: #1e293b;
-      --bg-surface-rgb: 30, 41, 59;
       --text-main: #f8fafc;
       --text-main-rgb: 248, 250, 252; /* RGB for #f8fafc */
       --text-muted: #94a3b8;
@@ -68,23 +65,6 @@
       /* Border halus semi-transparan (Ciri khas glassmorphism) */
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
-    }
-
-    /* Overlay Latar Belakang Blur saat Menu Terbuka */
-    .menu-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      z-index: 998;
-      display: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    .menu-overlay.active {
-      display: block;
-      opacity: 1;
     }
 
     /* Pertahankan indikator warna pada card-item */
@@ -153,8 +133,6 @@
     body.theme-warga { --primary-color: var(--warga-red); --primary-color-rgb: 239, 68, 68; --primary-dark: #b91c1c; }
     body.theme-pkk { --primary-color: var(--pkk-green); --primary-color-rgb: 16, 185, 129; --primary-dark: #059669; }
     body.theme-karangtaruna { --primary-color: var(--kt-blue); --primary-color-rgb: 56, 189, 248; --primary-dark: #0284c7; }
-    /* Tambahkan tema khusus profil */
-    body.theme-profil { --primary-color: #f59e0b; --primary-color-rgb: 245, 158, 11; --primary-dark: #d97706; }
 
     * {
       box-sizing: border-box;
@@ -257,16 +235,17 @@
     .login-box {
       width: 100%;
       max-width: 400px;
-      background: rgba(var(--bg-surface-rgb), 0.95);
+      background: var(--bg-surface);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      padding: clamp(25px, 8vw, 35px) clamp(15px, 5vw, 25px);
+      padding: 35px 25px;
       border-radius: 24px;
       box-shadow: var(--shadow-lg);
       border: 1px solid var(--border-color);
       text-align: center;
       transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
+
     .input-group {
       position: relative;
       margin-bottom: 18px;
@@ -320,10 +299,8 @@
     .header-clouds {
       position: absolute;
       inset: 0;
-      /* MASALAH 3: Mengganti clouds.png yang 404 dengan CSS Gradient estetik */
-      background: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
-                  radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 30%);
-      opacity: 0.6; /* Membuat efek awan halus terlihat */
+      background-image: url('https://www.transparenttextures.com/patterns/clouds.png');
+      opacity: 0;
       pointer-events: none;
       z-index: 0;
       transition: opacity 0.8s ease;
@@ -501,13 +478,12 @@
 
 
     .welcome-banner {
-      background: rgba(var(--bg-surface-rgb), 0.95);
+      background: var(--bg-surface);
       color: var(--text-main);
       text-align: left;
       padding: clamp(15px, 5vw, 25px);
       border-radius: 20px;
-      margin: -25px auto 0;
-      width: calc(100% - clamp(24px, 8vw, 40px)); /* Responsive width */
+      margin: -25px 20px 0;
       box-shadow: var(--shadow-lg);
       position: relative;
       transition: background-color 0.3s ease;
@@ -516,13 +492,11 @@
 
 
     .menu-container {
-      padding: clamp(16px, 5vw, 24px);
+      padding: 20px;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: clamp(12px, 4vw, 20px);
-      justify-content: center; /* Centers the grid itself */
-      align-items: stretch; /* Ensures items stretch to fill height */
-      width: 100%; /* Ensures it takes full width */
+      justify-items: center;
       margin-top: 10px;
     }
 
@@ -531,8 +505,8 @@
       background: var(--bg-surface);
       border-radius: 24px;
       width: 100%;
-      aspect-ratio: auto; /* Removed fixed aspect ratio */
-      min-height: 105px; /* Added min-height */
+      aspect-ratio: 1 / 0.9;
+      height: auto;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -558,14 +532,14 @@
 
     .menu-item i {
       color: var(--primary-color);
-      font-size: clamp(32px, 10vw, 42px);
+      font-size: 36px;
       margin-bottom: 10px;
     }
 
     .menu-item span {
-      font-size: clamp(11.5px, 3.5vw, 13px);
-      font-weight: 800;
-      letter-spacing: -0.3px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
       line-height: 1.2;
       color: var(--text-main);
       text-align: center;
@@ -648,21 +622,6 @@
       background: var(--primary-color);
       border-radius: 0 0 4px 4px;
       box-shadow: 0 2px 10px rgba(var(--primary-color-rgb), 0.5);
-    }
-
-    /* Styling khusus untuk menu Profil agar memiliki identitas warna kuning (Amber) */
-    .nav-item#nav-profil.active {
-      color: #f59e0b !important;
-    }
-
-    .nav-item#nav-profil.active i,
-    .nav-item#nav-profil.active span {
-      color: #f59e0b !important;
-    }
-
-    .nav-item#nav-profil.active::before {
-      background: #f59e0b !important;
-      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.5);
     }
 
     .nav-menu-item {
@@ -810,9 +769,6 @@
     }
 
     .card-item {
-      margin: 0 auto 1rem; /* Centered */
-      width: 100%; /* Full width */
-
       background: var(--bg-surface);
       padding: 1.5rem;
       border-radius: 16px;
@@ -1106,7 +1062,7 @@
 
     .screen {
       display: none;
-      padding: 1rem 12px 100px; /* Padding bawah disesuaikan untuk Bottom Nav */
+      padding: 1rem 1rem 100px; /* Padding bawah disesuaikan untuk Bottom Nav */
       min-height: 100vh;
       width: 100%;
     }
@@ -1295,112 +1251,77 @@
 
     /* Compact & Modern Iuran Table for Mobile */
     .iuran-table {
-      width: 100%;
-      min-width: 1050px; /* Diperlebar sedikit agar teks tidak berdesakan */
-      font-size: 16px; /* Ukuran standar aksesibilitas */
-      border-collapse: separate; 
-      border-spacing: 0; 
-      margin: 0 auto;
-      table-layout: fixed; /* Memastikan lebar kolom presisi */
+      min-width: 850px; /* Diperlebar sedikit agar kolom aksi tidak terpotong */
+      font-size: 13px;
+      border-collapse: separate; /* Penting agar sticky border bekerja dengan benar */
+      border-spacing: 0;
     }
 
     /* Perbaikan Responsivitas Tabel Iuran untuk Layar HP Sangat Kecil */
     @media (max-width: 500px) {
       .iuran-table {
-        min-width: 900px; /* Tetap pertahankan lebar minimum agar scroll aktif */
-        font-size: 15px; 
+        min-width: 680px;
+        font-size: 10.5px;
         border-collapse: separate;
       }
       
       /* Perkecil kolom sticky agar area scroll lebih luas di layar HP */
       .iuran-table th:nth-child(1),
       .iuran-table td:nth-child(1) {
-        min-width: 150px; /* Cukup lebar untuk Nama di HP */
-        max-width: 150px;
+        min-width: 95px;
+        max-width: 95px;
       }
       
       .iuran-table th:nth-child(2),
       .iuran-table td:nth-child(2) {
-        left: 150px; /* Sesuai lebar kolom 1 */
-        min-width: 110px;
-        max-width: 110px;
+        left: 95px; /* Harus sinkron dengan lebar kolom pertama */
+        min-width: 85px;
+        max-width: 85px;
       }
       
       /* Kolom bulan lebih ramping dan rapat */
       .iuran-table td:nth-child(n+3):nth-child(-n+14) {
-        width: 45px;
-        padding: 8px 2px !important;
+        width: 32px;
+        padding: 4px 1px !important;
       }
       .iuran-table input[type="checkbox"] {
-        width: 26px !important; /* Hit target lebih besar untuk jari orang tua */
-        height: 26px !important;
+        width: 20px !important;
+        height: 20px !important;
       }
     }
 
     /* Sticky Kolom Nama (Kolom 1) */
-    .iuran-table {
-      width: 100%;
-      min-width: 980px;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    .iuran-table th,
-    .iuran-table td {
-      box-sizing: border-box;
-      vertical-align: middle;
-      overflow: hidden;
-    }
-
     .iuran-table th:nth-child(1),
     .iuran-table td:nth-child(1) {
-      position: sticky !important; 
+      position: sticky !important;
       left: 0;
-      z-index: 10;
-      background-color: var(--bg-surface) !important; /* Latar belakang solid agar tidak tembus */
-      background-clip: padding-box;
-      width: 180px;
-      min-width: 180px;
-      max-width: 180px;
+      z-index: 30;
+      background-color: var(--bg-surface) !important;
+      min-width: 130px;
+      max-width: 130px;
       white-space: normal;
       word-break: break-word;
-      font-weight: 800; /* Teks Nama lebih tebal */
-      color: var(--text-main);
-      border-right: 1px solid var(--border-color);
-      padding: 15px 12px !important; /* Padding lebih lega */
+      box-shadow: 4px 0 8px -2px rgba(0,0,0,0.2);
+      border-right: 1px solid var(--border-color) !important;
     }
 
     /* Sticky Kolom Kategori (Kolom 2) */
     .iuran-table th:nth-child(2),
     .iuran-table td:nth-child(2) {
       position: sticky !important;
-      left: 180px; /* Sesuai dengan lebar kolom pertama */
-      z-index: 9;
+      left: 130px; /* Harus sama dengan lebar kolom pertama */
+      z-index: 30;
       background-color: var(--bg-surface) !important;
-      background-clip: padding-box;
-      width: 130px;
-      min-width: 130px;
-      max-width: 130px;
-      font-size: 14px;
-      color: var(--text-muted);
-      /* Efek bayangan tipis sebagai pemisah visual saat discroll */
+      min-width: 110px;
+      max-width: 110px;
       border-right: 2px solid var(--primary-color) !important;
-      box-shadow: 5px 0 10px -5px rgba(0,0,0,0.15);
-      padding: 15px 10px !important;
+      box-shadow: 4px 0 8px -2px rgba(0,0,0,0.2);
     }
 
-    /* Header harus memiliki z-index lebih tinggi dari baris data */
     .iuran-table th:nth-child(1),
     .iuran-table th:nth-child(2) {
       background-color: var(--bg-app) !important;
-      z-index: 20 !important; 
-    }
-
-    /* Peningkatan hit target checkbox */
-    .iuran-table input[type="checkbox"] {
-      cursor: pointer;
-      accent-color: var(--primary-color);
-      transform: scale(1.1);
+      z-index: 21;
     }
 
     body.dark-mode .iuran-table th:nth-child(1),
@@ -1598,29 +1519,29 @@
       .kas-summary {
         grid-template-columns: 1fr;
       }
+
       .menu-container {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: clamp(10px, 3.5vw, 16px);
-        padding: clamp(12px, 4.5vw, 20px);
+        gap: 16px;
+        padding: 18px;
         margin-top: 5px;
       }
 
       .menu-item {
         width: 100%;
         height: auto;
-        aspect-ratio: auto;
-        min-height: 100px;
-        padding: 18px 10px;
+        aspect-ratio: 1 / 0.85;
+        padding: 22px 12px;
         border-radius: 28px;
       }
 
       .menu-item i {
-        font-size: clamp(32px, 10vw, 42px);
+        font-size: 42px;
         margin-bottom: 10px;
       }
 
       .menu-item span {
-        font-size: clamp(11.5px, 3.5vw, 13px);
+        font-size: 13.5px;
         font-weight: 800;
         line-height: 1.2;
       }
@@ -1632,11 +1553,6 @@
 
       .fab {
         right: 14px;
-      }
-      .card-item {
-        margin: 0 auto 1rem;
-        width: 100%;
-        padding: 1.25rem 1rem;
       }
 
       .fab {
@@ -1691,11 +1607,11 @@
 
     /* Highlight untuk Baris Lunas Setahun (Hijau Emerald) */
     .iuran-table tr.row-lunas td {
-      background-color: rgba(16, 185, 129, 0.25) !important;
+      background-color: rgba(16, 185, 129, 0.12) !important;
     }
     body.dark-mode .iuran-table tr.row-lunas td {
-      background-color: rgba(16, 185, 129, 0.35) !important;
-    } 
+      background-color: rgba(16, 185, 129, 0.22) !important;
+    }
 
     /* Prefix Rp untuk Input Nominal */
     .input-group-prefix {
@@ -1722,11 +1638,6 @@
 </head>
 <body>
 
-<div id="offlineIndicator" style="display:none; position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; text-align:center; padding:10px; z-index:20002; font-size:13px; font-weight:700; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
-  <i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">cloud_off</i>
-  Koneksi Terputus. Anda sedang menggunakan mode offline.
-</div>
-
 <div id="pullToRefresh" class="ptr-container">
   <div class="ptr-icon"><i class="material-icons">refresh</i></div>
 </div>
@@ -1745,7 +1656,7 @@
   </button>
 </div>
 
-<div id="menuOverlay" class="menu-overlay" onclick="toggleMenuNavigasi()"></div>
+<div id="menuOverlay" class="menu-overlay" onclick="tutupMenuNavigasi()"></div>
 
 <div id="loginScreen">
   <div class="login-box">
@@ -1772,12 +1683,12 @@
     <button class="btn-primary" onclick="doLogin()" id="btnLogin" style="height: 54px; font-size: 16px; letter-spacing: 0.5px;">Masuk Sekarang</button>
     
     <p style="margin-top:25px; font-size: 14px; color: var(--text-muted);">
-      Belum punya akun?  
+      Belum punya akun? 
       <a href="#" onclick="bukaFormDaftar(); return false;" style="color:var(--primary-red); font-weight: 700; text-decoration: none;">Daftar Disini</a>
     </p>
     
     <p style="margin-top:15px; font-size: 13px; color: var(--text-muted); padding-top: 15px; border-top: 1px dashed var(--border-color);">
-      Kendala akses? <a href="https://wa.me/6285236356569" id="linkHubungiAdmin" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Dukungan</a>
+      Kendala akses? <a href="https://wa.me/6285236356569" id="linkHubungiAdmin" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Admin</a>
     </p>
   </div>
 </div>
@@ -1853,7 +1764,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <div class="header-toggle-btn" id="headerDarkIcon" onclick="toggleDarkMode()" title="Ganti Tema"></div>
-          <div class="header-toggle-btn" onclick="bukaNotifikasi()" title="Notifikasi" style="position:relative;">
+          <div class="header-toggle-btn" onclick="requestNotificationPermission()" title="Notifikasi" style="position:relative;">
             <i class="material-icons">notifications</i>
             <span id="notifBadge" style="display:none; position:absolute; top:8px; right:8px; background:#fbbf24; width:8px; height:8px; border-radius:50%; border:2px solid var(--primary-color);"></span>
           </div>
@@ -1864,7 +1775,7 @@
       </div>
     </div>
 
-  <!-- Bottom Navigation Bar (Restored & Enhanced) -->
+  <!-- New Bottom Navigation Bar -->
   <nav class="nav-bar-bottom" id="bottomNav">
     <button class="nav-item active" onclick="pilihMenu('warga')" id="nav-warga">
       <i class="material-icons">people</i><span>Warga</span>
@@ -1876,7 +1787,7 @@
       <i class="material-icons">diversity_3</i><span>Karang Taruna</span>
     </button>
     <button class="nav-item" onclick="tampilkanProfil()" id="nav-profil">
-      <i class="material-icons">account_circle</i><span>Profil</span>
+      <i class="material-icons">person</i><span>Profil</span>
     </button>
   </nav>
 
@@ -1946,7 +1857,7 @@
           <div style="width: 100%; height: 100%; background: var(--bg-app); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color); border: 2px solid var(--border-color); overflow: hidden;">
             <i class="material-icons" style="font-size: 64px;">person</i>
           </div>
-          <div style="position: absolute; bottom: 0; right: 0; background: var(--primary-color); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--bg-surface);"> 
+          <div style="position: absolute; bottom: 0; right: 0; background: var(--primary-color); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--bg-surface);">
             <i class="material-icons" style="font-size: 16px;">verified</i>
           </div>
         </div>
@@ -1975,9 +1886,9 @@
           </label>
         </div>
         
-        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
-          <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-            <i class="material-icons" style="color: #f59e0b; font-size: 20px;">lock_reset</i>
+        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
+          <div style="background: rgba(37, 99, 235, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: #2563eb; font-size: 20px;">lock_reset</i>
           </div>
           <div style="flex: 1;">
             <span style="font-weight: 600; color: var(--text-main); display: block;">Ubah Kata Sandi</span>
@@ -1987,9 +1898,9 @@
         </div>
 
         <div id="profAdminOnly" style="display: none;">
-          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
-            <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-              <i class="material-icons" style="color: #f59e0b; font-size: 20px;">manage_accounts</i>
+          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer;">
+            <div style="background: rgba(16, 185, 129, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: #10b981; font-size: 20px;">manage_accounts</i>
             </div>
             <div style="flex: 1;">
               <span style="font-weight: 600; color: var(--text-main); display: block;">Kelola User & Role</span>
@@ -1999,19 +1910,19 @@
           </div>
         </div>
 
-        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer; color: #f59e0b;">
-        <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-          <i class="material-icons" style="color: #f59e0b; font-size: 20px;">logout</i>
+        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer;">
+        <div style="background: rgba(99, 102, 241, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #6366f1; font-size: 20px;">logout</i>
           </div>
-        <span style="font-weight: 600; color: #f59e0b;">Keluar dari Aplikasi</span>
+        <span style="font-weight: 600; color: #6366f1;">Keluar dari Aplikasi</span>
         </div>
       </div>
 
       <div style="margin-top: 30px; text-align: center;">
         <p style="font-size: 12px; color: var(--text-muted);">
-          Portal RT01 RW03 - Desa Ngelom
+          Portal RT01 RW03- Desa Ngelom
         </p>
-        <a href="https://wa.me/6285236356569" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #f59e0b; text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+        <a href="#" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--accent-blue); text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
           <i class="material-icons" style="font-size: 18px;">support_agent</i> Hubungi Dukungan
         </a>
       </div>
@@ -2174,8 +2085,6 @@
     <div id="ktFormCrudGaleri" class="crud-form">
       <h4>Upload Dokumentasi Karang Taruna</h4>
       <input type="hidden" id="ktGaleriId">
-      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
-      <input type="date" id="ktGaleriTanggal" style="margin-bottom:12px;">
       <input type="text" id="ktGaleriJudul" placeholder="Judul Kegiatan">
       <select id="ktGaleriType" onchange="toggleGaleriType('kt')">
         <option value="image">Upload File Gambar</option>
@@ -2195,17 +2104,6 @@
       <button class="btn-secondary" onclick="tutupForm('ktFormCrudGaleri','ktWrapListGaleri')">Batal</button>
     </div>
     <div id="ktWrapListGaleri">
-      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(56,189,248,0.06); border:1px solid var(--border-color);">
-        <div class="filter-group" style="flex:1;">
-          <label style="font-size:10px; font-weight:800; color:var(--kt-blue); letter-spacing:0.5px;">ARSIP TAHUN</label>
-          <select id="ktGaleriTahunFilter" onchange="ktFilterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
-            <option value="all">📅 Semua Dokumentasi</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-          </select>
-        </div>
-      </div>
       <div id="ktListGaleri" class="galeri-grid"></div>
       <button id="ktBtnTambahGaleri" class="fab" onclick="ktBukaFormGaleri()">
         <i class="material-icons">add_a_photo</i>
@@ -2361,11 +2259,6 @@
         <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">south</i> Ke Bulan Sekarang
       </button>
     </div>
-    <div style="margin-bottom:1.2rem; text-align:center;">
-      <button id="btnSalinRondaWa" class="btn-small" onclick="salinJadwalRondaToWhatsApp()" style="width:auto; padding:10px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:none;">
-        <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">whatsapp</i> Salin Jadwal ke WhatsApp
-      </button>
-    </div>
     <div id="rondaFormCrud" class="crud-form">
       <h4 id="rondaJudulForm">Tambah Jadwal Ronda</h4> 
       <input type="hidden" id="rondaRow">
@@ -2459,8 +2352,6 @@
     <div id="formPkkCrudGaleri" class="crud-form">
       <h4>Tambah Foto ke Galeri PKK</h4>
       <input type="hidden" id="pkkGaleriId">
-      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
-      <input type="date" id="pkkGaleriTanggal" style="margin-bottom:12px;">
       <input type="text" id="pkkGaleriCaption" placeholder="Caption / Deskripsi Foto">
       <select id="pkkGaleriType" onchange="toggleGaleriType('pkk')">
         <option value="image">Upload File Gambar</option>
@@ -2478,17 +2369,6 @@
       <button class="btn-secondary" onclick="tutupForm('formPkkCrudGaleri','pkkWrapListGaleri')">Batal</button>
     </div>
     <div id="pkkWrapListGaleri">
-      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(16,185,129,0.06); border:1px solid var(--border-color);">
-        <div class="filter-group" style="flex:1;">
-          <label style="font-size:10px; font-weight:800; color:var(--pkk-green); letter-spacing:0.5px;">LIHAT TAHUN</label>
-          <select id="pkkGaleriTahunFilter" onchange="pkkFilterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
-            <option value="all">🌸 Seluruh Galeri</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-          </select>
-        </div>
-      </div>
       <div id="pkkListGaleri" class="galeri-grid"></div>
       <button id="pkkBtnTambahGaleri" class="fab" onclick="pkkBukaFormGaleri()">
         <i class="material-icons">add</i>
@@ -2739,8 +2619,6 @@
     <div id="formCrudGaleri" class="crud-form">
       <h4 id="judulFormGaleri">Upload Dokumentasi</h4>
       <input type="hidden" id="galeriId">
-      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
-      <input type="date" id="galeriTanggal" style="margin-bottom:12px;">
       <input type="text" id="galeriCaption" placeholder="Caption / Deskripsi Foto">
       <select id="galeriType" onchange="toggleGaleriType('rt')">
         <option value="image">Upload File Gambar</option>
@@ -2758,17 +2636,6 @@
       <button class="btn-secondary" onclick="tutupForm('formCrudGaleri','wrapListGaleri')">Batal</button>
     </div>
 <div id="wrapListGaleri">
-      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(var(--primary-color-rgb), 0.04); border:1px solid var(--border-color);">
-        <div class="filter-group" style="flex:1;">
-          <label style="font-size:10px; font-weight:800; color:var(--primary-red); letter-spacing:0.5px;">URUTKAN TAHUN</label>
-          <select id="galeriTahunFilter" onchange="filterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
-            <option value="all">📅 Semua Tahun</option>
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-          </select>
-        </div>
-      </div>
       <div id="listGaleri" class="galeri-grid"></div>
 <button id="btnTambahGaleri" class="fab" onclick="bukaFormGaleri()" style="display:flex !important;">
         <i class="material-icons">add</i>
@@ -2780,21 +2647,6 @@
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
   // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
-
-  /**
-   * Registrasi Service Worker untuk PWA
-   */
-  async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('sw.js');
-        console.log('Service Worker registered with scope:', registration.scope);
-        return registration;
-      } catch (error) {
-        console.error('Service Worker registration failed:', error);
-      }
-    }
-  }
   const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
 
   /**
@@ -2810,31 +2662,19 @@
               if (prop === 'withFailureHandler') return (h) => createRunner({ ...handlers, failure: h });
 
               return async (...args) => {
-                // Cek status koneksi sebelum melakukan fetch
-                if (!navigator.onLine) {
-                  const offErr = new Error("Koneksi Terputus: Periksa jaringan internet Anda.");
-                  if (handlers.failure) handlers.failure(offErr);
-                  else showError(offErr.message);
-                  return;
-                }
-
                 try {
                   const res = await fetch(GAS_WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: prop, data: args }) });
                   const text = await res.text();
                   if (!text) throw new Error("Respon kosong dari server.");
-
+                  
                   let json;
                   try { json = JSON.parse(text); } catch(e) { throw new Error("Format data server tidak valid (Bukan JSON)."); }
                   
                   // Masukkan hasil ke success handler (biar UI yang menangani status 'success' atau 'error' di dalamnya)
                   if (handlers.success) handlers.success(json);
                 } catch (err) {
-                  const errorToReport = !navigator.onLine ? new Error("Gagal terhubung ke server. Anda sedang offline.") : err;
-                  if (handlers.failure) handlers.failure(errorToReport);
-                  else {
-                    console.error("GAS Server Error:", errorToReport);
-                    showError("Gangguan Jaringan: Pastikan internet Anda stabil.");
-                  }
+                  if (handlers.failure) handlers.failure(err);
+                  else console.error("GAS Server Error:", err);
                 }
               };
             }
@@ -2850,9 +2690,6 @@
   var currentToken = null;
   var allUsers = []; // Global variable to store all user data
   var activeNotifications = []; // Helper untuk simpan list notif saat ini
-  var rtGaleriDataGlobal = [];
-  var ktGaleriDataGlobal = [];
-  var pkkGaleriDataGlobal = [];
 
   // Global Loading Spinner Component
   const SPINNER_HTML = '<div style="display:flex; justify-content:center; padding:40px; width:100%;"><div class="bbx-spinner"></div></div>';
@@ -2920,82 +2757,22 @@
   // ======================== MEDIA HELPERS ========================
   function checkAndRequestNotificationPermission(silent) {
     if (!("Notification" in window)) {
-      console.warn('Browser ini tidak mendukung notifikasi.');
+      if (!silent) bukaNotifikasi(); 
       return;
     }
 
     if (Notification.permission === "granted") {
-      subscribeUserToPush(silent);
+      if (!silent) bukaNotifikasi();
     } else if (Notification.permission !== "denied") {
-      // iOS 16.4+ Memerlukan interaksi manual. 
-      // Jangan panggil otomatis jika silent = true
-      if (!silent) {
-        Swal.fire({
-          title: 'Aktifkan Notifikasi?',
-          text: 'Agar Anda menerima info ronda dan iuran secara real-time di HP.',
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: 'Aktifkan',
-          confirmButtonColor: 'var(--primary-color)'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            Notification.requestPermission().then(permission => {
-              if (permission === "granted") subscribeUserToPush(false);
-            });
-          }
-        });
-      }
-    }
-  }
-
-  // VAPID Public Key (Wajib untuk Push Notification standar)
-  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  }
-
-  function subscribeUserToPush(silent) {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-
-    navigator.serviceWorker.ready.then(function(registration) {
-      return registration.pushManager.getSubscription().then(function(subscription) {
-        if (subscription) {
-          updatePushSubscriptionOnServer(subscription);
-          return subscription;
+      Notification.requestPermission().then(function (permission) {
+        if (permission === "granted") {
+          if (silent) console.log("Notifikasi sistem diaktifkan otomatis.");
+          else showSuccess("Notifikasi sistem diaktifkan!");
         }
-
-        return registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        }).then(function(newSubscription) {
-          updatePushSubscriptionOnServer(newSubscription);
-          if (!silent) showSuccess('Notifikasi latar belakang aktif!');
-          return newSubscription;
-        });
+        if (!silent) bukaNotifikasi();
       });
-    }).catch(function(err) {
-      console.error('Push Subscription Error:', err);
-    });
-  }
-
-  function updatePushSubscriptionOnServer(subscription) {
-    if (!subscription) return;
-    try {
-      google.script.run.withSuccessHandler(function(res) {
-        if (res && res.status === 'success') {
-          console.log('Token perangkat tersimpan di database.');
-        }
-      }).savePushSubscription(JSON.stringify(subscription));
-    } catch (e) {
-      console.error('Gagal mengirim token ke GAS:', e);
+    } else {
+      if (!silent) bukaNotifikasi();
     }
   }
 
@@ -3122,27 +2899,6 @@
     return `${dayName}, ${date} ${monthName} ${d.getFullYear()} Pukul ${hours}:${minutes} WIB`;
   }
 
-  function escapeHtml(value) {
-    return String(value || '').replace(/[&<>"']/g, function(char) {
-      return {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[char];
-    });
-  }
-
-  function escapeJsString(value) {
-    return String(value || '')
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r');
-  }
-
   function toggleGaleriType(prefix) {
     var typeId = prefix === 'rt' ? 'galeriType' : prefix + 'GaleriType';
     var fileContId = prefix === 'rt' ? 'rtGaleriFileContainer' : prefix + 'GaleriFileContainer';
@@ -3219,8 +2975,8 @@
             toast: true,
             position: 'top-end',
             icon: 'info',
-            title: '<span style="font-weight:800; color:var(--primary-dark);">' + (it.judul || 'Notifikasi') + '</span>',
-            html: it.isi ? '<div style="text-align:left; font-size:13px; line-height:1.4;">' + String(it.isi).replace(/\n/g, '<br>') + '</div>' : '',
+            title: it.judul || 'Notifikasi',
+            html: it.isi ? String(it.isi).replace(/\n/g, '<br>') : '',
             showConfirmButton: true,
             confirmButtonText: 'Lihat',
             showCancelButton: false,
@@ -3309,13 +3065,13 @@
         var role = (currentUser.role || '').toLowerCase();
         var isManagement = role === 'admin' || role.includes('pengurus');
 
-        var html = '<div style="text-align:left; max-height:65vh; overflow-y:auto; padding-right:5px;">';
+        var html = '<div style="text-align:left; max-height:400px; overflow-y:auto; padding-right:5px;">';
         list.forEach(function(it) {
           if (it.timestamp > latestInHistory) latestInHistory = it.timestamp;
           
           var dateStr = new Date(Number(it.timestamp)).toLocaleString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
           var aksiButtons = isManagement ? `
-            <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:8px;">
+            <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end; border-top:1px solid var(--border-color); padding-top:8px;">
               <button class="btn-action-subtle" onclick="editNotifikasiUI('${it.id}')">
                 <i class="material-icons" style="font-size:16px;">edit</i> Edit
               </button>
@@ -3326,7 +3082,7 @@
 
           html += `
             <div class="card-item" style="padding:12px; margin-bottom:10px; border-left-width:4px;">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div style="font-weight:800; color:var(--primary-color); font-size:14px;">${it.judul}</div>
                 <div style="font-size:10px; color:var(--text-muted); font-weight:600;">${dateStr}</div>
               </div>
@@ -3359,10 +3115,6 @@
   var lightboxImages = [];
   var lightboxCurrentIndex = 0;
   var currentTab = 'warga';
-  
-  // MASALAH 1: Deklarasi Konstanta Global DEFAULT_ADMIN_WA
-  const DEFAULT_ADMIN_WA = '6285236356569';
-  var adminWhatsappNumber = DEFAULT_ADMIN_WA;
   var kasChart = null;
   var iuranData = [];
   var daftarKategori = [];
@@ -3458,14 +3210,13 @@
   var NOTIF_POLL_INTERVAL_MS = 15000;
   var rondaFilterBulanSelect = document.getElementById('rondaFilterBulan');
   var rondaFilterTahunSelect = document.getElementById('rondaFilterTahun');
+  
+  // SPESIFIKASI 2: Global variable untuk menyimpan data ronda yang sudah difilter
+  // agar bisa diakses oleh fungsi salin ke WhatsApp
+  var filteredRondaDataForShare = [];
+
   var currentRondaData = [];
   var rondaChart = null;
-  let touchStartX = 0;
-
-  // Global Promise to track login status (for Point 2: Race Condition Auto-Login)
-  let loginReadyPromise = new Promise(resolve => {
-    window.resolveLoginReady = resolve; // Expose resolve function globally
-  });
 
   var originalPemasukanList = [];
   var originalPengeluaranList = [];
@@ -3502,8 +3253,7 @@
       showConfirmButton: false,
       showCloseButton: true,
       padding: '0',
-      width: 'min(90%, 350px)',
-          width: 'min(90%, 500px)',
+      width: '350px',
       background: 'transparent',
       html: `
         <div style="background:var(--bg-surface); border-radius:28px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--border-color);">
@@ -3587,7 +3337,7 @@
       showConfirmButton: false,
       showCancelButton: false,
       background: 'var(--bg-surface)',
-      width: 'min(calc(100% - 40px), 420px)',
+      width: 420,
       padding: '16px',
       customClass: {
         popup: 'swal2-modern-loading'
@@ -3641,7 +3391,6 @@
       document.getElementById('dashboardView').style.display = 'block';
       if (typeof refreshNavVisibility === 'function') refreshNavVisibility();
       renderMenu(currentTab);
-      updateNavActiveState(currentTab);
     }
   }
 
@@ -3651,12 +3400,9 @@
     if (history.state && history.state.view) {
       var state = history.state;
       document.getElementById(state.view).style.display = 'block';
-      if (state.tab) {
-        currentTab = state.tab;
-        if (state.view === 'dashboardView' || state.view === 'home') {
-          renderMenu(currentTab);
-        }
-        updateNavActiveState(currentTab);
+      if (state.tab) { 
+        currentTab = state.tab; 
+        renderMenu(currentTab); 
       }
       // Jalankan fungsi muat data jika ada
       if (state.onLoad && typeof window[state.onLoad] === 'function') {
@@ -3664,7 +3410,7 @@
       }
     } else {
       document.getElementById('dashboardView').style.display = 'block';
-      setAplikasiActiveTab(currentTab);
+      renderMenu(currentTab);
     }
   });
 
@@ -3709,64 +3455,21 @@
     header.addEventListener('touchend', resetPosition);
   }
 
-  // Helper untuk sinkronisasi token ke IndexedDB agar bisa dibaca sw.js
-  function syncTokenToIDB(token) {
-    const request = indexedDB.open('AuthDB', 1);
-    request.onupgradeneeded = (e) => {
-      e.target.result.createObjectStore('session', { keyPath: 'id' });
-    };
-    request.onsuccess = (e) => {
-      const db = e.target.result;
-      const transaction = db.transaction('session', 'readwrite');
-      const store = transaction.objectStore('session');
-      store.put({ id: 'currentToken', token: token, updatedAt: Date.now() });
-    };
-  }
-
-  /**
-   * Menangani perubahan status koneksi internet
-   */
-  function updateOnlineStatus() {
-    const indicator = document.getElementById('offlineIndicator');
-    if (!indicator) return;
-
-    if (navigator.onLine) {
-      indicator.style.display = 'none';
-      // Opsional: Refresh data otomatis saat kembali online jika user sudah login
-      if (currentToken && document.getElementById('dashboardView').style.display === 'block') {
-        refreshActiveViewData();
-      }
-    } else {
-      indicator.style.display = 'block';
-    }
-  }
-
   // ======================== SESSION & LOGIN ========================
-  window.addEventListener('load', function () {
+  window.addEventListener('load', function() {
     applyDarkModePreference();
 
     // Dengar perubahan pengaturan sistem secara real-time
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
       if (localStorage.getItem('darkMode') === null) {
         applyDarkModePreference();
       }
     });
 
-    // Listener Koneksi Internet
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    updateOnlineStatus(); // Cek status saat pertama kali load
-
     // Inisialisasi interaksi awan
     initCloudInteraction();
 
-    // Daftarkan Service Worker untuk Web Push / background notifications
-    registerServiceWorker().catch(function (err) {
-      console.warn('Service Worker tidak dapat didaftarkan:', err.message);
-    });
-
     // Otomatis Log In: Periksa token yang tersimpan di perangkat
-    updateAdminContactLink();
     var savedToken = localStorage.getItem('sessionToken');
     if (savedToken) {
       // Tampilkan indikator loading saat memverifikasi sesi otomatis
@@ -3780,51 +3483,35 @@
       }
 
       google.script.run
-        .withSuccessHandler(function (res) {
+        .withSuccessHandler(function(res) {
           if (res && res.status === 'success') {
             currentUser = res;
             currentToken = res.token;
-          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
-            syncTokenToIDB(res.token); // Sinkronisasi ke IDB
-
             // Perbaikan: Update nama di dashboard saat load awal
             var nameEl = document.getElementById('welcomeUserName');
-            if (nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
-
+            if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
+            
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
-
-            // Deep Linking Logic: Tangkap parameter redirect
-            const urlParams = new URLSearchParams(window.location.search);
-            const redirectPage = urlParams.get('redirect');
-
-            if (redirectPage) {
-              // Bersihkan URL dari parameter agar tidak redirect berulang saat refresh
-              window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-              // Jalankan navigasi spesifik
-              handleNotifLihat(redirectPage);
-            } else {
-            history.replaceState({ view: 'dashboardView', tab: 'warga' }, '', '#warga');
-            currentTab = 'warga';
-            kembaliKeDashboard();
-            }
-
-            if (typeof muatDataKas === 'function') {
-              muatDataKas(function () {
-                // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
-              });
-            }
-            checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
-            // Jalankan polling notifikasi setelah login berhasil
-            startNotifikasiPolling();
-            updateAdminContactLink();
-            showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
+            // Set state awal saat berhasil masuk
+            history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
+          currentTab = 'warga';
+          kembaliKeDashboard();
+          if (typeof muatDataKas === 'function') {
+            muatDataKas(function() {
+              // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
+            });
+          }
+          checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
+          // Jalankan polling notifikasi setelah login berhasil
+          startNotifikasiPolling();
+          showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
           } else {
             localStorage.removeItem('sessionToken');
             location.reload(); // Sesi tidak valid, kembali ke tampilan awal
           }
         })
-        .withFailureHandler(function (err) {
+        .withFailureHandler(function(err) {
           console.error(err);
           localStorage.removeItem('sessionToken');
           location.reload();
@@ -3836,38 +3523,12 @@
     }
   });
 
-  function normalizeAdminWhatsapp(value) {
-    if (!value) return '6285236356569';
-    var normalized = String(value).trim().replace(/\D/g, '');
-    if (normalized.startsWith('0')) normalized = '62' + normalized.substring(1);
-    return normalized || '6285236356569';
-  }
-
-  function setAdminContactLinks(number) {
-    if (!number) number = '6285236356569';
-    var link = document.getElementById('linkHubungiAdmin');
-    var profLink = document.getElementById('profAdminContact');
-    if (link) link.href = 'https://wa.me/' + number;
-    if (profLink) profLink.href = 'https://wa.me/' + number;
-  }
-
   function updateAdminContactLink() {
-    // 1. ISOLASI & RESET: Paksa reset variabel ke nomor default setiap kali fungsi dipanggil
-    // Jangan gunakan nilai adminWhatsappNumber yang tersisa di memory
-    adminWhatsappNumber = normalizeAdminWhatsapp(DEFAULT_ADMIN_WA);
-    
-    // 2. IDEMPOTENSI: Segera bind ulang UI dengan nomor yang benar tanpa menunggu server
-    setAdminContactLinks(adminWhatsappNumber);
-
-    // 3. SINKRONISASI DINAMIS: Ambil data terbaru dari database (jika ada perubahan oleh Admin)
     google.script.run.withSuccessHandler(function(res) {
-      if (res && res.status === 'success' && res.data && res.data.admin_whatsapp) {
-        var latestNumber = normalizeAdminWhatsapp(res.data.admin_whatsapp);
-        // Pastikan hanya update jika datanya valid dan berbeda
-        if (latestNumber !== adminWhatsappNumber) {
-          adminWhatsappNumber = latestNumber;
-          setAdminContactLinks(adminWhatsappNumber);
-        }
+      if (res.status === 'success' && res.data.admin_whatsapp) {
+        // Pastikan dikonversi ke String terlebih dahulu sebelum replace
+        var wa = String(res.data.admin_whatsapp).replace(/\D/g, '');
+        document.getElementById('linkHubungiAdmin').href = "https://wa.me/" + wa;
       }
     }).getSettings();
   }
@@ -3893,13 +3554,11 @@
           if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
 
           localStorage.setItem('sessionToken', res.token);
-          syncTokenToIDB(res.token); // Sinkronisasi ke IDB
 
           document.getElementById('loginScreen').style.display = 'none';
           document.getElementById('mainApp').style.display = 'block';
           // Set state awal setelah login
           history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
-          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
           currentTab = 'warga';
           kembaliKeDashboard();
           showSuccess('Selamat datang, ' + currentUser.nama + '!');
@@ -4114,55 +3773,12 @@
   }
 
   // ======================== MENU NAVIGATION ========================
-  function initSwipeNavigation() {
-    let touchStartX = 0; // Isolated for this function
-    let touchEndX = 0;   // Isolated for this function
-
-    const mainApp = document.getElementById('mainApp');
-    mainApp.addEventListener('touchstart', e => {
-      touchStartX = e.changedTouches[0].screenX;
-    }, {passive: true});
-
-    mainApp.addEventListener('touchend', e => {
-      // Swipe hanya aktif jika sedang di dashboard untuk menghindari konflik dengan scroll form/tabel
-      if (document.getElementById('dashboardView').style.display !== 'block') return;
-      
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    }, {passive: true});
-
-    function handleSwipe() { // Also moved inside to form a closure
-      const deltaX = touchEndX - touchStartX;
-      const threshold = 70; 
-      const modules = ['warga', 'pkk', 'karangtaruna', 'profil']; 
-      let currentIdx = modules.indexOf(currentTab);
-      
-      if (document.getElementById('profilView').style.display === 'block') currentIdx = modules.indexOf('profil');
-      if (currentIdx === -1) return;
-
-      let targetIdx = -1;
-      if (deltaX > threshold && currentIdx > 0) {
-        targetIdx = currentIdx - 1;
-      } else if (deltaX < -threshold && currentIdx < modules.length - 1) {
-        targetIdx = currentIdx + 1;
-      }
-
-      if (targetIdx !== -1) {
-        const targetModule = modules[targetIdx];
-        if (targetModule === 'profil') {
-          tampilkanProfil();
-        } else {
-          pilihMenu(targetModule);
-        }
-      }
-    }
-  }
-
-  function pilihMenuOrProfil(moduleName) {
-    if (moduleName === 'profil') tampilkanProfil(); else pilihMenu(moduleName);
+  function toggleMenuNavigasi() {
+    document.getElementById('navMenu').classList.toggle('show');
   }
 
   function tutupMenuNavigasi() {
+    document.getElementById('navMenu').classList.remove('show');
   }
 
   // Helper untuk cek izin
@@ -4172,55 +3788,18 @@
     return currentUser.permissions.indexOf(permKey) !== -1;
   }
 
-  /**
-   * MASALAH 2: Sinkronisasi Navigasi Terpusat (Idempotent)
-   * Mengatur warna aktif menu (khususnya Profil) secara konsisten.
-   */
-  function setAplikasiActiveTab(targetTabId) {
-    try {
-      // 1. Bersihkan semua state aktif dari elemen navigasi
-      // Menggunakan querySelectorAll agar mencakup semua elemen dengan class .nav-item
-      const allNavs = document.querySelectorAll('.nav-item');
-      allNavs.forEach(el => {
-        el.classList.remove('active');
-        // Reset manual style jika ada inline-style dari manipulasi DOM liar
-        el.style.color = ''; 
-      });
-
-      // 2. Force Bind class 'active' ke target yang dituju
-      const targetEl = document.getElementById('nav-' + targetTabId);
-      if (targetEl) {
-        targetEl.classList.add('active');
-      }
-
-      // 3. Sinkronisasi Tema Body (Termasuk tema kuning untuk profil)
-      const themes = ['theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil'];
-      document.body.classList.remove(...themes);
-      document.body.classList.add('theme-' + targetTabId.replace('-', ''));
-
-      // 4. Update Global State
-      currentTab = targetTabId;
-      
-      console.log(`Navigation State: ${targetTabId} is now locked active.`);
-    } catch (err) {
-      console.error("Navigation State Error:", err);
-    }
-  }
-
-  // Refactor updateNavActiveState lama agar memanggil fungsi baru
-  function updateNavActiveState(tabName) {
-    setAplikasiActiveTab(tabName);
-  }
-
   function pilihMenu(tabName) {
     currentTab = tabName;
     sembunyikanSemuaLayar();
     
-    // Update Theme Class on Body
-    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil');
-    document.body.classList.add('theme-' + tabName.toLowerCase());
+    // Update Active Class on Bottom Nav
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    var activeNav = document.getElementById('nav-' + tabName.toLowerCase());
+    if(activeNav) activeNav.classList.add('active');
     
-    setAplikasiActiveTab(tabName);
+    // Update Theme Class on Body
+    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna');
+    document.body.classList.add('theme-' + tabName.toLowerCase());
 
     document.getElementById('dashboardView').style.display = 'block';
     history.pushState({view: 'dashboardView', tab: tabName}, '', '#' + tabName);
@@ -4256,14 +3835,16 @@
   }
 
   function tampilkanProfil() {
-    currentTab = 'profil';
     sembunyikanSemuaLayar();
     document.getElementById('profilView').style.display = 'block';
     
-    setAplikasiActiveTab('profil');
+    // Update Status Aktif pada Navigasi Bawah
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    var navProf = document.getElementById('nav-profil');
+    if(navProf) navProf.classList.add('active');
     
     history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
-
+    
     // Isi data user
     document.getElementById('profNama').innerText = currentUser.nama || '-';
     document.getElementById('profEmail').innerText = currentUser.email || '-';
@@ -4285,17 +3866,14 @@
       if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
     }
     
-    // Selalu paksa refresh nomor admin dari server setiap kali profil dibuka
-    updateAdminContactLink();
-    
-    // Tambahan: Pastikan href link di profil di-hard reset secara eksplisit 
-    // untuk mencegah data leakage dari manipulasi DOM di modul lain
-    setAdminContactLinks(DEFAULT_ADMIN_WA);
+    // Muat Link Hubungi Admin
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'success' && res.data.admin_whatsapp) {
+        var wa = String(res.data.admin_whatsapp).replace(/\D/g, '');
+        document.getElementById('profAdminContact').href = "https://wa.me/" + wa;
+      }
+    }).getSettings();
   }
-
-  window.addEventListener('load', function() {
-    initSwipeNavigation();
-  });
 
   // Fungsi untuk memfilter Bottom FAB Navigasi berdasarkan Role
   function refreshNavVisibility() {
@@ -4559,10 +4137,9 @@
     bukaFormMode('ktFormCrudKader', 'ktWrapListKader');
   }
 
-  function ktEditGaleri(id, judul, url, deskripsi, tanggal) {
+  function ktEditGaleri(id, judul, url, deskripsi) {
     document.getElementById('ktGaleriId').value = id;
     document.getElementById('ktGaleriJudul').value = judul;
-    document.getElementById('ktGaleriTanggal').value = tanggal || '';
     document.getElementById('ktGaleriDeskripsi').value = deskripsi;
     document.getElementById('ktGaleriVideoLink').value = isVideoLink(url) ? url : '';
     document.getElementById('ktGaleriType').value = isVideoLink(url) ? 'video' : 'image';
@@ -4614,7 +4191,7 @@
   function bukaKtKas() {
     sembunyikanSemuaLayar();
     document.getElementById('ktKasView').style.display = 'block';
-    history.pushState({view: 'ktKasView', tab: 'karangtaruna', onLoad: 'ktMuatDataKas'}, '', '#ktkas');
+    history.pushState({view: 'ktKasView', onLoad: 'ktMuatDataKas'}, '', '#ktkas');
     
     var actionDiv = document.getElementById('ktActionButtonsKas');
     if (hasPermission('kt_kas_crud')) {
@@ -4868,7 +4445,6 @@
   function ktBukaFormGaleri() {
     if(!hasPermission('kt_galeri_crud')) return;
     document.getElementById('ktGaleriId').value = '';
-    document.getElementById('ktGaleriTanggal').value = new Date().toISOString().slice(0,10);
     document.getElementById('ktGaleriJudul').value = '';
     document.getElementById('ktGaleriFile').value = '';
     document.getElementById('ktGaleriVideoLink').value = '';
@@ -4880,7 +4456,6 @@
   function ktUploadGaleri() {
     var id = document.getElementById('ktGaleriId').value;
     var j = document.getElementById('ktGaleriJudul').value;
-    var tgl = document.getElementById('ktGaleriTanggal').value;
     var d = document.getElementById('ktGaleriDeskripsi').value;
     var type = document.getElementById('ktGaleriType').value;
     var fInput = document.getElementById('ktGaleriFile');
@@ -4900,7 +4475,7 @@
         } else {
           showError(res ? res.pesan : 'Gagal menyimpan data');
         }
-      }).ktSimpanGaleri(id, j, null, '', '', d, vLink, tgl);
+      }).ktSimpanGaleri(id, j, null, '', '', d, vLink);
       return;
     }
 
@@ -4918,7 +4493,7 @@
           tutupForm('ktFormCrudGaleri','ktWrapListGaleri');
           ktMuatDataGaleri();
         } else { showError(res ? res.pesan : 'Gagal upload'); }
-      }).ktSimpanGaleri(id, j, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", d, "", tgl);
+      }).ktSimpanGaleri(id, j, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", d, "");
     });
   }
 
@@ -4936,70 +4511,26 @@
         list.innerHTML = '<p class="muted">Gagal mengambil data dari database.</p>';
         return;
       }
-      ktGaleriDataGlobal = res.data || [];
-      ktFilterDataGaleri();
-    }).ktGetGaleri();
-  }
-
-  function ktFilterDataGaleri() {
-    var tahun = document.getElementById('ktGaleriTahunFilter').value;
-    var filtered = ktGaleriDataGlobal;
-    if (tahun !== 'all') {
-      filtered = ktGaleriDataGlobal.filter(function(item) {
-        return item.tanggal && item.tanggal.includes(tahun);
-      });
-    }
-    ktRenderGaleriGrid(filtered);
-  }
-
-  function ktRenderGaleriGrid(data) {
-    var list = document.getElementById('ktListGaleri');
-    list.innerHTML = '';
-    if (data && data.length) {
-        var allMedia = data.map(function(it){ return it.url; });
-        data.forEach(function(item, idx) {
-          var safeJudul = escapeHtml(item.judul || '-');
-          var safeTanggal = escapeHtml(item.tanggal || '-');
-          var safeTanggalRaw = escapeJsString(item.tanggalRaw || '');
-          var safeDescription = escapeJsString(item.deskripsi || '');
-          var safeUrl = escapeJsString(item.url);
-          var safeItemId = escapeJsString(item.id);
-          var del = hasPermission('kt_galeri_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.judul || '') + '\',\'' + safeUrl + '\',\'' + safeDescription + '\',\'' + safeTanggalRaw + '\')">Edit</button><button class="btn-small danger" onclick="ktHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
+      if (res.data && res.data.length) {
+        var allMedia = res.data.map(function(it){ return it.url; });
+        res.data.forEach(function(item, idx) {
+          var del = hasPermission('kt_galeri_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditGaleri(\''+item.id+'\',\''+item.judul.replace(/'/g,"\\'")+'\',\''+item.url+'\',\''+(item.deskripsi||'').replace(/'/g,"\\'")+'\')">Edit</button><button class="btn-small danger" onclick="ktHapusGaleri(\''+item.id+'\')">Hapus</button>' : '';
           var thumb = getMediaThumbnail(item.url);
           var icon = isVideoLink(item.url) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
-          list.innerHTML += `
-            <div class="galeri-card" style="position:relative; display:flex; flex-direction:column; height:100%;">
-              ${icon}
-              <img src="${thumb}" class="galeri-img" onclick="openLightbox('${safeUrl}', ${JSON.stringify(allMedia).replace(/"/g,'&quot;')}, ${idx})" style="aspect-ratio:16/9; object-fit:cover;">
-              <div style="padding:16px; flex:1; display:flex; flex-direction:column;">
-                <div style="font-weight:800; font-size:15px; color:var(--text-main); line-height:1.4; margin-bottom:4px;">${safeJudul}</div>
-                <div style="font-size:11px; font-weight:600; color:var(--kt-blue); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">
-                  <i class="material-icons" style="font-size:14px;">event</i> ${safeTanggal}
-                </div>
-                <div style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
-                  ${escapeHtml(item.deskripsi || 'Tidak ada deskripsi kegiatan.')}
-                </div>
-                <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
-                  ${del}
-                </div>
-              </div>
-            </div>`;
+          list.innerHTML += '<div class="galeri-card" style="position:relative;">'+icon+'<img src="'+thumb+'" class="galeri-img" onclick="openLightbox(\''+item.url+'\','+JSON.stringify(allMedia).replace(/"/g,'&quot;')+','+idx+')"><div style="padding:12px;"><strong style="color:var(--text-main);">'+item.judul+'</strong><br><span class="muted">'+item.tanggal+'</span>'+del+'</div></div>';
         });
       } else {
         list.innerHTML = '<p>Belum ada dokumentasi Karang Taruna.</p>';
       }
+    }).ktGetGaleri();
   }
 
   // ======================== JADWAL ========================
   function bukaRonda() {
     sembunyikanSemuaLayar();
     document.getElementById('rondaView').style.display = 'block';
-    history.pushState({view: 'rondaView', tab: 'warga', onLoad: 'muatTahunRondaList'}, '', '#ronda');
+    history.pushState({view: 'rondaView', onLoad: 'muatTahunRondaList'}, '', '#ronda');
     muatTahunRondaList();
-    // Muat Slide Ronda untuk fitur Salin WhatsApp
-    muatRondaHariIni();
-    // Control visibility of the new button
-    document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
   }
 function bukaJadwal() {
     sembunyikanSemuaLayar();
@@ -5047,32 +4578,22 @@ function bukaJadwal() {
                 <div style="font-size:17px; font-weight:800; color:var(--text-main); line-height:1.2; flex:1; padding-right:10px;">${item.nama}</div>
                 <span style="background:rgba(239,68,68,0.1); color:var(--primary-red); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">RT 01/RW 03</span>
               </div>
-              
-              <!-- UI Jadwal Warga yang Dirapikan -->
-              <div style="background:rgba(var(--primary-color-rgb), 0.04); border-radius:12px; padding:12px; border:1px solid rgba(var(--primary-color-rgb), 0.08);">
-                <div style="display:grid; gap:10px;">
-                  <div class="row" style="align-items:flex-start;">
-                    <i class="material-icons" style="font-size:18px; color:var(--primary-red); margin-top:2px;">description</i> 
-                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${item.perihal}</div>
-                  </div>
-                  <div class="row">
-                    <i class="material-icons" style="font-size:18px; color:var(--primary-red);">event</i> 
-                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${formatIndoDate(item.waktu)}</div>
-                  </div>
-                  <div class="row">
-                    <i class="material-icons" style="font-size:18px; color:var(--primary-red);">location_on</i> 
-                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${item.tempat}</div>
-                  </div>
+              <div style="display:grid; gap:8px;">
+                <div class="row" style="align-items:flex-start;"><i class="material-icons" style="font-size:18px; color:var(--primary-red); margin-top:2px;">info_outline</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.perihal}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--primary-red);">schedule</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${formatIndoDate(item.waktu)}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--primary-red);">place</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.tempat}</div>
                 </div>
               </div>
-
               ${aksi}
             </div>`;
         }
       } else {
-        list.innerHTML = `
-          <div class="card-item" style="text-align:center; padding:30px; opacity:0.6;">
-            <i class="material-icons" style="font-size:48px; margin-bottom:10px;">event_busy</i><br>Belum ada jadwal kegiatan terdekat.</div>`;
+        list.innerHTML = '<p>Belum ada jadwal.</p>';
       }
     }).getJadwalKegiatan();
   }
@@ -5137,9 +4658,6 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close(); // Close loading modal
-          showError('Gagal menghapus jadwal: ' + err.message);
         }).hapusJadwal(id);
       }
     });
@@ -5150,10 +4668,8 @@ function bukaJadwal() {
     var tahun = document.getElementById('rondaFilterTahun').value;
     var list = document.getElementById('listRonda');
     list.innerHTML = '<div class="skeleton" style="height:100px;"></div>';
-    showLoading('Memuat data ronda...');
     
     google.script.run.withSuccessHandler(function(res) {
-      Swal.close(); // Close loading modal
       if (res.status === 'success') {
         currentRondaData = res.data || [];
         filterRonda();
@@ -5161,642 +4677,261 @@ function bukaJadwal() {
         list.innerHTML = '';
         showError(res.pesan); 
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat data ronda: ' + err.message);
     }).getRonda(bulan, tahun);
   }
 
-  // ======================== PERBAIKAN SWIPE & LOGIKA RONDA ========================
+  // ======================== SWIPE RONDA LOGIC ========================
   var rondaSlides = []; // Global variable to store prepared slides
   var currentRondaSlideIdx = 0;
+  var rondaTouchX = 0;
 
-  /**
-   * PERBAIKAN: Logika Penanggalan (Date Bridge)
-   * Memastikan pengambilan data ronda mencakup akhir bulan dan awal bulan berikutnya
-   * jika tanggal saat ini mendekati akhir bulan.
-   *
-   * @returns {Promise<void>}
-   */
-  /**
-   * PERBAIKAN A: Logika Penanggalan (Date Bridge)
-   * Mengambil data bulan ini & bulan depan jika di akhir bulan
-   */
-  /**
-   * SPESIFIKASI 2: Antisipasi Race Condition Auto-Login
-   * SPESIFIKASI 3: Logika Transisi Tanggal Dua Bulan (Dual-Fetch)
-   *
-   * Memuat data ronda untuk bulan berjalan dan bulan berikutnya (jika mendekati akhir bulan).
-   * Menunggu hingga proses login selesai sebelum memicu fetch data.
-   */
-  async function muatRondaHariIni(isManualRefresh = false) {
-    const info = document.getElementById('rondaTodayInfo');
-    const banner = document.getElementById('rondaTodayBanner');
+  // Fungsi untuk memuat petugas ronda hari ini di Dashboard Beranda
+  function muatRondaHariIni() {
+    var info = document.getElementById('rondaTodayInfo');
+    var banner = document.getElementById('rondaTodayBanner');
     if (!info || !banner) return;
+    
+    // Gunakan status tema aplikasi, bukan berdasarkan jam otomatis
+    var isNight = document.body.classList.contains('dark-mode');
+    
+    if (isNight) {
+      banner.style.background = '#1e293b'; // Slate Dark
+      banner.style.borderColor = 'rgba(251,191,36,0.4)';
+      banner.querySelector('.summary-icon').style.background = 'rgba(251,191,36,0.2)';
+      banner.querySelector('.summary-icon').style.color = '#fbbf24';
+      document.getElementById('rondaBannerTitle').style.color = '#fbbf24';
+      info.style.color = '#f8fafc';
+    } else {
+      banner.style.background = 'rgba(251,191,36,0.1)';
+      banner.style.borderColor = 'rgba(251,191,36,0.2)';
+      banner.querySelector('.summary-icon').style.background = 'rgba(251,191,36,0.1)';
+      banner.querySelector('.summary-icon').style.color = '#d97706';
+      document.getElementById('rondaBannerTitle').style.color = '#d97706';
+      info.style.color = 'var(--text-main)';
+    }
 
-    try {
-      info.innerHTML = '<div class="skeleton-text">Memuat jadwal...</div>';
+    // Dapatkan waktu hari ini
+    var d = new Date();
+    var months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-      // Tunggu login siap
-      await loginReadyPromise;
+    // Cek apakah 7 hari lagi sudah masuk bulan baru
+    var nextWeekDate = new Date(d);
+    nextWeekDate.setDate(d.getDate() + 7);
 
-      const today = new Date();
-      today.setHours(0,0,0,0);
+    google.script.run.withSuccessHandler(function(res) { // SPESIFIKASI 3: Robust try-catch
+      if (res.status === 'success' && res.data) {
+        rondaSlides = [];
+        var curWeek = Math.ceil(d.getDate() / 7);
+        var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        var todayStr = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+
+        // Helper untuk memformat daftar regu dalam satu minggu
+        var formatMingguan = function(entries) {
+          return entries.map(function(e) {
+            var p = e.tanggal.split('-');
+            var dObj = new Date(p[0], p[1] - 1, p[2]);
+            var hari = daysIndo[dObj.getDay()];
+            var tgl = p[2];
+            var isToday = (e.tanggal === todayStr);
+            var names = e.petugas ? e.petugas.split(/\r?\n/).filter(function(it){ return it.trim() !== ""; }).join(', ') : '-';
+            
+            var highlightStyle = isToday ? 'border-left:4px solid var(--primary-red); background:rgba(239,68,68,0.05);' : 'border-left:3px solid rgba(217,119,6,0.2);';
+            var todayTag = isToday ? ' <span style="background:var(--primary-red); color:white; font-size:9px; padding:1px 6px; border-radius:4px; vertical-align:middle; margin-left:4px;">HARI INI</span>' : '';
+
+            return '<div style="margin-bottom:10px; padding:4px 0 4px 10px; ' + highlightStyle + '">' +
+                   '<div style="font-size:12px; font-weight:800; color:var(--text-main);">' + hari + ', Tgl ' + tgl + ': ' + e.kelompok + todayTag + '</div>' +
+                   '<div style="font-size:11px; color:var(--text-muted); line-height:1.3; margin-top:2px;">' + names + '</div>' +
+                   '</div>';
+          }).join('');
+        };
+
+        // Slide 1: Minggu Ini
+        var entriesW1 = res.data.filter(function(it) {
+          var p = it.tanggal.split('-');
+          return Math.ceil(parseInt(p[2]) / 7) === curWeek;
+        });
+
+        rondaSlides.push({
+          title: 'Jadwal Ronda Minggu Ini',
+          content: entriesW1.length ? formatMingguan(entriesW1) : '<span style="color:var(--primary-red); font-weight:800;">🚨 LIBUR RONDA MINGGU INI</span>'
+        });
+
+        // Slide 2: Minggu Depan
+        var entriesW2 = res.data.filter(function(it) {
+          var p = it.tanggal.split('-');
+          return Math.ceil(parseInt(p[2]) / 7) === curWeek + 1;
+        });
+
+        var slide2Title = (nextWeekDate.getMonth() !== d.getMonth()) 
+          ? 'Jadwal Ronda ' + months[nextWeekDate.getMonth()] 
+          : 'Jadwal Ronda Minggu Depan';
+
+        rondaSlides.push({
+          title: slide2Title,
+          content: entriesW2.length ? formatMingguan(entriesW2) : '<span style="color:var(--text-muted);">Belum ada jadwal / Libur</span>'
+        });
+
+        displayRondaSlide(0);
+        initRondaSwipe();
+      } else {
+        info.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Gagal memuat jadwal.</span>';
+      }
+    }).getRonda(d.getMonth() + 1, d.getFullYear());
+  } // End of old muatRondaHariIni
+
+  function displayRondaSlide(idx) {
+    var title = document.getElementById('rondaBannerTitle');
+    var info = document.getElementById('rondaTodayInfo');
+    var content = document.getElementById('rondaBannerContent');
+    var dots = document.querySelectorAll('.ronda-dot');
+    
+    var isNight = document.body.classList.contains('dark-mode');
+    var activeColor = isNight ? '#fbbf24' : '#d97706';
+    var inactiveColor = isNight ? 'rgba(251, 191, 36, 0.2)' : 'rgba(217,119,6,0.2)';
+
+    if (!rondaSlides[idx]) return;
+    
+    content.style.opacity = '0';
+    setTimeout(function() {
+      title.innerText = rondaSlides[idx].title;
+      info.innerHTML = rondaSlides[idx].content;
+      content.style.opacity = '1';
       
-    const curMonth = today.getMonth() + 1;
-    const curYear = today.getFullYear();
+      // Update dots
+      dots.forEach(function(dot, i) {
+        if (i === idx) {
+          dot.classList.add('active');
+          dot.style.width = '12px';
+          dot.style.background = activeColor;
+        } else {
+          dot.classList.remove('active');
+          dot.style.width = '6px';
+          dot.style.background = inactiveColor;
+        }
+      });
+    }, 200);
     
-    // Cek apakah dekat akhir bulan untuk ambil data dua bulan (Date Bridge)
-    const lastDay = new Date(curYear, curMonth, 0).getDate();
-    const needsNextMonth = (lastDay - today.getDate()) <= 7;
-
-      let fetchTasks = [
-        new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getRonda(curMonth, curYear))
-      ];
-
-      if (needsNextMonth) {
-        const nextM = curMonth === 12 ? 1 : curMonth + 1;
-        const nextY = curMonth === 12 ? curYear + 1 : curYear;
-        fetchTasks.push(
-          new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getRonda(nextM, nextY))
-        );
-      }
-
-      const results = await Promise.all(fetchTasks);
-      let combinedData = [];
-      results.forEach(res => { if (res && res.status === 'success' && res.data) combinedData = combinedData.concat(res.data); });
-
-      prosesWidgetRonda(combinedData);
-      if (isManualRefresh) Swal.fire({ toast: true, position: 'top', timer: 1000, showConfirmButton: false, icon: 'success', title: 'Jadwal Diperbarui' });
-    } catch (e) {
-      console.error("Widget Ronda Error:", e);
-      info.innerHTML = '<div style="font-size:12px; color:var(--primary-red); font-weight:700;">Gagal memuat jadwal. Tarik untuk coba lagi.</div>';
-    }
+    currentRondaSlideIdx = idx;
   }
 
-  function prosesWidgetRonda(data) {
-    const info = document.getElementById('rondaTodayInfo');
-    if (!data || data.length === 0) {
-      info.innerHTML = 'Belum ada jadwal tersedia.';
-      return;
-    }
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    rondaSlides = []; 
-
-    // Filter data untuk event yang akan datang atau hari ini
-    const upcomingRonda = data.filter(item => {
-      const itemDate = new Date(item.tanggal);
-      itemDate.setHours(0, 0, 0, 0);
-      return itemDate >= today;
-    }).sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal)); // Urutkan berdasarkan tanggal
-
-    if (upcomingRonda.length === 0) {
-      info.innerHTML = 'Belum ada jadwal tersedia.';
-      banner.style.display = 'none';
-      return;
-    }
-
-    // Cari jadwal Sabtu terdekat dari database
-    const nearestSaturday = upcomingRonda.find(item => {
-      const itemDate = new Date(item.tanggal);
-      return itemDate.getDay() === 6; 
-    });
-
-    if (nearestSaturday) {
-      rondaSlides.push(createRondaSlide(nearestSaturday, 'Jadwal Sabtu, '));
-    }
-
-    // 2. Next upcoming event (if different from nearest Saturday)
-    const nextEvent = upcomingRonda.find(item => {
-      const itemDate = new Date(item.tanggal);
-      itemDate.setHours(0, 0, 0, 0);
-      if (rondaSlides.length > 0) {
-        const firstSlideDate = new Date(rondaSlides[0].rawItem.tanggal);
-        firstSlideDate.setHours(0, 0, 0, 0);
-        return itemDate.getTime() !== firstSlideDate.getTime();
-      }
-      return true; // If no Saturday slide, take the first upcoming
-    });
-
-    if (nextEvent && rondaSlides.length < 2) { // Limit to 2 slides for now
-      rondaSlides.push(createRondaSlide(nextEvent, 'Jadwal Berikutnya, '));
-    }
-    
-    // If no specific slides found, just take the first one
-    if (rondaSlides.length === 0 && upcomingRonda.length > 0) {
-        rondaSlides.push(createRondaSlide(upcomingRonda[0], 'Jadwal, '));
-    }
-
-    if (rondaSlides.length > 0) {
-      displayRondaSlide(0);
-      document.getElementById('rondaTodayBanner').style.display = 'flex';
-    } else {
-      info.innerHTML = '<div class="muted">Belum ada jadwal untuk Sabtu ini.</div>';
-      banner.style.display = 'none';
-    }
-    
-    initRondaInteractions();
-  }
-
-  /**
-   * Helper untuk membuat objek slide ronda.
-   * @param {object} item - Objek data ronda dari backend.
-   * @param {string} prefixTitle - Awalan judul slide (e.g., "Jadwal Sabtu, ").
-   * @returns {object} Objek slide.
-   */
-  function createRondaSlide(item, prefixTitle) {
-    const isLibur = item.kelompok.toUpperCase().includes('LIBUR') ||
-                    (item.petugas[0] && item.petugas[0].toLowerCase() === 'ditiadakan');
-    
-    let contentHtml = '';
-    let plainTextContent = '';
-    
-    if (isLibur) {
-      contentHtml = `
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:15px; color:var(--primary-red); font-weight:800;">${item.kelompok}</span>
-          <span class="status-badge status-belum" style="font-size:10px;">DITIADAKAN</span>
-        </div>`;
-      plainTextContent = `${item.kelompok} - Ditiadakan`;
-    } else {
-      const names = item.petugas.slice(0, 3).join(', ') + (item.petugas.length > 3 ? '...' : '');
-      contentHtml = `
-        <div style="font-size:14px; font-weight:700;">${item.kelompok}</div>
-        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Petugas: ${names}</div>`;
-      plainTextContent = `${item.kelompok}\nPetugas: ${item.petugas.join(', ')}`;
-    }
-
-    const dateParts = item.tanggalRaw.split(' ');
-    const displayDate = dateParts.slice(0, 2).join(' '); // e.g., "30 May"
-
-    return {
-      title: `${prefixTitle}${displayDate}`,
-      contentHtml: contentHtml,
-      plainTextContent: plainTextContent,
-      rawItem: item // Simpan item asli untuk referensi
-    };
-  }
-
-  /**
-   * Memperbarui indikator dot di bawah banner ronda.
-   * @param {number} activeIdx - Indeks slide yang sedang aktif.
-   */
-  function updateRondaDots(activeIdx) {
-    const dotContainer = document.querySelector('#rondaTodayBanner .summary-info > div:last-child'); // Target div yang berisi dots
-    if (!dotContainer) return;
-
-    dotContainer.innerHTML = ''; // Bersihkan dots yang ada
-    rondaSlides.forEach((_, i) => {
-      const dot = document.createElement('div');
-      dot.className = `ronda-dot ${i === activeIdx ? 'active' : ''}`;
-      dot.style.cssText = `width:${i === activeIdx ? '12px' : '6px'}; height:4px; border-radius:2px; background:${i === activeIdx ? '#d97706' : 'rgba(217,119,6,0.2)'}; transition:0.3s; cursor:pointer;`;
-      dot.onclick = (e) => {
-        e.stopPropagation(); // Mencegah event click banner utama
-        currentRondaSlideIdx = i;
-        displayRondaSlide(i);
-      };
-      dotContainer.appendChild(dot);
-    });
-  }
-
-  function initRondaInteractions() {
-    const banner = document.getElementById('rondaTodayBanner');
+  function initRondaSwipe() {
+    var banner = document.getElementById('rondaTodayBanner');
     if (!banner) return;
 
-    let touchStartX = 0; // For horizontal swipe
-    let touchEndX = 0;   // For horizontal swipe
-    let touchStartY = 0; // For vertical pull-to-refresh
-    let touchEndY = 0;   // For vertical pull-to-refresh
-    let isSwipingHorizontal = false;
-    let isSwipingVertical = false;
-    const PULL_THRESHOLD = 60; // Jarak tarikan untuk memicu refresh
-    const SWIPE_THRESHOLD = 50; // Jarak swipe horizontal untuk ganti slide
+    banner.addEventListener('touchstart', function(e) {
+      rondaTouchX = e.touches[0].clientX;
+    }, {passive: true});
 
-    // Clear previous event listeners to prevent duplicates
-    const newBanner = banner.cloneNode(true);
-    banner.parentNode.replaceChild(newBanner, banner);
-    const currentBanner = newBanner; // Use the new banner element
-
-    currentBanner.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      currentBanner.style.transition = 'none'; // Matikan transisi CSS saat mulai menyentuh
-      isSwipingHorizontal = false;
-      isSwipingVertical = false;
-    }, { passive: true });
-
-    currentBanner.addEventListener('touchmove', (e) => {
-      const deltaX = e.touches[0].clientX - touchStartX;
-      const deltaY = e.touches[0].clientY - touchStartY;
-
-      // Detect if it's primarily a horizontal or vertical swipe
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) { // Horizontal swipe
-        isSwipingHorizontal = true;
-        isSwipingVertical = false;
-        // Prevent default vertical scrolling if horizontal swipe is detected
-        if (e.cancelable) e.preventDefault();
-      } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10) { // Vertical swipe
-        isSwipingVertical = true;
-        isSwipingHorizontal = false;
-      }
-
-      // Handle pull-to-refresh if it's a vertical swipe at the top of the page
-      if (isSwipingVertical && window.scrollY === 0 && deltaY > 0) {
-        const translateY = Math.min(deltaY / 2.5, PULL_THRESHOLD * 1.5);
-        currentBanner.style.transform = `translateY(${translateY}px)`;
-        if (e.cancelable) e.preventDefault();
-      }
-    }, { passive: false }); // passive: false for preventDefault
-
-    currentBanner.addEventListener('touchend', (e) => {
-      touchEndX = e.changedTouches[0].clientX;
-      touchEndY = e.changedTouches[0].clientY;
-      const deltaX = touchEndX - touchStartX;
-      const deltaY = touchEndY - touchStartY;
-
-      currentBanner.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-      currentBanner.style.transform = 'translateY(0)'; // Reset vertical position
-
-      if (isSwipingHorizontal) {
-        if (deltaX > SWIPE_THRESHOLD) { // Swipe right (previous slide)
-          currentRondaSlideIdx = (currentRondaSlideIdx - 1 + rondaSlides.length) % rondaSlides.length;
-          displayRondaSlide(currentRondaSlideIdx);
-        } else if (deltaX < -SWIPE_THRESHOLD) { // Swipe left (next slide)
-          currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
-          displayRondaSlide(currentRondaSlideIdx);
+    banner.addEventListener('touchend', function(e) {
+      var deltaX = e.changedTouches[0].clientX - rondaTouchX;
+      if (Math.abs(deltaX) > 40) { // Threshold swipe
+        if (deltaX < 0) { // Swipe Kiri (Next) // SPESIFIKASI 2: Swipe logic
+          displayRondaSlide(currentRondaSlideIdx === 0 ? 1 : 0);
+        } else { // Swipe Kanan (Prev)
+          displayRondaSlide(currentRondaSlideIdx === 1 ? 0 : 1);
         }
-      } else if (isSwipingVertical && window.scrollY === 0 && deltaY > PULL_THRESHOLD) {
-        // Trigger refresh if pull-to-refresh threshold is met
-        muatRondaHariIni(true); // Pass true for manual refresh feedback
-        const title = document.getElementById('rondaBannerTitle');
-        if (title) title.innerText = 'Memperbarui data...';
       }
-      isSwipingHorizontal = false;
-      isSwipingVertical = false;
-    }, { passive: true });
-
-    // Click/Tap handler for simple navigation (if no swipe)
-    currentBanner.onclick = () => {
-      // Only cycle slides if no significant swipe occurred
-      if (!isSwipingHorizontal && !isSwipingVertical && rondaSlides.length > 1) {
-        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
-        displayRondaSlide(currentRondaSlideIdx);
-      }
+    }, {passive: true});
+    
+    // Support Klik juga untuk desktop
+    banner.onclick = function() {
+      displayRondaSlide(currentRondaSlideIdx === 0 ? 1 : 0);
     };
-  }
-
-  function renderTabelRonda(filtered) {
-    var list = document.getElementById('listRonda');
-    if (filtered.length > 0) {
-      var html = '<table><thead><tr><th>Tanggal</th><th>Kelompok</th><th>Petugas</th><th>Aksi</th></tr></thead><tbody>';
-      filtered.forEach(item => {
-        const petugasHtml = item.petugas.map(p => `<span class="status-badge" style="background:var(--bg-app); color:var(--text-main); border:1px solid var(--border-color); margin:2px; padding:4px 8px;">${p}</span>`).join('');
-        html += `<tr><td>${item.tanggalRaw}</td><td>${item.kelompok}</td><td>${petugasHtml}</td><td>-</td></tr>`;
-      });
-      html += '</tbody></table>';
-      list.innerHTML = html;
-    } else {
-      list.innerHTML = '<p class="muted">Tidak ada jadwal ditemukan.</p>';
-    }
-  }
-
-  function scrollToCurrentMonth() {
-    var today = new Date();
-    var curMonth = today.getMonth() + 1;
-    var curYear = today.getFullYear();
-    var filterYear = parseInt(document.getElementById('rondaFilterTahun').value);
-    
-    // Validasi apakah tahun yang dilihat adalah tahun sekarang
-    if (filterYear !== curYear) {
-        return showWarning('Tombol navigasi cepat hanya berfungsi untuk rekap tahun berjalan (' + curYear + ')');
-    }
-
-    var el = document.getElementById('month-header-' + curMonth);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      showWarning('Jadwal untuk bulan ' + (today.toLocaleString('id-ID', {month:'long'})) + ' belum tersedia.');
-    }
-  }
-
-  function muatTahunRondaList() {
-    google.script.run.withSuccessHandler(function(res) {
-      // Logika Deteksi Akhir Bulan (Otomatis Transisi ke Bulan Depan)
-      var now = new Date();
-      var currentYear = now.getFullYear();
-      var currentMonth = now.getMonth() + 1; // 1-12
-      var dayOfMonth = now.getDate();
-      var lastDay = new Date(currentYear, currentMonth, 0).getDate();
-      
-      var targetMonth = currentMonth;
-      var targetYear = currentYear;
-
-      // Jika sudah masuk 3 hari terakhir bulan ini (Contoh: tgl 29, 30, 31)
-      if (lastDay - dayOfMonth < 3) {
-        targetMonth = currentMonth + 1;
-        if (targetMonth > 12) {
-          targetMonth = 1;
-          targetYear++;
-        }
-      }
-
-      if (res.status === 'success' && res.data.length > 0) {
-        rondaFilterTahunSelect.innerHTML = '';
-        var years = res.data;
-        // Tambahkan targetYear ke pilihan jika belum ada di database (misal saat transisi tahun baru)
-        if (years.indexOf(targetYear) === -1) {
-          years.push(targetYear);
-          years.sort((a,b) => b-a);
-        }
-        years.forEach(function(tahun) {
-          var option = document.createElement('option');
-          option.value = tahun;
-          option.text = tahun;
-          rondaFilterTahunSelect.appendChild(option);
-        });
-        rondaFilterTahunSelect.value = targetYear;
-      } else {
-        rondaFilterTahunSelect.innerHTML = '';
-        for (var y = currentYear - 2; y <= currentYear + 2; y++) {
-          var option = document.createElement('option');
-          option.value = y;
-          option.text = y;
-          rondaFilterTahunSelect.appendChild(option);
-        }
-        rondaFilterTahunSelect.value = targetYear;
-      }
-      rondaFilterBulanSelect.value = targetMonth;
-      // Ensure button visibility is updated here too
-      document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
-      muatDataRonda();
-    }).getTahunRondaList();
-  }
-
-  function editNamaProfil() {
-    Swal.fire({
-      title: 'Ubah Nama Profil',
-      input: 'text',
-      inputLabel: 'Masukkan nama lengkap baru Anda',
-      inputValue: currentUser.nama,
-      showCancelButton: true,
-      confirmButtonText: 'Simpan',
-      confirmButtonColor: 'var(--primary-color)',
-      preConfirm: (value) => {
-        if (!value || value.trim().length < 2) {
-          Swal.showValidationMessage('Nama minimal 2 karakter!');
-          return false;
-        }
-        return value.trim();
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        showLoading('Memperbarui nama...');
-        google.script.run.withSuccessHandler(function(res) {
-          Swal.close();
-          if (res.status === 'success') {
-            showSuccess(res.pesan);
-            currentUser.nama = result.value;
-            document.getElementById('profNama').innerText = result.value;
-            document.getElementById('welcomeUserName').innerText = 'Halo, ' + result.value + '!';
-          } else showError(res.pesan);
-        }).ubahNama(currentUser.email, result.value, currentToken);
-      }
-    });
-  }
-
-  function salinJadwalRondaToWhatsApp() {
-    // Use rondaSlides if available, otherwise fallback to currentRondaData
-    var dataToShare = Array.isArray(rondaSlides) && rondaSlides.length > 0 ? rondaSlides : [];
-    
-    // Fallback if rondaSlides is empty but currentRondaData has something (e.g., from detail page)
-    if (dataToShare.length === 0 && Array.isArray(currentRondaData) && currentRondaData.length > 0) {
-      // Create a single slide from currentRondaData for sharing
-      dataToShare.push({
-        title: 'Jadwal Ronda',
-        plainTextContent: currentRondaData.map(function(item) {
-          const petugasText = item.petugas && item.petugas.length > 0 ? item.petugas.join(', ') : 'Ditiadakan';
-          return `${item.tanggalRaw} - ${item.kelompok}\n  Petugas: ${petugasText}`;
-        }).join('\n')
-      });
-    }
-
-    if (!dataToShare || dataToShare.length === 0) {
-      return showWarning('Tidak ada jadwal ronda yang bisa disalin.');
-    }
-
-    const today = new Date();
-    const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-    const formattedDate = today.toLocaleDateString('id-ID', options);
-
-    let message = `*Jadwal Ronda Malam RT01/RW03*\n_Diperbarui: ${formattedDate}_\n\n`;
-
-    dataToShare.forEach((slide) => {
-      message += `*${slide.title}*\n`;
-      message += slide.plainTextContent + '\n\n'; // Add extra newline for separation
-    });
-
-    message += `_Informasi ini dibagikan melalui Portal RT01/RW03._`;
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  }
-  function updateStatusPkkLaporan(id) {
-    if (!hasPermission('pkk_laporan_admin_crud')) return;
-    var statusBaru = document.getElementById('pkkStatus_' + id).value;
-    showLoading('Memperbarui status...');
-    google.script.run.withSuccessHandler(function(res) {
-      Swal.close();
-      if (res.status === 'success') {
-        showSuccess(res.pesan);
-        bukaPkkLaporanAdmin();
-      } else {
-        showError(res.pesan);
-      }
-    }).pkkUpdateStatusLaporan(id, statusBaru);
-  }
-
-  function hapusPkkLaporan(id) {
-    if (!hasPermission('pkk_laporan_admin_crud')) return;
-    showConfirm('Hapus laporan PKK ini?').then(function(res) {
-      if (res.isConfirmed) {
-        showLoading('Menghapus...');
-        google.script.run.withSuccessHandler(function(r) {
-          Swal.close();
-          if (r.status === 'success') {
-            showSuccess(r.pesan);
-            bukaPkkLaporanAdmin();
-          } else {
-            showError(r.pesan);
-          }
-        }).pkkHapusLaporan(id);
-      }
-    });
-  }
-
-  function bukaFormRonda() {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal ronda.'); return; }
-    document.getElementById('rondaRow').value = '';
-    document.getElementById('rondaTanggal').value = new Date().toISOString().slice(0, 10);
-    document.getElementById('rondaKelompok').value = '';
-    document.getElementById('rondaPetugas').value = '';
-    document.getElementById('rondaJudulForm').innerText = 'Tambah Jadwal Ronda';
-    bukaFormMode('rondaFormCrud', 'listRonda');
-  }
-
-  function editRonda(row, tanggal, kelompok, petugas) {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal ronda.'); return; }
-    document.getElementById('rondaRow').value = row;
-    document.getElementById('rondaTanggal').value = tanggal;
-    document.getElementById('rondaKelompok').value = kelompok;
-    document.getElementById('rondaPetugas').value = petugas;
-    document.getElementById('rondaJudulForm').innerText = 'Edit Jadwal Ronda';
-    bukaFormMode('rondaFormCrud', 'listRonda');
-  }
-
-  function simpanDataRonda() {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal ronda.'); return; }
-    var row = document.getElementById('rondaRow').value;
-    var tanggal = document.getElementById('rondaTanggal').value;
-    var kelompok = document.getElementById('rondaKelompok').value;
-    var petugas = document.getElementById('rondaPetugas').value;
-
-    if (!tanggal || !kelompok || !petugas) {
-      return showWarning('Semua kolom wajib diisi!');
-    }
-
-    showLoading('Menyimpan jadwal ronda...');
-    google.script.run.withSuccessHandler(function(res) {
-      Swal.close();
-      if (res.status === 'success') {
-        showSuccess(res.pesan);
-        tutupForm('rondaFormCrud', 'listRonda');
-        muatDataRonda();
-        // Update juga widget di beranda jika ada perubahan
-        if (typeof muatRondaHariIni === 'function') muatRondaHariIni();
-      } else {
-        showError(res.pesan);
-      }
-    }).simpanRonda(row, tanggal, kelompok, petugas);
   }
 
   function filterRonda() {
-    const bulan = document.getElementById('rondaFilterBulan').value;
-    const tahun = document.getElementById('rondaFilterTahun').value;
-    const keyword = document.getElementById('rondaSearchInput').value.toLowerCase();
-    const list = document.getElementById('listRonda');
-
-    // Filter berdasarkan kriteria dropdown dan keyword pencarian
-    const filtered = currentRondaData.filter(item => {
-      const itemDate = new Date(item.tanggal);
-      const matchBulan = (bulan == 0 || (itemDate.getMonth() + 1) == bulan);
-      const matchTahun = (itemDate.getFullYear() == tahun);
-      
-      const matchKeyword = !keyword || 
-                           String(item.kelompok).toLowerCase().includes(keyword) || 
-                           (Array.isArray(item.petugas) && item.petugas.some(name => String(name).toLowerCase().includes(keyword)));
-                           
-      return matchBulan && matchTahun && matchKeyword;
-    });
-
-    renderTabelRonda(filtered);
-  }
-
-  /**
-   * Memperbarui indikator dot di bawah banner ronda.
-   * @param {number} activeIdx - Indeks slide yang sedang aktif.
-   */
-  function updateRondaDots(activeIdx) {
-    const dotContainer = document.querySelector('#rondaTodayBanner .summary-info > div:last-child'); // Target div yang berisi dots
-    if (!dotContainer) return;
-
-    dotContainer.innerHTML = ''; // Bersihkan dots yang ada
-    rondaSlides.forEach((_, i) => {
-      const dot = document.createElement('div');
-      dot.className = `ronda-dot ${i === activeIdx ? 'active' : ''}`;
-      dot.style.cssText = `width:${i === activeIdx ? '12px' : '6px'}; height:4px; border-radius:2px; background:${i === activeIdx ? '#d97706' : 'rgba(217,119,6,0.2)'}; transition:0.3s; cursor:pointer;`;
-      dot.onclick = (e) => {
-        e.stopPropagation(); // Mencegah event click banner utama
-        currentRondaSlideIdx = i;
-        displayRondaSlide(i);
-      };
-      dotContainer.appendChild(dot);
-    });
-  }
-
-  /**
-   * SPESIFIKASI 4: Realisasi Fitur Refresh Sentuh (Pull-to-Refresh Widget)
-   * Menginisialisasi event listener untuk swipe pada banner ronda.
-   */
-  function initRondaInteractions() {
-    const banner = document.getElementById('rondaTodayBanner');
-    if (!banner) return;
-
-    let touchY = 0;
-    let isSwipingDown = false;
-    const PULL_THRESHOLD = 60; // Jarak tarikan untuk memicu refresh
-
-    banner.addEventListener('touchstart', (e) => {
-      touchY = e.touches[0].clientY;
-      banner.style.transition = 'none'; // Matikan transisi CSS saat mulai menyentuh
-      isSwipingDown = false;
-    }, { passive: true }); // passive: true untuk performa scroll yang lebih baik
-
-    banner.addEventListener('touchmove', (e) => {
-      const deltaY = e.touches[0].clientY - touchY;
-      // Hanya aktifkan efek pull-to-refresh jika scroll berada di paling atas (scrollY === 0)
-      // dan gerakan ke bawah (deltaY > 0)
-      if (window.scrollY === 0 && deltaY > 0) {
-        isSwipingDown = true;
-        // Berikan efek pegas (friction) saat ditarik ke bawah
-        const translateY = Math.min(deltaY / 2.5, PULL_THRESHOLD * 1.5); // Batasi tarikan visual
-        banner.style.transform = `translateY(${translateY}px)`;
-      } else {
-        isSwipingDown = false;
-      }
-    }, { passive: true });
-
-    banner.addEventListener('touchend', (e) => {
-      const deltaY = e.changedTouches[0].clientY - touchY;
-      banner.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; // Aktifkan transisi kembali
-      banner.style.transform = 'translateY(0)'; // Kembalikan posisi banner
-      
-      // Trigger refresh jika tarikan ke bawah melebihi ambang batas
-      if (isSwipingDown && deltaY > PULL_THRESHOLD) {
-        muatRondaHariIni(); // Panggil fungsi refresh data
-        const title = document.getElementById('rondaBannerTitle');
-        if (title) title.innerText = 'Memperbarui data...'; // Berikan feedback loading
-      }
-      isSwipingDown = false;
-    }, { passive: true });
-
-    // Support Click/Tap untuk navigasi slide (jika tidak ada swipe)
-    banner.onclick = () => {
-      // Hanya ganti slide jika tidak ada gerakan swipe yang signifikan
-      if (!isSwipingDown) {
-        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
-        displayRondaSlide(currentRondaSlideIdx);
-      }
-    };
-  }
-
-  function renderTabelRonda(filtered) {
+    var keyword = document.getElementById('rondaSearchInput').value.toLowerCase();
     var list = document.getElementById('listRonda');
+    var isYearly = document.getElementById('rondaFilterBulan').value == "0"; // SPESIFIKASI 2: Filter logic
+
+    var actionDiv = document.getElementById('rondaYearlyActions');
+    if(actionDiv) actionDiv.style.display = isYearly ? 'block' : 'none';
+
+    // Logika Deteksi Minggu Berjalan
+    var today = new Date();
+    var months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    var curDay = today.getDate();
+    var curMonth = today.getMonth() + 1;
+    var curYear = today.getFullYear();
+    var curWeek = Math.ceil(curDay / 7);
+
+    // Definisi Warna per Minggu (Sesuai permintaan: otomatis berubah warna)
+    var weekColors = {
+      1: '#ef4444', // Merah (Minggu 1)
+      2: '#10b981', // Hijau (Minggu 2)
+      3: '#38bdf8', // Biru Muda (Minggu 3)
+      4: '#f59e0b', // Oranye/Amber (Minggu 4)
+      5: '#8b5cf6'  // Ungu (Minggu 5)
+    };
+    
+    var filtered = currentRondaData.filter(function(item) {
+      return (item.petugas || '').toLowerCase().includes(keyword) || 
+             (item.kelompok || '').toLowerCase().includes(keyword);
+    });
+
+    list.innerHTML = '';
     if (filtered.length > 0) {
       var html = '<table><thead><tr><th>Tanggal</th><th>Kelompok</th><th>Petugas</th><th>Aksi</th></tr></thead><tbody>';
-      filtered.forEach(item => {
-        const petugasHtml = item.petugas.map(p => `<span class="status-badge" style="background:var(--bg-app); color:var(--text-main); border:1px solid var(--border-color); margin:2px; padding:4px 8px;">${p}</span>`).join('');
-        html += `<tr><td>${item.tanggalRaw}</td><td>${item.kelompok}</td><td>${petugasHtml}</td><td>-</td></tr>`;
+      var lastMonthLabel = '';
+
+      filtered.forEach(function(item) {
+        // Parse tanggal item (yyyy-mm-dd) // SPESIFIKASI 2: Date parsing
+        var parts = item.tanggal.split('-');
+        var iYear = parseInt(parts[0]);
+        var iMonth = parseInt(parts[1]);
+        var iDay = parseInt(parts[2]);
+        var iWeek = Math.ceil(iDay / 7);
+
+        // Tambahkan Divider Bulan jika mode tahunan aktif
+        if (isYearly) {
+          var currentMonthLabel = months[iMonth - 1] + ' ' + iYear;
+          if (currentMonthLabel !== lastMonthLabel) {
+            html += `<tr><td colspan="4" class="month-divider" id="month-header-${iMonth}"><i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:5px;">calendar_month</i>${currentMonthLabel}</td></tr>`;
+            lastMonthLabel = currentMonthLabel;
+          }
+        }
+
+        // Cek apakah ini minggu yang sedang bertugas sekarang
+        var isCurrentWeek = (iWeek === curWeek && iMonth === curMonth && iYear === curYear);
+        var rowStyle = "";
+        
+        if (isCurrentWeek) {
+          var activeColor = weekColors[iWeek] || '#ef4444';
+          // Tambahkan background transparan dan border kiri tebal sesuai warna minggunya
+          rowStyle = `style="background-color: ${activeColor}15 !important; border-left: 5px solid ${activeColor} !important; font-weight: 700;"`;
+        }
+
+        var petugasList = item.petugas ? item.petugas.join(', ').replace(/\n/g, '<br>') : '-'; // SPESIFIKASI 1: Join array
+        var aksi = hasPermission('rt_ronda_crud') ? 
+          `<div style="display:flex; gap:5px;">
+            <button class="btn-small" onclick="editRonda(${item.row},'${item.tanggal}','${item.kelompok.replace(/'/g,"\\'")}','${item.petugas.replace(/'/g,"\\'").replace(/\n/g,"\\n")}')">
+              <i class="material-icons" style="font-size:14px;">edit</i>
+            </button>
+            <button class="btn-small danger" onclick="hapusRonda(${item.row})">
+              <i class="material-icons" style="font-size:14px;">delete</i>
+            </button>
+          </div>` : '-';
+        
+        html += `<tr ${rowStyle}>
+          <td style="white-space:nowrap;">${item.tanggal}</td>
+          <td><strong>${item.kelompok}</strong></td>
+          <td style="font-size:12px;">${petugasList}</td>
+          <td>${aksi}</td>
+        </tr>`;
       });
       html += '</tbody></table>';
       list.innerHTML = html;
     } else {
-      list.innerHTML = '<p class="muted">Tidak ada jadwal ditemukan.</p>';
+      list.innerHTML = `
+        <div class="card-item" style="text-align:center; padding:40px 20px;">
+          <div style="font-size:48px; color:var(--text-muted); opacity:0.2; margin-bottom:15px;"><i class="material-icons" style="font-size:64px;">event_busy</i></div>
+          <div style="font-size:20px; font-weight:800; color:var(--primary-red); letter-spacing:2px; text-transform:uppercase;">LIBUR RONDA</div>
+          <p class="muted" style="font-size:13px; margin-top:8px;">Tidak ditemukan jadwal ronda untuk periode atau pencarian ini.</p>
+        </div>`;
     }
   }
 
-  function scrollToCurrentMonth() {
+  function scrollToCurrentMonth() { // SPESIFIKASI 2: Scroll to current month
     var today = new Date();
     var curMonth = today.getMonth() + 1;
     var curYear = today.getFullYear();
@@ -5815,124 +4950,33 @@ function bukaJadwal() {
     }
   }
 
-  function muatTahunRondaList() {
+  function muatTahunRondaList() { // SPESIFIKASI 2: Load year list
     google.script.run.withSuccessHandler(function(res) {
-      // Logika Deteksi Akhir Bulan (Otomatis Transisi ke Bulan Depan)
-      var now = new Date();
-      var currentYear = now.getFullYear();
-      var currentMonth = now.getMonth() + 1; // 1-12
-      var dayOfMonth = now.getDate();
-      var lastDay = new Date(currentYear, currentMonth, 0).getDate();
-      
-      var targetMonth = currentMonth;
-      var targetYear = currentYear;
-
-      // Jika sudah masuk 3 hari terakhir bulan ini (Contoh: tgl 29, 30, 31)
-      if (lastDay - dayOfMonth < 3) {
-        targetMonth = currentMonth + 1;
-        if (targetMonth > 12) {
-          targetMonth = 1;
-          targetYear++;
-        }
-      }
-
       if (res.status === 'success' && res.data.length > 0) {
         rondaFilterTahunSelect.innerHTML = '';
-        var years = res.data;
-        // Tambahkan targetYear ke pilihan jika belum ada di database (misal saat transisi tahun baru)
-        if (years.indexOf(targetYear) === -1) {
-          years.push(targetYear);
-          years.sort((a,b) => b-a);
-        }
-        years.forEach(function(tahun) {
+        res.data.forEach(function(tahun) {
           var option = document.createElement('option');
           option.value = tahun;
           option.text = tahun;
           rondaFilterTahunSelect.appendChild(option);
         });
-        rondaFilterTahunSelect.value = targetYear;
+        rondaFilterTahunSelect.value = new Date().getFullYear(); // Default ke tahun sekarang
       } else {
         rondaFilterTahunSelect.innerHTML = '';
+        var currentYear = new Date().getFullYear();
         for (var y = currentYear - 2; y <= currentYear + 2; y++) {
           var option = document.createElement('option');
           option.value = y;
           option.text = y;
           rondaFilterTahunSelect.appendChild(option);
         }
-        rondaFilterTahunSelect.value = targetYear;
+        rondaFilterTahunSelect.value = currentYear;
       }
-      rondaFilterBulanSelect.value = targetMonth;
-      // Ensure button visibility is updated here too
-      document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
+      rondaFilterBulanSelect.value = new Date().getMonth() + 1; // Default ke bulan sekarang
       muatDataRonda();
-    }).getTahunRondaList();
+    }).getTahunRondaList(); // Call backend
   }
 
-  function editNamaProfil() {
-    Swal.fire({
-      title: 'Ubah Nama Profil',
-      input: 'text',
-      inputLabel: 'Masukkan nama lengkap baru Anda',
-      inputValue: currentUser.nama,
-      showCancelButton: true,
-      confirmButtonText: 'Simpan',
-      confirmButtonColor: 'var(--primary-color)',
-      preConfirm: (value) => {
-        if (!value || value.trim().length < 2) {
-          Swal.showValidationMessage('Nama minimal 2 karakter!');
-          return false;
-        }
-        return value.trim();
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        showLoading('Memperbarui nama...');
-        google.script.run.withSuccessHandler(function(res) {
-          Swal.close();
-          if (res.status === 'success') {
-            showSuccess(res.pesan);
-            currentUser.nama = result.value;
-            document.getElementById('profNama').innerText = result.value;
-            document.getElementById('welcomeUserName').innerText = 'Halo, ' + result.value + '!';
-          } else showError(res.pesan);
-        }).ubahNama(currentUser.email, result.value, currentToken);
-      }
-    });
-  }
-
-  function salinJadwalRondaToWhatsApp() {
-    var slidesToShare = Array.isArray(rondaSlides) ? rondaSlides.slice() : [];
-    if ((!slidesToShare || slidesToShare.length === 0) && Array.isArray(currentRondaData) && currentRondaData.length > 0) {
-      var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      slidesToShare.push({
-        title: 'Jadwal Ronda Saat Ini',
-        plainTextContent: currentRondaData.map(function(item) {
-          var petugasArr = item.petugas ? item.petugas.split(/\r?\n/).filter(function(v) { return v.trim() !== ''; }) : [];
-          return item.tanggal + ' - ' + item.kelompok + '\n  Petugas: ' + (petugasArr.length ? petugasArr.join(', ') : '-');
-        }).join('\n')
-      });
-    }
-
-    if (!slidesToShare || slidesToShare.length === 0) {
-      return showWarning('Tidak ada jadwal ronda yang bisa disalin.');
-    }
-
-    const today = new Date();
-    const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-    const formattedDate = today.toLocaleDateString('id-ID', options);
-
-    let message = `*Jadwal Ronda Malam RT01/RW03*\n_Diperbarui: ${formattedDate}_\n\n`;
-
-    rondaSlides.forEach((slide, index) => {
-      message += `*${slide.title}*\n`;
-      message += slide.plainTextContent + '\n'; // Use the pre-formatted plain text
-    });
-
-    message += `_Informasi ini dibagikan melalui Portal RT01/RW03._`;
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  }
   function updateStatusPkkLaporan(id) {
     if (!hasPermission('pkk_laporan_admin_crud')) return;
     var statusBaru = document.getElementById('pkkStatus_' + id).value;
@@ -5967,7 +5011,7 @@ function bukaJadwal() {
   }
 
   function bukaFormRonda() {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal ronda.'); return; }
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal ronda.'); return; } // SPESIFIKASI 2: Permission check
     document.getElementById('rondaRow').value = '';
     document.getElementById('rondaTanggal').value = new Date().toISOString().slice(0, 10);
     document.getElementById('rondaKelompok').value = '';
@@ -5977,7 +5021,7 @@ function bukaJadwal() {
   }
 
   function editRonda(row, tanggal, kelompok, petugas) {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal ronda.'); return; }
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal ronda.'); return; } // SPESIFIKASI 2: Permission check
     document.getElementById('rondaRow').value = row;
     document.getElementById('rondaTanggal').value = tanggal;
     document.getElementById('rondaKelompok').value = kelompok;
@@ -5987,7 +5031,7 @@ function bukaJadwal() {
   }
 
   function simpanDataRonda() {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal ronda.'); return; }
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal ronda.'); return; } // SPESIFIKASI 2: Permission check
     var row = document.getElementById('rondaRow').value;
     var tanggal = document.getElementById('rondaTanggal').value;
     var kelompok = document.getElementById('rondaKelompok').value;
@@ -6011,7 +5055,7 @@ function bukaJadwal() {
   }
 
   function hapusRonda(row) {
-    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menghapus jadwal ronda.'); return; }
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menghapus jadwal ronda.'); return; } // SPESIFIKASI 2: Permission check
     showConfirm('Yakin hapus jadwal ronda ini?').then(function(res) {
       if (res.isConfirmed) {
         showLoading('Menghapus jadwal ronda...');
@@ -6023,9 +5067,6 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close();
-          showError('Gagal menghapus jadwal ronda: ' + err.message);
         }).hapusRonda(row);
       }
     });
@@ -6035,7 +5076,6 @@ function bukaJadwal() {
   function bukaKontak() {
     sembunyikanSemuaLayar();
     document.getElementById('kontakView').style.display = 'block';
-    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
 
     if (hasPermission('rt_kontak_crud')) { // Kontrol visibilitas tombol Tambah
       document.getElementById('btnTambahKontak').style.display = 'flex';
@@ -6044,7 +5084,6 @@ function bukaJadwal() {
     }
 
     muatDataKontak();
-    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
   }
 
   function muatDataKontak() {
@@ -6052,7 +5091,6 @@ function bukaJadwal() {
     list.innerHTML = '<div class="skeleton" style="height:80px;"></div>';
     
     google.script.run.withSuccessHandler(function(res) {
-      Swal.close(); // Close loading modal
       list.innerHTML = '';
       
       if (res.data && res.data.length) {
@@ -6103,9 +5141,6 @@ function bukaJadwal() {
       } else {
         list.innerHTML = '<p class="muted">Belum ada data kader pengurus.</p>';
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat data kontak: ' + err.message);
     }).getKontakPengurus();
   }
 
@@ -6147,7 +5182,6 @@ function bukaJadwal() {
     }
     var btn = document.querySelector('#formCrudKontak .btn-primary');
     var old = btn.innerHTML;
-    showLoading('Menyimpan data kontak...', true); // Show loading with progress bar
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
 
@@ -6162,20 +5196,13 @@ function bukaJadwal() {
         } else {
           showError(res.pesan);
         }
-      }).withFailureHandler(function(err) {
-        Swal.close(); // Close loading modal
-        btn.innerHTML = old;
-        btn.disabled = false;
-        showError('Gagal menyimpan kontak: ' + err.message);
       }).simpanKontak(id, nama, jabatan, nohp, "", dataFile, mimeType, fileName);
     };
 
     if (fileInput.files.length > 0) {
       var file = fileInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
-      // showLoading is already called, now update progress
       compressImage(file, function(base64, mime) {
-        startSimulatedUpload(); // Start simulated upload after compression
         saveProcess(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
@@ -6187,18 +5214,13 @@ function bukaJadwal() {
     if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk menghapus kontak.'); return; }
     showConfirm('Yakin hapus kontak?').then(function(res) {
       if (res.isConfirmed) {
-        showLoading('Menghapus kontak...');
         google.script.run.withSuccessHandler(function(r) {
-          Swal.close(); // Close loading modal
           if (r.status === 'success') {
             showSuccess(r.pesan);
             muatDataKontak();
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close(); // Close loading modal
-          showError('Gagal menghapus kontak: ' + err.message);
         }).hapusKontak(id);
       }
     });
@@ -6232,7 +5254,6 @@ function bukaJadwal() {
     
     // Muat pengaturan admin jika yang buka adalah admin
     loadAdminSettingsUI();
-    history.pushState({view: 'kelolaUserView', tab: 'warga', onLoad: 'muatDataUser'}, '', '#kelolaUser');
     
     // Muat daftar role dulu baru muat data user
     muatDaftarRole(function() {
@@ -6257,19 +5278,14 @@ function bukaJadwal() {
   function muatDataUser() {
     var list = document.getElementById('listUsers');
     list.innerHTML = '<p>Memuat...</p>';
-    showLoading('Memuat data user...');
     document.getElementById('userSearchInput').value = ''; // Reset pencarian saat buka menu
     google.script.run.withSuccessHandler(function(res) {
-      Swal.close(); // Close loading modal
       if (res.data && res.data.length) {
         allUsers = res.data;
         renderUserList(allUsers);
       } else {
         list.innerHTML = '<p>Belum ada user.</p>';
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat data user: ' + err.message);
     }).getAllUsersWithWarga();
   }
 
@@ -6320,9 +5336,6 @@ function bukaJadwal() {
           } else {
             showError(res.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close();
-          showError('Gagal memperbarui notifikasi: ' + err.message);
         }).adminEditNotifikasi(id, result.value.judul, result.value.isi, result.value.role, it.targetPage);
       }
     });
@@ -6340,9 +5353,6 @@ function bukaJadwal() {
           } else {
             showError(res.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close();
-          showError('Gagal menghapus notifikasi: ' + err.message);
         }).adminHapusNotifikasi(id);
       }
     });
@@ -6485,9 +5495,8 @@ function bukaJadwal() {
 
   function loadAdminSettingsUI() {
     google.script.run.withSuccessHandler(function(res) {
-      const input = document.getElementById('adminWaInput');
-      if (res && res.status === 'success' && res.data.admin_whatsapp && input) {
-        input.value = res.data.admin_whatsapp;
+      if (res.status === 'success' && res.data.admin_whatsapp) {
+        document.getElementById('adminWaInput').value = res.data.admin_whatsapp;
       }
     }).getSettings();
   }
@@ -6715,7 +5724,6 @@ function bukaJadwal() {
 
 
     showLoading('Menyimpan perubahan user...');
-    // No progress bar for user data as it's not a file upload
     google.script.run.withSuccessHandler(function(res) {
       Swal.close();
       if (res.status === 'success') {
@@ -6735,9 +5743,6 @@ function bukaJadwal() {
       } else {
         showError(res.pesan);
       }
-    }).withFailureHandler(function(err) {
-      Swal.close();
-      showError('Gagal menyimpan user: ' + err.message);
     }).simpanUser(id, nama, email, role, password, perms.join(','));
   }
 
@@ -6757,7 +5762,6 @@ function bukaJadwal() {
     var btn = document.querySelector('#formPengaduanView .btn-primary');
     btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
-    showLoading('Mengirim laporan...', true); // Start loading with progress bar
     var obj = {
       pelapor: currentUser.nama,
       isi: isi,
@@ -6765,9 +5769,6 @@ function bukaJadwal() {
       mimeType: '',
       fileName: ''
     };
-    // Reset progress bar
-    currentProgress = 0;
-    updateProgress(0, 'Memulai...');
     var fileInput = document.getElementById('fotoPengaduan');
     if (fileInput.files.length) {
       var file = fileInput.files[0];
@@ -6776,8 +5777,6 @@ function bukaJadwal() {
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
         kirimLaporan(obj, btn);
-      }).withFailureHandler(function(err) {
-        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
       });
     } else {
       kirimLaporan(obj, btn);
@@ -6785,7 +5784,6 @@ function bukaJadwal() {
   }
 
   function kirimLaporan(obj, btn) {
-    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
     google.script.run.withSuccessHandler(function(res) {
       btn.innerHTML = "Kirim Laporan";
       btn.disabled = false;
@@ -6805,11 +5803,7 @@ function bukaJadwal() {
   function bukaHistori() {
     sembunyikanSemuaLayar();
     document.getElementById('historiPengaduanView').style.display = 'block';
-    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'muatHistoriPengaduan'}, '', '#historiPengaduan');
-    muatHistoriPengaduan();
-  }
-
-  function muatHistoriPengaduan() {
+    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'bukaHistori'}, '', '#historiPengaduan');
     var list = document.getElementById('listHistori');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -6851,11 +5845,7 @@ function bukaJadwal() {
   function bukaLaporanAdmin() {
     sembunyikanSemuaLayar();
     document.getElementById('laporanPengaduanAdminView').style.display = 'block';
-    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'muatLaporanPengaduanAdmin'}, '', '#adminPengaduan');
-    muatLaporanPengaduanAdmin();
-  }
-
-  function muatLaporanPengaduanAdmin() {
+    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'bukaLaporanAdmin'}, '', '#adminPengaduan');
     var list = document.getElementById('listLaporanSemua');
     list.innerHTML = '<p>Memuat...</p>';
     google.script.run.withSuccessHandler(function(res) {
@@ -6914,9 +5904,6 @@ function bukaJadwal() {
       } else {
         list.innerHTML = '<p>Belum ada laporan.</p>';
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat laporan pengaduan: ' + err.message);
     }).getSemuaPengaduan();
   }
 
@@ -6924,7 +5911,6 @@ function bukaJadwal() {
     if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk menghapus pengaduan.'); return; }
     showConfirm('Yakin hapus pengaduan?').then(function(res) {
       if (res.isConfirmed) {
-        showLoading('Menghapus pengaduan...');
         showLoading('Menghapus...');
         google.script.run.withSuccessHandler(function(r) {
           Swal.close();
@@ -6939,9 +5925,6 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close(); // Close loading modal
-          showError('Gagal menghapus pengaduan: ' + err.message);
         }).hapusPengaduan(id);
       }
     });
@@ -6951,7 +5934,6 @@ function bukaJadwal() {
     if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk mengubah status pengaduan.'); return; }
     var statusBaru = document.getElementById('status_' + id).value;
     showLoading('Mengupdate...');
-    // No progress bar for status update as it's not a file upload
     google.script.run.withSuccessHandler(function(r) {
       Swal.close();
       if (r.status === 'success') {
@@ -6961,9 +5943,6 @@ function bukaJadwal() {
       } else {
         showError(r.pesan);
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memperbarui status pengaduan: ' + err.message);
     }).updateStatusPengaduan(id, statusBaru);
   }
 
@@ -7077,9 +6056,6 @@ function bukaJadwal() {
       if (callback) {
         callback();
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat data kas: ' + err.message);
     }).getKasWarga();
   }
 
@@ -7513,7 +6489,8 @@ function bukaJadwal() {
       title: '<div style="font-size:18px; font-weight:800; color:var(--text-main);">Detail Transaksi ' + bulan + ' ' + tahunGrafik + '</div>',
       background: 'var(--bg-surface)',
       html: html,
-      width: 'min(90%, 450px)',
+      width: '90%',
+      maxWidth: '450px',
       showCloseButton: true,
       showConfirmButton: false,
       customClass: {
@@ -7661,9 +6638,6 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close(); // Close loading modal
-          showError('Gagal menghapus transaksi: ' + err.message);
         }).hapusKasWarga(id);
       }
     });
@@ -7695,9 +6669,6 @@ function bukaJadwal() {
         select.value = tahunSekarang;
       }
       muatTabelIuran();
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Ensure loading is closed if this fails
-      showError('Gagal memuat daftar tahun iuran: ' + err.message);
     }).getTahunIuranList();
   }
 
@@ -7706,18 +6677,17 @@ function bukaJadwal() {
     // Reset pencarian saat ganti tahun
     var searchInput = document.getElementById('iuranSearchInput');
     if (searchInput) searchInput.value = '';
-
+    
     showLoading('Memuat data iuran...');
-    var p1 = new Promise(function(resolve, reject) {
-      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarKategori();
+    var p1 = new Promise(function(resolve) {
+      google.script.run.withSuccessHandler(resolve).getDaftarKategori();
     });
-    var p2 = new Promise(function(resolve, reject) {
-      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarWarga();
+    var p2 = new Promise(function(resolve) {
+      google.script.run.withSuccessHandler(resolve).getDaftarWarga();
     });
-    var p3 = new Promise(function(resolve, reject) {
-      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getIuranPerTahun(tahun);
+    var p3 = new Promise(function(resolve) {
+      google.script.run.withSuccessHandler(resolve).getIuranPerTahun(tahun);
     });
-
     Promise.all([p1, p2, p3]).then(function(results) {
       Swal.close();
       daftarKategori = results[0] || [];
@@ -7754,9 +6724,6 @@ function bukaJadwal() {
       }
       iuranData = rows;
       renderTabelIuran(rows, tahun);
-    }).catch(function(err) {
-      Swal.close(); // Ensure loading is closed if this fails
-      showError('Gagal memuat data iuran: ' + (err && err.message ? err.message : err));
     });
   }
 
@@ -7920,9 +6887,6 @@ function bukaJadwal() {
           } else {
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          Swal.close();
-          showError('Gagal menghapus data iuran: ' + err.message);
         }).hapusIuranWarga(nama, tahun);
       }
     });
@@ -7978,9 +6942,6 @@ function bukaJadwal() {
       } else {
         container.innerHTML = '<p>Belum ada kategori. Tambah baru.</p>';
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Ensure loading is closed if this fails
-      showError('Gagal memuat daftar kategori: ' + err.message);
     }).getDaftarKategori();
   }
 
@@ -8001,11 +6962,8 @@ function bukaJadwal() {
         muatDaftarKategoriIuran();
         muatTabelIuran();
       } else {
-        Swal.close(); // Ensure loading is closed if this fails
         showError(res.pesan);
       }
-    }).withFailureHandler(function(err) {
-      showError(err.message || 'Terjadi kesalahan saat menambah kategori.');
     }).tambahKategori(nama, nominal);
   }
 
@@ -8035,11 +6993,8 @@ function bukaJadwal() {
             muatDaftarKategoriIuran();
             muatTabelIuran();
           } else {
-            Swal.close(); // Ensure loading is closed if this fails
             showError(res.pesan);
           }
-        }).withFailureHandler(function(err) {
-          showError(err.message || 'Terjadi kesalahan saat mengubah kategori.');
         }).editKategori(id, v.nama, v.nominal);
       }
     });
@@ -8054,11 +7009,8 @@ function bukaJadwal() {
             muatDaftarKategoriIuran();
             muatTabelIuran();
           } else {
-            Swal.close(); // Ensure loading is closed if this fails
             showError(r.pesan);
           }
-        }).withFailureHandler(function(err) {
-          showError(err.message || 'Terjadi kesalahan saat menghapus kategori.');
         }).hapusKategori(id);
       }
     });
@@ -8094,9 +7046,6 @@ function bukaJadwal() {
           container.appendChild(item);
         });
       } else { container.innerHTML = '<p style="padding:15px; text-align:center;" class="muted">Belum ada data warga.</p>'; }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Ensure loading is closed if this fails
-      showError('Gagal memuat daftar warga: ' + err.message);
     }).getDaftarWarga();
   }
 
@@ -8112,11 +7061,8 @@ function bukaJadwal() {
         muatDaftarWargaIuran();
         muatTabelIuran();
       } else {
-        Swal.close(); // Ensure loading is closed if this fails
         showError(res.pesan);
       }
-    }).withFailureHandler(function(err) {
-      showError(err.message || 'Terjadi kesalahan saat menambah warga.');
     }).tambahWargaIuran(nama);
   }
 
@@ -8129,7 +7075,7 @@ function bukaJadwal() {
   function bukaKas() {
     sembunyikanSemuaLayar();
     document.getElementById('kasView').style.display = 'block';
-    history.pushState({view: 'kasView', tab: 'warga', onLoad: 'muatDataKas'}, '', '#kas');
+    history.pushState({view: 'kasView', onLoad: 'muatDataKas'}, '', '#kas');
     var actionDiv = document.getElementById('actionButtonsKas');
     var iuranAdminDiv = document.getElementById('iuranAdminButtons');
     if (hasPermission('rt_kas_crud')) { // Kontrol visibilitas tombol Tambah/Kurang Kas
@@ -8152,7 +7098,7 @@ function bukaJadwal() {
   function bukaGaleri() {
     sembunyikanSemuaLayar();
     document.getElementById('galeriView').style.display = 'block';
-    history.pushState({view: 'galeriView', tab: 'warga', onLoad: 'muatDataGaleri'}, '', '#galeri');
+    history.pushState({view: 'galeriView', onLoad: 'muatDataGaleri'}, '', '#galeri');
     if (hasPermission('rt_galeri_crud')) { // Kontrol visibilitas tombol Tambah Galeri
       document.getElementById('btnTambahGaleri').style.display = 'flex';
     } else {
@@ -8166,62 +7112,39 @@ function bukaJadwal() {
     container.innerHTML = '<p>Memuat galeri...</p>';
     google.script.run.withSuccessHandler(function(res) { // Clear skeleton
       container.innerHTML = ''; // Clear previous content
-      rtGaleriDataGlobal = res.data || [];
-      filterDataGaleri();
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat galeri: ' + err.message);
-    }).getGaleriKegiatan();
-  }
-
-  function filterDataGaleri() {
-    var tahun = document.getElementById('galeriTahunFilter').value;
-    var filtered = rtGaleriDataGlobal;
-    if (tahun !== 'all') {
-      filtered = rtGaleriDataGlobal.filter(function(item) {
-        return item.tanggal && item.tanggal.includes(tahun);
-      });
-    }
-    renderGaleriGrid(filtered);
-  }
-
-  function renderGaleriGrid(data) {
-    var container = document.getElementById('listGaleri');
-    container.innerHTML = '';
-    if (data && data.length) {
-      var allMedia = data.map(function(it) { return it.imageUrl; });
-      for (var j = 0; j < data.length; j++) {
-        var item = data[j];
-        var thumb = getMediaThumbnail(item.imageUrl);
-        var isVideo = isVideoLink(item.imageUrl);
-        var safeCaption = escapeHtml(item.caption || '-');
-        var safeTanggal = escapeHtml(item.tanggal || '-');
-        var safeTanggalRaw = escapeJsString(item.tanggalRaw || '');
-        var safeImageUrl = escapeJsString(item.imageUrl);
-        var safeItemId = escapeJsString(item.id);
-        var aksiButtons = hasPermission('rt_galeri_crud') ? 
-          '<button class="btn-small" onclick="editGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\',\'' + safeTanggalRaw + '\')">Edit</button>' +
-          '<button class="btn-small danger" onclick="hapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
-        var videoIcon = isVideo ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
-        container.innerHTML += `
-          <div class="galeri-card" style="position:relative; display:flex; flex-direction:column; height:100%;">
-            ${videoIcon}
-            <img src="${thumb}" class="galeri-img" onclick="openLightbox('${safeImageUrl}', ${JSON.stringify(allMedia).replace(/"/g, '&quot;')}, ${j})" style="aspect-ratio:16/9; object-fit:cover;">
-            <div style="padding:16px; flex:1; display:flex; flex-direction:column;">
-              <div style="font-weight:800; font-size:15px; color:var(--text-main); line-height:1.4; margin-bottom:4px;">${safeCaption}</div>
-              <div style="font-size:11px; font-weight:600; color:var(--primary-red); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">
-                <i class="material-icons" style="font-size:14px;">calendar_today</i> ${safeTanggal}
-              </div>
-              <div style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px; flex:1;">
-                Dokumentasi kegiatan warga RT01/RW03.
-              </div>
-              <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
-                ${aksiButtons}
-              </div>
-            </div>
-          </div>`;
+      if (res.data && res.data.length) {
+        var allMedia = [];
+        var allImgs = [];
+        for (var i = 0; i < res.data.length; i++) {
+          allMedia.push(res.data[i].imageUrl);
+          if (res.data[i].imageUrl) {
+            allImgs.push(getDirectUrl(res.data[i].imageUrl));
+          }
+        }
+        for (var j = 0; j < res.data.length; j++) {
+          var item = res.data[j];
+          var thumb = getMediaThumbnail(item.imageUrl);
+          var isVideo = isVideoLink(item.imageUrl); // Check if it's a video link
+          var aksiButtons = '';
+          if (hasPermission('rt_galeri_crud')) {
+            aksiButtons = '<button class="btn-small" onclick="editGaleri(\''+item.id+'\',\''+item.caption.replace(/'/g,"\\'")+'\',\''+item.imageUrl+'\')">Edit</button>'
+                        + '<button class="btn-small danger" onclick="hapusGaleri(\'' + item.id + '\')">Hapus</button>';
+          }
+          var videoIcon = isVideo ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
+          container.innerHTML += '<div class="galeri-card" style="position:relative;">'
+            + videoIcon
+            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + item.imageUrl + '\', '
+            + JSON.stringify(allMedia).replace(/"/g, '&quot;') + ',' + j + ')">'
+            + '<div style="padding:12px;">'
+            + '<div style="font-weight:600;">' + item.caption + '</div>'
+            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + item.tanggal + '</div>'
+            + '<div style="margin-top:10px;">' + aksiButtons + '</div>'
+            + '</div></div>';
+        }
+      } else {
+        container.innerHTML = '<p>Belum ada foto di galeri.</p>';
       }
-    } else { container.innerHTML = '<p>Belum ada foto di galeri.</p>'; }
+    }).getGaleriKegiatan();
   }
 
   function bukaFormGaleri() {
@@ -8262,7 +7185,6 @@ function bukaJadwal() {
     if (!hasPermission('rt_galeri_crud')) { showError('Anda tidak memiliki izin untuk mengupload foto galeri.'); return; }
     var id = document.getElementById('galeriId').value;
     var caption = document.getElementById('galeriCaption').value;
-    var tgl = document.getElementById('galeriTanggal').value;
     var type = document.getElementById('galeriType').value;
     var fileInput = document.getElementById('galeriFile');
     var vLink = document.getElementById('galeriVideoLink').value;
@@ -8274,10 +7196,9 @@ function bukaJadwal() {
     if (type === 'video') {
       if (!vLink) return showWarning('Link video wajib diisi!');
       showLoading('Menyimpan Video...');
-      // No progress bar for video link as no file upload
       google.script.run.withSuccessHandler(function(res) {
         Swal.close(); showSuccess('Tersimpan!'); tutupForm('formCrudGaleri', 'wrapListGaleri'); muatDataGaleri();
-      }).simpanGaleriKegiatan(id, caption, null, '', '', vLink, tgl);
+      }).simpanGaleriKegiatan(id, caption, null, '', '', vLink);
       return;
     }
 
@@ -8301,7 +7222,7 @@ function bukaJadwal() {
         } else {
           showError(res.pesan);
         }
-      }).simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "", tgl);
+      }).simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "");
     });
   }
 
@@ -8454,18 +7375,13 @@ function bukaJadwal() {
           showError(r.pesan);
         }
       }).pkkHapusJadwal(id);
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal menghapus jadwal PKK: ' + err.message);
     });
   }
 
   function pkkMuatDataJadwal() {
     var list = document.getElementById('pkkListJadwal');
     list.innerHTML = '<p>Memuat...</p>';
-    showLoading('Memuat jadwal PKK...');
     google.script.run.withSuccessHandler(function(res) { // Clear skeleton
-      Swal.close(); // Close loading modal
       list.innerHTML = '';
       if (res.data && res.data.length) {
         for (var i = 0; i < res.data.length; i++) {
@@ -8556,7 +7472,6 @@ function bukaJadwal() {
     if (!nama) return showWarning('Nama wajib diisi!');
 
     var processSave = function(dataFile, mimeType, fileName) {
-      showLoading('Menyimpan data kader PKK...', true); // Show loading with progress bar
       showLoading('Menyimpan data kader PKK...');
       google.script.run.withSuccessHandler(function(res) {
         Swal.close();
@@ -8567,18 +7482,13 @@ function bukaJadwal() {
         } else {
           showError(res.pesan);
         }
-      }).withFailureHandler(function(err) {
-        Swal.close(); // Close loading modal
-        showError('Gagal menyimpan kader PKK: ' + err.message);
       }).pkkSimpanKader(id, nama, jabatan, nohp, dataFile, mimeType, fileName);
     };
 
     if(fInput.files.length > 0) {
       var file = fInput.files[0];
       if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
-      showLoading('Mengompresi gambar...', true); // Start loading with progress bar
       compressImage(file, function(base64, mime) {
-        startSimulatedUpload(); // Start simulated upload after compression
         processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
       }, 800); // Profile photos only need 800px
     } else {
@@ -8590,7 +7500,6 @@ function bukaJadwal() {
     if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk menghapus kader PKK.'); return; }
     showConfirm('Yakin hapus kader PKK?').then(function(res) {
       if (!res.isConfirmed) return;
-      showLoading('Menghapus kader PKK...');
       google.script.run.withSuccessHandler(function(r) {
         if (r.status === 'success') {
           showSuccess(r.pesan);
@@ -8598,9 +7507,6 @@ function bukaJadwal() {
         } else {
           showError(r.pesan);
         }
-      }).withFailureHandler(function(err) {
-        Swal.close(); // Close loading modal
-        showError('Gagal menghapus kader PKK: ' + err.message);
       }).pkkHapusKader(id);
     });
   }
@@ -8676,8 +7582,6 @@ function bukaJadwal() {
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
         kirimLaporanPkk(obj, btn);
-      }).withFailureHandler(function(err) {
-        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
       });
     } else {
       kirimLaporanPkk(obj, btn);
@@ -8685,7 +7589,6 @@ function bukaJadwal() {
   }
 
   function kirimLaporanPkk(obj, btn) {
-    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
     showLoading('Mengirim laporan...'); // Added loading indicator
     google.script.run.withSuccessHandler(function(res) {
       btn.innerHTML = 'Kirim';
@@ -8707,11 +7610,7 @@ function bukaJadwal() {
   function bukaPkkHistori() {
     sembunyikanSemuaLayar();
     document.getElementById('pkkHistoriView').style.display = 'block';
-    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'pkkMuatDataHistori'}, '', '#pkkHistori');
-    pkkMuatDataHistori();
-  }
-
-  function pkkMuatDataHistori() {
+    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'bukaPkkHistori'}, '', '#pkkHistori');
     var list = document.getElementById('pkkListHistori');
     list.innerHTML = '<p>Memuat...</p>';
 
@@ -8780,7 +7679,6 @@ function bukaJadwal() {
   function pkkBukaFormGaleri() {
     if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk menambah foto galeri PKK.'); return; }
     document.getElementById('pkkGaleriId').value = '';
-    document.getElementById('pkkGaleriTanggal').value = new Date().toISOString().slice(0,10);
     document.getElementById('pkkGaleriCaption').value = '';
     document.getElementById('pkkGaleriFile').value = '';
     document.getElementById('pkkGaleriVideoLink').value = '';
@@ -8792,7 +7690,6 @@ function bukaJadwal() {
     if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk mengupload foto galeri PKK.'); return; }
     var id = document.getElementById('pkkGaleriId').value;
     var caption = document.getElementById('pkkGaleriCaption').value;
-    var tgl = document.getElementById('pkkGaleriTanggal').value;
     var type = document.getElementById('pkkGaleriType').value;
     var fileInput = document.getElementById('pkkGaleriFile');
     var vLink = document.getElementById('pkkGaleriVideoLink').value;
@@ -8811,7 +7708,7 @@ function bukaJadwal() {
         } else {
           showError(res && res.pesan ? res.pesan : 'Gagal menyimpan video');
         }
-      }).pkkSimpanGaleri(id, caption, null, '', '', vLink, tgl);
+      }).pkkSimpanGaleri(id, caption, null, '', '', vLink);
       return;
     }
 
@@ -8824,7 +7721,7 @@ function bukaJadwal() {
       showLoading('Mengupdate data...');
       google.script.run.withSuccessHandler(function(res){
         Swal.close(); showSuccess(res.pesan); tutupForm('formPkkCrudGaleri','pkkWrapListGaleri'); pkkMuatDataGaleri();
-      }).pkkSimpanGaleri(id, caption, null, '', '', "", tgl);
+      }).pkkSimpanGaleri(id, caption, null, '', '', "");
       return;
     }
     
@@ -8843,7 +7740,7 @@ function bukaJadwal() {
           tutupForm('formPkkCrudGaleri', 'pkkWrapListGaleri');
           pkkMuatDataGaleri();
         } else { showError(res.pesan); }
-      }).pkkSimpanGaleri(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", null, tgl);
+      }).pkkSimpanGaleri(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", null);
     });
   }
 
@@ -8877,46 +7774,33 @@ function bukaJadwal() {
         for (var i = 0; i < res.data.length; i++) { allMediaUrls.push(res.data[i].imageUrl); }
         for (var j = 0; j < res.data.length; j++) {
           var item = res.data[j];
-          var safeCaption = escapeHtml(item.caption || '-');
-          var safeTanggal = escapeHtml(item.tanggal || '-');
-          var safeImageUrl = escapeJsString(item.imageUrl);
-          var safeItemId = escapeJsString(item.id);
           var aksiButtons = hasPermission('pkk_galeri_crud') ? 
-            '<div class="hr-light"></div><button class="btn-small" onclick="pkkEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\')">Edit</button>' +
-            '<button class="btn-small danger" onclick="pkkHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
+            '<div class="hr-light"></div><button class="btn-small" onclick="pkkEditGaleri(\''+item.id+'\',\''+item.caption.replace(/'/g,"\\'")+'\',\''+item.imageUrl+'\')">Edit</button>' +
+            '<button class="btn-small danger" onclick="pkkHapusGaleri(\'' + item.id + '\')">Hapus</button>' : '';
             
           var thumb = getMediaThumbnail(item.imageUrl);
           var icon = isVideoLink(item.imageUrl) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
 
           container.innerHTML += '<div class="galeri-card" style="position:relative;">'
             + icon
-            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + safeImageUrl + '\', '
+            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + item.imageUrl + '\', '
             + JSON.stringify(allMediaUrls).replace(/"/g, '&quot;') + ',' + j + ')">'
             + '<div style="padding:12px;">'
-            + '<div style="font-weight:600;">' + safeCaption + '</div>'
-            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + safeTanggal + '</div>'
+            + '<div style="font-weight:600;">' + (item.caption || '-') + '</div>'
+            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + (item.tanggal || '-') + '</div>'
             + (aksiButtons ? '<div style="margin-top:10px;">' + aksiButtons + '</div>' : '')
             + '</div></div>';
         }
       } else {
         container.innerHTML = '<p>Belum ada foto di galeri PKK.</p>';
       }
-    }).withFailureHandler(function(err) {
-      Swal.close(); // Close loading modal
-      showError('Gagal memuat galeri PKK: ' + err.message);
     }).pkkGetGaleri();
   }
   function bukaPkkLaporanAdmin() {
     sembunyikanSemuaLayar();
     document.getElementById('pkkLaporanAdminView').style.display = 'block'; // Use the new dedicated view
-    history.pushState({view: 'pkkLaporanAdminView', tab: 'pkk', onLoad: 'pkkMuatDataLaporanAdmin'}, '', '#pkkLaporanAdmin');
-    pkkMuatDataLaporanAdmin();
-  }
-
-  function pkkMuatDataLaporanAdmin() {
-    var list = document.getElementById('pkkListLaporanAdmin'); 
+    var list = document.getElementById('pkkListLaporanAdmin'); // Target the new list container
     list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
-    showLoading('Memuat laporan admin PKK...');
     google.script.run.withSuccessHandler(function(res) {
       list.innerHTML = '';
       if (res.data && res.data.length) {
@@ -8964,13 +7848,11 @@ function bukaJadwal() {
   const pwaBanner = document.getElementById('pwaInstallBanner');
 
   window.addEventListener('beforeinstallprompt', (e) => {
-    // MASALAH 2: Menangkap event instalasi untuk dipicu secara manual via UI kustom
+    // Mencegah browser menampilkan prompt default secara otomatis
     e.preventDefault();
+    // Simpan event agar bisa dipicu nanti melalui tombol "Instal"
     deferredPrompt = e;
     
-    // Log untuk debug (opsional)
-    console.log('PWA: Event beforeinstallprompt berhasil ditangkap dan disimpan.');
-
     // Cek apakah user pernah menutup banner ini sebelumnya
     const lastDismissed = localStorage.getItem('pwaDismissedTs');
     const now = Date.now();
@@ -9007,14 +7889,6 @@ function bukaJadwal() {
     showSuccess("Aplikasi berhasil terpasang di layar utama!");
   });
 
-  // Listener untuk pesan dari Service Worker (Navigasi saat notifikasi diklik)
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', function(event) {
-      if (event.data.action === 'navigate' && event.data.page) {
-        handleNotifLihat(event.data.page);
-      }
-    });
-  }
-
   refreshNavVisibility();
 </script>
+</body>
