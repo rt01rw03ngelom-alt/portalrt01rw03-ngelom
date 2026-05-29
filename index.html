@@ -5261,26 +5261,44 @@ function bukaJadwal() {
     if (!info) return;
     rondaSlides = [];
 
-    rawResults.forEach(res => {
-      if (!res.targetBulan || res.status === 'offline') return; // Lewati jika tidak ada targetBulan atau statusnya offline
-      
-      const list = (res.data || []).map(it => it.kategori);
-      let contentHtml = '';
+    const d = new Date();
+    const todayStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 
-      if (list.length === 0) {
-        // Desain rapi untuk fallback jadwal kosong
-        contentHtml = `<div style="color:var(--text-muted); border:1px dashed var(--border-color); padding:10px; border-radius:10px; font-size:12px; text-align:center; font-style:italic;">Jadwal Belum Dirilis / LIBUR</div>`;
+    // PERBAIKAN: Fokus pada Slide 1 untuk Hari Ini
+    const todayEntry = data.find(it => it.tanggal === todayStr);
+    let todayHtml = '';
+
+    let todayPlainText = '';
+
+    if (todayEntry) {
+      const kmpk = String(todayEntry.kelompok || "").toLowerCase();
+      const ptgs = String(todayEntry.petugas || "").toLowerCase();
+      const isLibur = kmpk.includes('libur') || ptgs.includes('ditiadakan');
+      if (isLibur) {
+        todayHtml = `<div style="color:var(--primary-color); font-weight:800; text-align:center; padding:5px;">🚨 RONDA DITIADAKAN</div>`;
+        todayPlainText = "🚨 RONDA DITIADAKAN";
       } else {
-        contentHtml = `<div style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">` + 
-          list.map(c => `<span class="status-badge" style="background:rgba(var(--primary-color-rgb),0.1); color:var(--text-main); font-size:10px; padding:3px 8px;">${c}</span>`).join('') + 
-          `</div>`;
+        const names = String(todayEntry.petugas || "").split(/\r?\n/).filter(n => n.trim()).join(', ');
+        todayHtml = `<div style="font-weight:800; color:var(--text-main); margin-bottom:2px;">${String(todayEntry.kelompok || "Regu Ronda")}</div>
+                     <div style="font-size:12px; color:var(--text-muted); line-height:1.3;">${names}</div>`;
+        todayPlainText = `Regu: ${String(todayEntry.kelompok || "Regu Ronda")}\nPetugas: ${names}`;
       }
+    } else {
+      todayHtml = `<div style="color:var(--text-muted); font-style:italic; font-size:12px;">Tidak ada jadwal terdaftar hari ini.</div>`;
+      todayPlainText = "Tidak ada jadwal terdaftar hari ini.";
+    }
+    
+    rondaSlides.push({ title: "Ronda Malam Hari Ini", html: todayHtml, plainTextContent: todayPlainText });
 
-      rondaSlides.push({
-        title: `Jadwal Ronda: ${res.targetBulan}`,
-        html: contentHtml,
-        plainTextContent: list.length > 0 ? list.join(', ') : 'Belum dirilis'
-      });
+    // Slide 2: Status Agenda
+    rawResults.forEach(res => {
+        if (!res.targetBulan || res.status === 'offline') return;
+        const agendaPlainText = `Terdapat ${res.data ? res.data.length : 0} jadwal untuk ${res.targetBulan}. Silakan cek menu Jadwal Ronda untuk detail.`;
+        rondaSlides.push({
+            title: "Agenda " + res.targetBulan,
+            html: `<div style="font-size:12px; color:var(--text-muted); text-align:center;">Terdapat ${res.data ? res.data.length : 0} jadwal bulan ini.<br>Silakan cek menu Jadwal Ronda.</div>`,
+            plainTextContent: agendaPlainText
+        });
     });
 
     if (rondaSlides.length === 0) {
@@ -5492,10 +5510,9 @@ function bukaJadwal() {
     };
     
     var filtered = currentRondaData.filter(function(item) {
-      var petugasStr = Array.isArray(item.petugas) ? item.petugas.join(" ") : String(item.petugas || "");
-      var kelompokStr = String(item.kelompok || "");
-      return petugasStr.toLowerCase().includes(keyword) || 
-             kelompokStr.toLowerCase().includes(keyword);
+      var p = String(item.petugas || "").toLowerCase();
+      var k = String(item.kelompok || "").toLowerCase();
+      return p.includes(keyword) || k.includes(keyword);
     });
 
     list.innerHTML = '';
@@ -6045,8 +6062,9 @@ function bukaJadwal() {
   function cariUser() {
     var keyword = document.getElementById('userSearchInput').value.toLowerCase();
     var filtered = allUsers.filter(function(item) {
-      return (item.nama || '').toLowerCase().includes(keyword) || 
-             (item.email || '').toLowerCase().includes(keyword);
+      var name = String(item.nama || "").toLowerCase();
+      var email = String(item.email || "").toLowerCase();
+      return name.includes(keyword) || email.includes(keyword);
     });
     renderUserList(filtered);
   }
