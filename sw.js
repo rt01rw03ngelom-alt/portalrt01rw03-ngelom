@@ -1,7 +1,9 @@
 // Minimal service worker for PWA shell.
 
-const VERSION = '1.2.0'; // Tingkatkan versi ini setiap kali update
-const CACHE_NAME = `portal-rt-v${VERSION}`;
+const APP_VERSION = '1.2.0'; // Tingkatkan versi ini setiap kali update
+const CACHE_NAME = `rt-cache-v${APP_VERSION}`;
+
+// Daftar asset yang akan di-cache sebagai app shell
 const ASSETS_TO_CACHE = [
   './', // Root path
   './index.html', // Main application shell
@@ -55,7 +57,8 @@ async function customCacheAll(cacheName, urls) {
 }
 
 self.addEventListener('install', (event) => {
-  console.log(`[Service Worker] Installing version ${VERSION}...`);
+  console.log(`[Service Worker] Installing version ${APP_VERSION}...`);
+
   event.waitUntil(
     customCacheAll(CACHE_NAME, ASSETS_TO_CACHE).then(() => {
       console.log('[Service Worker] Install complete.');
@@ -65,9 +68,27 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log(`[Service Worker] Activated version ${VERSION}`);
-  event.waitUntil(self.clients.claim());
+  console.log(`[Service Worker] Activated version ${APP_VERSION}`);
+
+  event.waitUntil((async () => {
+    // Aggressive eviction: hapus semua cache selain CACHE_NAME saat versi berubah
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => {
+        if (k !== CACHE_NAME) {
+          return caches.delete(k);
+        }
+        return Promise.resolve();
+      }));
+    } catch (e) {
+      console.warn('[Service Worker] Failed to clean old caches:', e);
+    }
+
+    // Paksa SW baru langsung ambil alih semua tab
+    await self.clients.claim();
+  })());
 });
+
 
 // Handler untuk menerima sinyal "Push" dari server (Bekerja saat aplikasi ditutup)
 self.addEventListener('push', (event) => {
@@ -132,38 +153,48 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Strategy: Cache First, then Network, with Offline Fallback for navigation (Point 3)
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      // If found in cache, return it immediately
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  // Force Cache Invalidation on version mismatch is handled by CACHE_NAME versioning.
+  // Strategy: Cache First, then Network.
 
-      // If not in cache, try to fetch from the network
-      return fetch(event.request)
-        .then(networkResponse => {
-          // If network request is successful, cache it for future use and return
-          if (networkResponse.ok && event.request.method === 'GET') { // Only cache GET requests
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // If network fetch fails (e.g., offline)
-          // For navigation requests (HTML pages), serve the offline fallback page
-          if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
-            return caches.match('./offline.html');
-          }
-          // For other types of requests (images, scripts, etc.),
-          // it's generally better to let them fail or return a specific placeholder
-          // rather than a generic offline page.
-          console.warn(`[Service Worker] Network request failed for ${event.request.url}. Not found in cache.`);
-          return new Response(null, { status: 503, statusText: 'Service Unavailable (Offline)' }); // Generic error response
-        });
-    })
-  );
+  // Strategy: Cache First, then Network, with Offline Fallback for navigation (Point 3)
+event.respondWith((async () => {
+    const req = event.request;
+    const url = new URL(req.url);
+
+    // Untuk navigasi/HTML: gunakan network-first agar web/desktop tidak stuck versi lama
+    const isNavigation = req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept') && req.headers.get('accept').includes('text/html'));
+    if (isNavigation) {
+      try {
+        const networkResponse = await fetch(req);
+        if (networkResponse && networkResponse.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(req, networkResponse.clone());
+        }
+        return networkResponse;
+      } catch (e) {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        return caches.match('./offline.html');
+      }
+    }
+
+    // Selain navigasi: cache-first (performa)
+    const cachedResponse = await caches.match(req);
+    if (cachedResponse) return cachedResponse;
+
+    try {
+      const networkResponse = await fetch(req);
+      if (networkResponse && networkResponse.ok && req.method === 'GET') {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(req, networkResponse.clone());
+      }
+      return networkResponse;
+    } catch (e) {
+      console.warn(`[Service Worker] Network request failed for ${req.url}. Not found in cache.`);
+      if (url.pathname.endsWith('.html') || isNavigation) {
+        return caches.match('./offline.html');
+      }
+      return new Response(null, { status: 503, statusText: 'Service Unavailable (Offline)' });
+    }
+  })());
 });
