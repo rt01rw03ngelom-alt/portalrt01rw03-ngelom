@@ -4891,10 +4891,13 @@ const format = (title, entries) => {
 
     var filtered = currentRondaData.filter(function(item) {
       var petugasStr = normalizePetugasForSearch(item && item.petugas);
-      var kelompokStr = (item && item.kelompok) ? String(item.kelompok) : '';
+      var petugasLower = String(petugasStr || '').toLowerCase();
 
-      return petugasStr.toLowerCase().includes(keyword) ||
-             kelompokStr.toLowerCase().includes(keyword);
+      var kelompokStr = (item && item.kelompok) ? String(item.kelompok) : '';
+      var kelompokLower = kelompokStr ? kelompokStr.toLowerCase() : '';
+
+      return petugasLower.includes(keyword) ||
+             kelompokLower.includes(keyword);
     });
 
     list.innerHTML = '';
