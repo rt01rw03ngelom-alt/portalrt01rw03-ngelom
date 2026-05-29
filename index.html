@@ -2368,12 +2368,9 @@
       </button>
     </div>
     <div style="margin-bottom:1.2rem; text-align:center;">
-      <button id="btnSalinRondaWa" class="btn-small" onclick="salinJadwalRondaToWhatsApp()" style="width:auto; padding:10px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:none;">
-        <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">whatsapp</i> Salin Jadwal ke WhatsApp
+      <button id="btnSalinRondaWa" class="btn-small" onclick="salinJadwalRondaToWhatsApp()" style="width:auto; padding:12px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:flex; align-items:center; gap:8px; margin:0 auto;">
+        <i class="material-icons">whatsapp</i> Salin Jadwal ke WhatsApp
       </button>
-    </div>
-    <div style="margin-bottom:1.2rem; text-align:center;">
-      <button id="btnSalinRondaWa" class="btn-small" onclick="salinJadwalRondaToWhatsApp()" style="width:auto; padding:10px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:none;"><i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">whatsapp</i> Salin Jadwal ke WhatsApp</button>
     </div>
     <div id="rondaFormCrud" class="crud-form">
       <h4 id="rondaJudulForm">Tambah Jadwal Ronda</h4> 
@@ -3985,8 +3982,8 @@
     updateDarkModeIcons();
 
     // Refresh tampilan banner ronda agar warnanya sinkron saat tema diubah
-    if (typeof muatRondaHariIni === 'function' && document.getElementById('rondaTodayBanner')) {
-      muatRondaHariIni();
+    if (typeof muatRondaMingguIni === 'function' && document.getElementById('rondaTodayBanner')) {
+      muatRondaMingguIni();
     }
   }
 
@@ -4385,7 +4382,7 @@
       if (label2) label2.innerText = 'Total Uang Kematian';
       card2.style.display = 'flex';
       var rb = document.getElementById('rondaTodayBanner');
-      if (rb) { rb.style.display = 'flex'; muatRondaHariIni(); }
+      if (rb) { rb.style.display = 'flex'; muatRondaMingguIni(); }
       if (summaryContainer) {
         summaryContainer.style.display = 'grid';
         summaryContainer.style.gridTemplateColumns = '1fr 1fr';
@@ -5006,10 +5003,10 @@
     document.getElementById('rondaView').style.display = 'block';
     muatTahunRondaList();
     // Muat Slide Ronda untuk fitur Salin WhatsApp
-    muatRondaHariIni();
+    muatRondaMingguIni();
     history.pushState({view: 'rondaView', tab: 'warga', onLoad: 'muatTahunRondaList'}, '', '#ronda');
     // Control visibility of the new button
-    document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
+    document.getElementById('btnSalinRondaWa').style.display = 'flex';
   }
 function bukaJadwal() {
     sembunyikanSemuaLayar();
@@ -5184,7 +5181,7 @@ function bukaJadwal() {
   /**
    * Fungsi utama memuat data ronda untuk dashboard dengan Dual-Fetch Automation
    */
-  async function muatRondaHariIni(isManualRefresh = false) {
+  async function muatRondaMingguIni(isManualRefresh = false) {
     const info = document.getElementById('rondaTodayInfo');
     if (!info) return;
 
@@ -5217,17 +5214,15 @@ function bukaJadwal() {
       const results = await Promise.all(fetchTasks.map(p => p.catch(e => ({ status: 'error', pesan: e }))));
       let combinedData = [];
 
-      let hasCriticalError = false;
+      let validResults = 0;
       results.forEach((res, idx) => {
         if (res && res.status === 'success' && res.data) {
           combinedData = combinedData.concat(res.data);
-        } else if (idx === 0) {
-          // Jika data bulan BERJALAN (Mei) gagal dimuat, baru tampilkan error kritis
-          hasCriticalError = true;
+          validResults++;
         }
       });
 
-      if (hasCriticalError) throw new Error("Gagal memuat data utama");
+      if (validResults === 0 && results.length > 0) throw new Error("Gagal memuat database ronda");
 
       prosesDataJadwalRonda(combinedData);
       if (isManualRefresh) Swal.fire({ toast: true, position: 'top', timer: 1200, showConfirmButton: false, icon: 'success', title: 'Data Diperbarui' });
@@ -5290,6 +5285,7 @@ function bukaJadwal() {
     const formatContent = (entries) => {
       if (!entries || entries.length === 0) return null;
       return entries.map(it => {
+        const itemDate = parseLocalDate(it.tanggal);
         const isToday = it.tanggal === todayStr;
         // SCRIPT ANTI-CRASH MAPPING: Pecah string \n menjadi chips personal
         const petugasRaw = Array.isArray(it.petugas) ? it.petugas.join("\n") : String(it.petugas || "");
@@ -5299,12 +5295,12 @@ function bukaJadwal() {
 
         // Format Hari untuk kejelasan (Misal: Sen, 12 Mei)
         const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-        const dayName = days[new Date(it.tanggal).getDay()];
+        const dayName = days[itemDate.getDay()];
 
         return `
           <div style="margin-bottom:10px; border-left:4px solid ${isToday ? 'var(--primary-color)' : 'rgba(var(--primary-color-rgb), 0.15)'}; padding-left:10px;">
             <div style="font-size:11.5px; font-weight:800; color:var(--text-main);">${dayName}, ${it.tanggal.split('-')[2]} • ${it.kelompok}</div>
-            <div style="margin-top:4px; line-height:1.4;">${chips || '<span class="muted">Ditiadakan</span>'}</div>
+            <div style="margin-top:4px; line-height:1.4;">${chips || '<span style="font-size:10px; color:var(--text-muted);">Ditiadakan / Libur</span>'}</div>
           </div>`;
       }).join("");
     };
@@ -5394,7 +5390,7 @@ function bukaJadwal() {
 
       // PULL DOWN DETECTED (Threshold 60px)
       if (deltaY > 60 && Math.abs(deltaX) < 30) {
-        muatRondaHariIni(true);
+        muatRondaMingguIni(true);
         return;
       }
 
@@ -5616,19 +5612,7 @@ function bukaJadwal() {
   }
 
   function salinJadwalRondaToWhatsApp() {
-    var slidesToShare = Array.isArray(rondaSlides) ? rondaSlides.slice() : [];
-    if ((!slidesToShare || slidesToShare.length === 0) && Array.isArray(currentRondaData) && currentRondaData.length > 0) {
-      var daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      slidesToShare.push({
-        title: 'Jadwal Ronda Saat Ini',
-        plainTextContent: currentRondaData.map(function(item) {
-          var petugasArr = item.petugas ? item.petugas.split(/\r?\n/).filter(function(v) { return v.trim() !== ''; }) : [];
-          return item.tanggal + ' - ' + item.kelompok + '\n  Petugas: ' + (petugasArr.length ? petugasArr.join(', ') : '-');
-        }).join('\n')
-      });
-    }
-
-    if (!slidesToShare || slidesToShare.length === 0) {
+    if (!rondaSlides || rondaSlides.length === 0) {
       return showWarning('Tidak ada jadwal ronda yang bisa disalin.');
     }
 
@@ -5638,9 +5622,11 @@ function bukaJadwal() {
 
     let message = `*Jadwal Ronda Malam RT01/RW03*\n_Diperbarui: ${formattedDate}_\n\n`;
 
-    rondaSlides.forEach((slide, index) => {
-      message += `*${slide.title}*\n`;
-      message += slide.plainTextContent + '\n'; // Use the pre-formatted plain text
+    rondaSlides.forEach((slide) => {
+      // Bersihkan icon emoji dari judul untuk teks WA
+      const cleanTitle = slide.title.replace('⚡ ', '').replace('📅 ', '');
+      message += `*${cleanTitle}*\n`;
+      message += (slide.plainTextContent || '- Belum ada jadwal') + '\n\n';
     });
 
     message += `_Informasi ini dibagikan melalui Portal RT01/RW03._`;
