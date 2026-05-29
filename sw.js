@@ -1,6 +1,7 @@
 // Minimal service worker for PWA shell.
 
-const CACHE_NAME = 'portal-rt-v1';
+const VERSION = '1.2.0'; // Tingkatkan versi ini setiap kali update
+const CACHE_NAME = `portal-rt-v${VERSION}`;
 const ASSETS_TO_CACHE = [
   './', // Root path
   './index.html', // Main application shell
@@ -54,16 +55,17 @@ async function customCacheAll(cacheName, urls) {
 }
 
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing and pre-caching assets...');
+  console.log(`[Service Worker] Installing version ${VERSION}...`);
   event.waitUntil(
     customCacheAll(CACHE_NAME, ASSETS_TO_CACHE).then(() => {
-      console.log('[Service Worker] Install complete (even if some assets failed).');
-      return self.skipWaiting();
+      console.log('[Service Worker] Install complete.');
+      return self.skipWaiting(); // Paksa versi baru aktif segera
     })
   );
 });
 
 self.addEventListener('activate', (event) => {
+  console.log(`[Service Worker] Activated version ${VERSION}`);
   event.waitUntil(self.clients.claim());
 });
 
