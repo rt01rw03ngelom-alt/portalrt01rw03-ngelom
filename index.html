@@ -5191,12 +5191,15 @@ function bukaJadwal() {
     info.innerHTML = `<div style="display:flex; justify-content:center; padding:15px;"><div class="bbx-spinner" style="width:24px; height:24px; border-width:2.5px;"></div></div>`;
 
     const hariIni = new Date();
+    hariIni.setHours(0,0,0,0);
+
     const bulanSekarang = hariIni.getMonth() + 1;
     const tahunSekarang = hariIni.getFullYear();
 
-    // LOGIKA TRANSISI AKHIR BULAN: Hanya aktif jika sisa 1 hari atau kurang (H-1)
-    const lastDayOfMonth = new Date(tahunSekarang, bulanSekarang, 0).getDate();
-    const isNearMonthEnd = (lastDayOfMonth - hariIni.getDate()) <= 1;
+    // KOREKSI A: LOGIKA TRANSISI AKHIR BULAN (Cek sampai 14 hari ke depan untuk widget Minggu Depan)
+    const duaMingguLagi = new Date(hariIni);
+    duaMingguLagi.setDate(hariIni.getDate() + 14);
+    const isNearMonthEnd = (duaMingguLagi.getMonth() !== hariIni.getMonth());
 
     try {
       const fetchTasks = [
@@ -5213,13 +5216,13 @@ function bukaJadwal() {
       // Parallel fetch untuk performa maksimal
       const results = await Promise.all(fetchTasks.map(p => p.catch(e => ({ status: 'error', pesan: e }))));
       let combinedData = [];
-      
+
       let hasCriticalError = false;
       results.forEach((res, idx) => {
         if (res && res.status === 'success' && res.data) {
           combinedData = combinedData.concat(res.data);
         } else if (idx === 0) {
-          // Jika data bulan berjalan gagal dimuat, anggap error kritis
+          // Jika data bulan BERJALAN (Mei) gagal dimuat, baru tampilkan error kritis
           hasCriticalError = true;
         }
       });
@@ -5243,7 +5246,8 @@ function bukaJadwal() {
     const info = document.getElementById('rondaTodayInfo');
     if (!info) return;
 
-    if (!data || data.length === 0) {
+    // PERBAIKAN B: VALIDASI DATA KOSONG (BELUM DIRILIS)
+    if (!data || data.length === 0 || (Array.isArray(data) && data.length === 0)) {
       const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
       const currentMonthName = months[new Date().getMonth()];
       info.innerHTML = `
@@ -5257,6 +5261,15 @@ function bukaJadwal() {
     rondaSlides = [];
 
     const now = new Date();
+    now.setHours(0,0,0,0);
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Helper parsing tanggal lokal agar tidak bergeser timezone UTC
+    const parseLocalDate = (ds) => {
+      const p = ds.split('-');
+      return new Date(p[0], p[1] - 1, p[2]);
+    };
+
     // LOGIKA REAL-TIME FILTER MINGGUAN (Sun-Sat)
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
@@ -5268,29 +5281,47 @@ function bukaJadwal() {
 
     const nextWeekStart = new Date(endOfWeek);
     nextWeekStart.setDate(endOfWeek.getDate() + 1);
+    nextWeekStart.setHours(0,0,0,0);
+
     const nextWeekEnd = new Date(nextWeekStart);
     nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+    nextWeekEnd.setHours(23,59,59,999);
 
     const formatContent = (entries) => {
       if (!entries || entries.length === 0) return null;
       return entries.map(it => {
-        const isToday = it.tanggal === now.toISOString().split('T')[0];
+        const isToday = it.tanggal === todayStr;
         // SCRIPT ANTI-CRASH MAPPING: Pecah string \n menjadi chips personal
         const petugasRaw = Array.isArray(it.petugas) ? it.petugas.join("\n") : String(it.petugas || "");
         const chips = petugasRaw.split(/\r?\n/).filter(p => p.trim() !== "").map(p => 
           `<span style="background:var(--bg-app); color:var(--text-main); border:1px solid var(--border-color); padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; display:inline-block; margin:2px 2px 0 0;">${p}</span>`
         ).join("");
 
+        // Format Hari untuk kejelasan (Misal: Sen, 12 Mei)
+        const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        const dayName = days[new Date(it.tanggal).getDay()];
+
         return `
           <div style="margin-bottom:10px; border-left:4px solid ${isToday ? 'var(--primary-color)' : 'rgba(var(--primary-color-rgb), 0.15)'}; padding-left:10px;">
-            <div style="font-size:11.5px; font-weight:800; color:var(--text-main);">${it.tanggal} • ${it.kelompok}</div>
+            <div style="font-size:11.5px; font-weight:800; color:var(--text-main);">${dayName}, ${it.tanggal.split('-')[2]} • ${it.kelompok}</div>
             <div style="margin-top:4px; line-height:1.4;">${chips || '<span class="muted">Ditiadakan</span>'}</div>
           </div>`;
       }).join("");
     };
 
-    const thisWeekHtml = formatContent(data.filter(it => { const d = new Date(it.tanggal); return d >= startOfWeek && d <= endOfWeek; }));
-    const nextWeekHtml = formatContent(data.filter(it => { const d = new Date(it.tanggal); return d >= nextWeekStart && d <= nextWeekEnd; }));
+    const formatPlainText = (entries) => {
+      if (!entries || entries.length === 0) return "- Belum ada jadwal / Libur";
+      const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+      return entries.map(it => {
+        const d = parseLocalDate(it.tanggal);
+        const petugasRaw = Array.isArray(it.petugas) ? it.petugas.join("\n") : String(it.petugas || "");
+        const names = petugasRaw.split(/\r?\n/).filter(p => p.trim() !== "").join(", ");
+        return `${days[d.getDay()]}, ${it.tanggal.split('-')[2]}: ${it.kelompok} (${names || 'Ditiadakan'})`;
+      }).join("\n");
+    };
+
+    const thisWeekHtml = formatContent(data.filter(it => { const d = parseLocalDate(it.tanggal); return d >= startOfWeek && d <= endOfWeek; }));
+    const nextWeekHtml = formatContent(data.filter(it => { const d = parseLocalDate(it.tanggal); return d >= nextWeekStart && d <= nextWeekEnd; }));
 
     // UI FALLBACK CARD: Render pesan elegan jika data kosong
     const fallbackHtml = `
@@ -5299,8 +5330,16 @@ function bukaJadwal() {
         <div style="font-size:12px; font-weight:600; color:var(--text-muted);">Belum ada jadwal ronda yang dirilis untuk minggu ini.</div>
       </div>`;
 
-    rondaSlides.push({ title: "⚡ Ronda Minggu Ini", html: thisWeekHtml || fallbackHtml });
-    rondaSlides.push({ title: "📅 Ronda Selanjutnya", html: nextWeekHtml || fallbackHtml });
+    rondaSlides.push({ 
+      title: "⚡ Ronda Minggu Ini", 
+      html: thisWeekHtml || fallbackHtml,
+      plainTextContent: formatPlainText(data.filter(it => { const d = parseLocalDate(it.tanggal); return d >= startOfWeek && d <= endOfWeek; }))
+    });
+    rondaSlides.push({ 
+      title: "📅 Ronda Selanjutnya", 
+      html: nextWeekHtml || fallbackHtml,
+      plainTextContent: formatPlainText(data.filter(it => { const d = parseLocalDate(it.tanggal); return d >= nextWeekStart && d <= nextWeekEnd; }))
+    });
 
     currentRondaSlideIdx = 0;
     displayRondaSlide(0);
@@ -5534,7 +5573,7 @@ function bukaJadwal() {
         filterTahun.options.add(new Option(y, String(y)));
       });
 
-      // 4. FINAL LOCK-IN & FETCH DATA
+      // KOREKSI C: FINAL LOCK-IN BULAN MEI (REAL-TIME SYNC)
       filterTahun.value = String(tahunSkrg);
       filterBulan.value = String(bulanSkrg);
 
