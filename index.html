@@ -7,6 +7,15 @@
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
   
+  <!-- OneSignal SDK -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignal = window.OneSignal || [];
+    OneSignal.push(function() {
+      OneSignal.init({ appId: "MASUKKAN_APP_ID_ANDA_DI_SINI" });
+    });
+  </script>
+
   <script>
     // ==== App version checker (hard update) ====
     const APP_VERSION = '1.2.1';
@@ -3946,6 +3955,12 @@
           // Set state awal setelah login
           history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
           window.resolveLoginReady(); // Resolve the login promise here (Point 2)
+          
+          // Minta Izin Notifikasi & Sinkronkan ID ke Database Warga
+          OneSignal.Notifications.requestPermission().then(() => {
+            syncOneSignalSubscription();
+          });
+
           currentTab = 'warga';
           kembaliKeDashboard();
           showSuccess('Selamat datang, ' + currentUser.nama + '!');
@@ -8366,9 +8381,7 @@ function bukaJadwal() {
     if (!deskripsi) return showWarning('Detail laporan wajib diisi!');
 
     var btn = document.querySelector('#pkkKirimLaporanView .btn-primary');
-    btn.innerHTML = '<span class="loading-spinner"></span>';
-    btn.disabled = true;
-    showLoading('Mengirim laporan...'); // Added loading indicator
+    
     var obj = {
       pelapor: currentUser.nama,
       judul: judul,
@@ -8380,23 +8393,25 @@ function bukaJadwal() {
 
     var fileInput = document.getElementById('pkkFotoLaporan');
     if (fileInput.files.length) {
+      btn.disabled = true;
       var file = fileInput.files[0];
+      // Refactoring: Hapus calls ke fungsi undefined (updateProgress) dan perbaiki callback
       compressImage(file, function(base64, mime) {
         obj.dataFile = base64;
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
         kirimLaporanPkk(obj, btn);
-      }).withFailureHandler(function(err) {
-        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
-      });
+      }, 800); // Gunakan 800px agar upload sangat cepat
     } else {
+      btn.disabled = true;
       kirimLaporanPkk(obj, btn);
     }
   }
 
   function kirimLaporanPkk(obj, btn) {
-    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
-    showLoading('Mengirim laporan...'); // Added loading indicator
+    showLoading('Mengunggah laporan ke server...');
+    btn.innerHTML = '<span class="loading-spinner"></span> Mengirim...';
+    
     google.script.run.withSuccessHandler(function(res) {
       btn.innerHTML = 'Kirim';
       btn.disabled = false;
@@ -8628,35 +8643,34 @@ function bukaJadwal() {
     list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
     showLoading('Memuat laporan admin PKK...');
     google.script.run.withSuccessHandler(function(res) {
-      list.innerHTML = '';
+      Swal.close();
       if (res.data && res.data.length) {
-        var allImgs = [];
-        for (var i = 0; i < res.data.length; i++) {
-          allImgs.push(getDirectUrl(res.data[i].fotoUrl));
-        }
-        res.data.forEach(function(item, idx) {
-          var statusClass = item.status === 'Selesai' ? 'status-selesai' : (item.status === 'Diproses' ? 'status-diproses' : 'status-belum');
-          var fotoHTML = item.fotoUrl ? '<img src="' + getDirectUrl(item.fotoUrl) + '" class="img-thumbnail" onclick="openLightbox(\'' + getDirectUrl(item.fotoUrl) + '\', ' + JSON.stringify(allImgs).replace(/"/g, '&quot;') + ',' + idx + ')">' : '';
+        const allImgs = res.data.map(it => getDirectUrl(it.fotoUrl));
+        const htmlParts = res.data.map(function(item, idx) {
+          const statusClass = item.status === 'Selesai' ? 'status-selesai' : (item.status === 'Diproses' ? 'status-diproses' : 'status-belum');
+          const fotoHTML = item.fotoUrl ? `<img src="${getDirectUrl(item.fotoUrl)}" class="img-thumbnail" onclick="openLightbox('${getDirectUrl(item.fotoUrl)}', ${JSON.stringify(allImgs).replace(/"/g, '&quot;')}, ${idx})">` : '';
           
-          var crudButtons = hasPermission('pkk_laporan_admin_crud') ? 
-            '<button class="btn-small success" onclick="updateStatusPkkLaporan(\'' + item.id + '\')">Update</button>' +
-            '<button class="btn-small danger" onclick="hapusPkkLaporan(\'' + item.id + '\')">Hapus</button>' : '';
+          const crudButtons = hasPermission('pkk_laporan_admin_crud') ? 
+            `<button class="btn-small success" onclick="updateStatusPkkLaporan('${item.id}')">Update</button>
+             <button class="btn-small danger" onclick="hapusPkkLaporan('${item.id}')">Hapus</button>` : '';
           
-          list.innerHTML += '<div class="card-item">'
-            + '<div><strong>' + item.pelapor + '</strong> - ' + item.tanggal + '</div>'
-            + '<div class="status-badge ' + statusClass + '">' + item.status + '</div>'
-            + '<div style="margin-top:8px;"><strong>' + item.judul + '</strong></div>'
-            + '<div>' + item.deskripsi + '</div>'
-            + fotoHTML
-            + '<hr>'
-            + '<select id="pkkStatus_' + item.id + '" style="background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color);">'
-            + '<option ' + (item.status==='Menunggu'?'selected':'') + '>Menunggu</option>'
-            + '<option ' + (item.status==='Diproses'?'selected':'') + '>Diproses</option>'
-            + '<option ' + (item.status==='Selesai'?'selected':'') + '>Selesai</option>'
-            + '</select>'
-            + crudButtons
-            + '</div>';
+          return `
+            <div class="card-item">
+              <div><strong>${item.pelapor}</strong> - ${item.tanggal}</div>
+              <div class="status-badge ${statusClass}">${item.status}</div>
+              <div style="margin-top:8px;"><strong>${item.judul}</strong></div>
+              <div>${item.deskripsi}</div>
+              ${fotoHTML}
+              <hr>
+              <select id="pkkStatus_${item.id}" style="background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color);">
+                <option ${item.status === 'Menunggu' ? 'selected' : ''}>Menunggu</option>
+                <option ${item.status === 'Diproses' ? 'selected' : ''}>Diproses</option>
+                <option ${item.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+              </select>
+              ${crudButtons}
+            </div>`;
         });
+        list.innerHTML = htmlParts.join('');
       } else { list.innerHTML = '<p>Belum ada laporan PKK.</p>'; }
     }).pkkGetLaporan();
   }
