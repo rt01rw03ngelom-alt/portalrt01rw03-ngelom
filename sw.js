@@ -1,6 +1,6 @@
 // Minimal service worker for PWA shell.
 
-const APP_VERSION = '1.2.2'; // Tingkatkan versi ini setiap kali update
+const APP_VERSION = '1.2.3'; // Tingkatkan versi ini setiap kali update
 const CACHE_NAME = `rt-cache-v${APP_VERSION}`;
 
 // Daftar asset yang akan di-cache sebagai app shell
