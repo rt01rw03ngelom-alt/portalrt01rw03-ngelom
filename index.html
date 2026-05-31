@@ -2819,7 +2819,7 @@
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
   // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
-  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
+  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/execc";
 
   // ENGINE NOTIFIKASI LATAR BELAKANG (NATIVE WEB PUSH)
   const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
@@ -2931,10 +2931,57 @@
     }
   };
 
+  /**
+   * 10XTHINK: SINKRONISASI OTOMATIS GLOBAL (STATE MANAGEMENT)
+   * Mengelola data lokal agar UI terupdate instan tanpa fetch ulang.
+   */
+  window.updateGlobalDatabaseState = function(newData, menuType) {
+    console.log(`[State] Optimistic Update for: ${menuType}`);
+    
+    if (menuType === 'pengaduan') {
+      // Jika ID sudah ada (update), ganti. Jika belum (create), unshift ke paling atas.
+      const index = window.pengaduanDataGlobal.findIndex(it => it.id === newData.id);
+      if (index > -1) window.pengaduanDataGlobal[index] = newData;
+      else window.pengaduanDataGlobal.unshift(newData);
+      
+      // Trigger re-render hanya pada komponen terkait
+      if (document.getElementById('historiPengaduanView').style.display === 'block') {
+        renderListHistoriUI(window.pengaduanDataGlobal);
+      }
+    } 
+    
+    if (menuType === 'pkk_laporan') {
+      const index = window.pkkLaporanDataGlobal.findIndex(it => it.id === newData.id);
+      if (index > -1) window.pkkLaporanDataGlobal[index] = newData;
+      else window.pkkLaporanDataGlobal.unshift(newData);
+      
+      if (document.getElementById('pkkHistoriView').style.display === 'block') {
+        renderPkkHistoriUI(window.pkkLaporanDataGlobal);
+      }
+    }
+  };
+
+  /**
+   * ASYNCHRONOUS FILE READER (ANTI-BLOCKING)
+   */
+  async function readFileAsync(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ base64: reader.result.split(',')[1], mime: file.type });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   // ======================== GLOBAL VARIABLES ========================
   var currentUser = { role: 'warga' };
   var currentToken = null;
   var allUsers = []; // Global variable to store all user data
+  
+  // STATE MANAGEMENT: Local Cache untuk Optimistic Update
+  window.pengaduanDataGlobal = [];
+  window.pkkLaporanDataGlobal = [];
+  
   var activeNotifications = []; // Helper untuk simpan list notif saat ini
   var currentThisWeekEntries = []; // Storage untuk Share WA
   var currentNextWeekEntries = []; // Storage untuk Share WA
@@ -3143,43 +3190,96 @@
     return (match && match[2].length == 11) ? match[2] : null;
   }
 
-  // HELPER: Image Compression (Resize & Compress to < 1MB)
-  function compressImage(file, callback, maxDim) {
-    showLoading('Mengompresi gambar...');
-    updateProgress(5, 'Membaca file...');
-    
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = function(event) {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = function() {
-        updateProgress(15, 'Memproses resolusi...');
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_SIZE = maxDim || 1080; // Max dimension for clear but lightweight image
+  // ======================== 10XTHINK: COMPRESSION TARGET < ~100KB ========================
+  // User request: kompres hasil hingga di bawah ~100KB. Berlaku untuk gambar saja.
+  async function kompresGambarSebelumUpload(file) {
+    try {
+      if (!file) return { base64: null, mimeType: null, fileName: null, asli: true };
+      const isImage = (file.type || '').toLowerCase().startsWith('image/');
+      if (!isImage) {
+        return { base64: null, mimeType: file.type || 'application/octet-stream', fileName: file.name || '', asli: true };
+      }
 
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
+      const MAX_DIM = 900;
+      const targetBase64Len = Math.ceil(100 * 1024 * (4 / 3));
+
+      showLoading('Memproses lampiran...');
+      updateProgress(5, 'Membaca gambar...');
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Gagal membaca file.'));
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('Gagal memuat gambar untuk kompresi.'));
+        im.src = dataUrl;
+      });
+
+      updateProgress(20, 'Resize & kompres...');
+
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_DIM) {
+          height = Math.round(height * (MAX_DIM / width));
+          width = MAX_DIM;
         }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 0.6 is optimal for storage vs quality
-        callback(dataUrl.split(',')[1], 'image/jpeg');
+      } else {
+        if (height > MAX_DIM) {
+          width = Math.round(width * (MAX_DIM / height));
+          height = MAX_DIM;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const qualitySteps = [0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4];
+      for (let i = 0; i < qualitySteps.length; i++) {
+        updateProgress(30 + i * 8, 'Mencari kualitas terbaik...');
+        const q = qualitySteps[i];
+        const out = canvas.toDataURL('image/jpeg', q);
+        const base64 = out.split(',')[1];
+        if (base64 && base64.length > 0 && base64.length <= targetBase64Len) {
+          return {
+            base64,
+            mimeType: 'image/jpeg',
+            fileName: (file.name || 'foto').replace(/\.[^/.]+$/, '') + '.jpg',
+            asli: false
+          };
+        }
+      }
+
+      // Jika tidak bisa cukup kecil, pakai hasil kualitas terendah (terakhir di loop)
+      const out = canvas.toDataURL('image/jpeg', qualitySteps[qualitySteps.length - 1]);
+      return {
+        base64: out.split(',')[1],
+        mimeType: 'image/jpeg',
+        fileName: (file.name || 'foto').replace(/\.[^/.]+$/, '') + '.jpg',
+        asli: false
       };
-    };
+    } catch (e) {
+      console.warn('kompresGambarSebelumUpload failed:', e);
+      return { base64: null, mimeType: (file && file.type) || null, fileName: (file && file.name) || null, asli: true };
+    }
   }
+
+  // Backward compatibility wrapper yang ada banyak pemanggilannya.
+  function compressImage(file, callback, maxDim) {
+    kompresGambarSebelumUpload(file).then((res) => {
+      if (res && res.base64) callback(res.base64, res.mimeType || 'image/jpeg');
+      else callback(null, (file && file.type) || null);
+    }).catch(() => callback(null, null));
+  }
+
 
   // Helper untuk format tanggal Indonesia: Hari, Tanggal Bulan Tahun Jam WIB
   function formatIndoDate(dateStr) {
@@ -6553,42 +6653,45 @@ function bukaJadwal() {
     muatHistoriPengaduan();
   }
 
+  /**
+   * Refactored: Render dari State Lokal
+   */
+  function renderListHistoriUI(data) {
+    const list = document.getElementById('listHistori');
+    list.innerHTML = '';
+    if (!data || !data.length) {
+      list.innerHTML = '<p>Belum ada histori.</p>';
+      return;
+    }
+
+    const allImgs = data.filter(it => it.fotoUrl).map(it => getDirectUrl(it.fotoUrl));
+    
+    data.forEach((item, j) => {
+      let statusClass = 'status-belum';
+      if (item.status === 'Selesai') statusClass = 'status-selesai';
+      else if (item.status === 'Diproses' || item.status === 'Mengirim...') statusClass = 'status-diproses';
+
+      const fotoHTML = item.fotoUrl ? `<img src="${item.fotoUrl.startsWith('blob') ? item.fotoUrl : getDirectUrl(item.fotoUrl)}" class="img-thumbnail" onclick="openLightbox('${item.fotoUrl}', ${JSON.stringify(allImgs).replace(/"/g, '&quot;')}, ${j})">` : '';
+
+      list.innerHTML += `<div class="card-item" id="card-${item.id}">
+        <div><strong>${item.pelapor}</strong> - ${item.waktu}</div>
+        <div class="status-badge ${statusClass}" style="margin-top:5px;">${item.status}</div>
+        <div style="margin-top:10px;">${item.isi}</div>
+        ${fotoHTML}
+      </div>`;
+    });
+  }
+
   function muatHistoriPengaduan() {
     var list = document.getElementById('listHistori');
-    list.innerHTML = '<p>Memuat...</p>';
+    // Cek cache dulu agar instan
+    if (window.pengaduanDataGlobal.length > 0) renderListHistoriUI(window.pengaduanDataGlobal);
+    else list.innerHTML = SPINNER_HTML;
+
     google.script.run.withSuccessHandler(function(res) {
-      list.innerHTML = ''; // Clear skeleton
       if (res.status === 'error') return showError(res.pesan);
-      if (res.data && res.data.length) {
-        var allImgs = [];
-        for (var i = 0; i < res.data.length; i++) {
-          allImgs.push(getDirectUrl(res.data[i].fotoUrl));
-        }
-        for (var j = 0; j < res.data.length; j++) {
-          var item = res.data[j];
-          var statusClass = 'status-belum';
-          if (item.status === 'Selesai') {
-            statusClass = 'status-selesai';
-          } else if (item.status === 'Diproses') {
-            statusClass = 'status-diproses';
-          }
-          var directUrl = getDirectUrl(item.fotoUrl);
-          var fotoHTML = '';
-          if (item.fotoUrl) {
-            fotoHTML = '<img src="' + directUrl + '" class="img-thumbnail" style="border:1px solid var(--border-color);" '
-              + 'onclick="openLightbox(\'' + directUrl + '\', '
-              + JSON.stringify(allImgs).replace(/"/g, '&quot;') + ',' + j + ')">';
-          }
-          list.innerHTML += '<div class="card-item">'
-            + '<div><strong>' + item.pelapor + '</strong> - ' + item.waktu + '</div>'
-            + '<div class="status-badge ' + statusClass + '" style="margin-top:5px;">' + item.status + '</div>'
-            + '<div style="margin-top:10px;">' + item.isi + '</div>'
-            + fotoHTML
-            + '</div>';
-        }
-      } else {
-        list.innerHTML = '<p>Belum ada histori.</p>';
-      }
+      window.pengaduanDataGlobal = res.data || [];
+      renderListHistoriUI(window.pengaduanDataGlobal);
     }).getHistoriPengaduan(currentUser.nama);
   }
 
