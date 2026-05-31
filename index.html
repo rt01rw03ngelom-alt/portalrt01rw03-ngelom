@@ -6,15 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#d32f2f">
   <link rel="manifest" href="manifest.json">
-  
-  <!-- OneSignal SDK -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-  <script>
-    window.OneSignal = window.OneSignal || [];
-    OneSignal.push(function() {
-      OneSignal.init({ appId: "MASUKKAN_APP_ID_ANDA_DI_SINI" });
-    });
-  </script>
 
   <script>
     // ==== App version checker (hard update) ====
@@ -118,6 +109,14 @@
     .menu-overlay.active {
       display: block;
       opacity: 1;
+    }
+
+    /* Pointer Cursor Fix: Semua elemen interaktif harus memiliki pointer */
+    button, .btn, .btn-primary, .btn-secondary, .btn-small, .btn-action-subtle, 
+    .nav-item, .nav-menu-item, .menu-item, .header-toggle-btn, .fab, [onclick],
+    .action-button, input[type="button"], input[type="submit"],
+    .card-item[onclick], .summary-card[onclick] {
+      cursor: pointer !important;
     }
 
     /* Pertahankan indikator warna pada card-item */
@@ -542,11 +541,12 @@
       background: rgba(var(--bg-surface-rgb), 0.95);
       color: var(--text-main);
       text-align: left;
-      padding: clamp(15px, 5vw, 25px);
-      border-radius: 20px;
-      margin: -25px auto 0;
+      padding: clamp(20px, 6vw, 30px); /* Peningkatan padding dalam agar lebih lega */
+      border-radius: 24px;
+      /* FIX LAYOUT: Margin-top dinaikkan ke 50px untuk memberikan ruang di bawah lengkungan header */
+      margin: 50px auto 25px; 
       width: calc(100% - clamp(24px, 8vw, 40px)); /* Responsive width */
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-md);
       position: relative;
       transition: background-color 0.3s ease;
       z-index: 10;
@@ -2819,22 +2819,58 @@
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
   // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
+  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
+
+  // ENGINE NOTIFIKASI LATAR BELAKANG (NATIVE WEB PUSH)
+  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
 
   /**
-   * Registrasi Service Worker untuk PWA
+   * Registrasi Web Push Native (Background Capability)
    */
-  async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('sw.js');
-        console.log('Service Worker registered with scope:', registration.scope);
-        return registration;
-      } catch (error) {
-        console.error('Service Worker registration failed:', error);
+  async function registrasiWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('Web Push tidak didukung di browser ini.');
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register('sw.js');
+      console.log('Service Worker aktif:', registration.scope);
+
+      // Minta izin notifikasi
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      // Subscribe ke Push Service
+      let subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
       }
+
+      // Kirim Subscription ke GAS
+      google.script.run.withSuccessHandler(function(res) {
+        console.log('Web Push Subscription tersinkronisasi ke server.');
+      }).savePushSubscription(JSON.stringify(subscription), currentUser.email);
+
+    } catch (err) {
+      console.error('Gagal registrasi Web Push:', err);
     }
   }
-  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
 
   /**
    * Polyfill google.script.run menggunakan Proxy untuk mendukung hosting eksternal
@@ -3001,20 +3037,6 @@
         });
       }
     }
-  }
-
-  // VAPID Public Key (Wajib untuk Push Notification standar)
-  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
   }
 
   function subscribeUserToPush(silent) {
@@ -3510,7 +3532,8 @@
   // ======================== NOTIFIKASI ========================
   var notifPollingHandle = null;
   var notifAlreadyShownIds = new Set();
-  var NOTIF_POLL_INTERVAL_MS = 15000;
+  // LOGIKA PSEUDO-REALTIME PERMISSIONS: Polling setiap 5 menit (300.000 ms)
+  var NOTIF_POLL_INTERVAL_MS = 300000; 
   var rondaFilterBulanSelect = document.getElementById('rondaFilterBulan');
   var rondaFilterTahunSelect = document.getElementById('rondaFilterTahun');
   var currentRondaData = [];
@@ -3815,10 +3838,8 @@
     // Inisialisasi interaksi awan
     initCloudInteraction();
 
-    // Daftarkan Service Worker untuk Web Push / background notifications
-    registerServiceWorker().catch(function (err) {
-      console.warn('Service Worker tidak dapat didaftarkan:', err.message);
-    });
+    // Jalankan Engine Web Push
+    registrasiWebPush();
 
     // Otomatis Log In: Periksa token yang tersimpan di perangkat
     updateAdminContactLink();
@@ -3956,10 +3977,8 @@
           history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
           window.resolveLoginReady(); // Resolve the login promise here (Point 2)
           
-          // Minta Izin Notifikasi & Sinkronkan ID ke Database Warga
-          OneSignal.Notifications.requestPermission().then(() => {
-            syncOneSignalSubscription();
-          });
+          // Jalankan Registrasi Push setelah login sukses
+          registrasiWebPush();
 
           currentTab = 'warga';
           kembaliKeDashboard();
