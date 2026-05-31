@@ -3,7 +3,7 @@ importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
 // Minimal service worker for PWA shell.
 
-const APP_VERSION = '0.0.1'; // Tingkatkan versi ini setiap kali update
+const APP_VERSION = '0.0.2'; // Tingkatkan versi ini setiap kali update
 const CACHE_NAME = `rt-cache-v${APP_VERSION}`;
 
 // Daftar asset yang akan di-cache sebagai app shell
