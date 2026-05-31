@@ -1,203 +1,8813 @@
-// OneSignal SDK Worker Integration
-importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#d32f2f">
+  <link rel="manifest" href="manifest.json">
 
-// Minimal service worker for PWA shell.
+  <script>
+    // ==== App version checker (hard update) ====
+    const APP_VERSION = '1.2.1';
+    (function () {
+      try {
+        const key = 'rt-app-version';
+        const last = localStorage.getItem(key);
+        if (last !== APP_VERSION) {
+          localStorage.setItem(key, APP_VERSION);
+          // Clean all SW caches so new shell is used immediately
+          if ('caches' in window) {
+            caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(()=>{});
+          }
+          // Force hard reload with cache-busting param
+          const url = new URL(window.location.href);
+          url.searchParams.set('v', String(Date.now()));
+          window.location.replace(url.toString());
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  </script>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Portal RT">
+  <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w192">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary-color: #ef4444; /* Default RT */
+      --primary-color-rgb: 239, 68, 68;
+      --primary-dark: #b91c1c;
+      --pkk-green: #10b981;
+      --kt-blue: #38bdf8;
+      --primary-red: #ef4444;
+      --warga-red: #ef4444;
+      
+      --bg-surface: #ffffff;
+      --bg-surface-rgb: 255, 255, 255;
+      --bg-app: #f1f5f9;
+      --text-main-rgb: 15, 23, 42;
+      --accent-blue: #2563eb;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --border-radius: 12px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
 
-const APP_VERSION = '0.0.2'; // Tingkatkan versi ini setiap kali update
-const CACHE_NAME = `rt-cache-v${APP_VERSION}`;
+    /* Dark Mode variables */
+    body.dark-mode {
+      --bg-app: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-surface-rgb: 30, 41, 59;
+      --text-main: #f8fafc;
+      --text-main-rgb: 248, 250, 252; /* RGB for #f8fafc */
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+    }
 
-// Daftar asset yang akan di-cache sebagai app shell
-const ASSETS_TO_CACHE = [
-  './', // Root path
-  './index.html', // Main application shell
-  './manifest.json', // PWA manifest
-  './offline.html', // Offline fallback page (NEW)
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', // Google Fonts CSS
-  'https://fonts.googleapis.com/icon?family=Material+Icons' // Material Icons CSS
-];
+    /* Modern Glassmorphism for Dark Mode Elements */
+    body.dark-mode .card-item,
+    body.dark-mode .galeri-card,
+    body.dark-mode .crud-form,
+    body.dark-mode .welcome-banner,
+    body.dark-mode .modal-kategori,
+    body.dark-mode .login-box,
+    body.dark-mode .summary-card,
+    body.dark-mode .menu-item {
+      /* Menggunakan warna surface dengan transparansi agar blur terlihat */
+      background: rgba(30, 41, 59, 0.65) !important; 
+      backdrop-filter: blur(12px) saturate(180%);
+      -webkit-backdrop-filter: blur(12px) saturate(180%);
+      
+      /* Border halus semi-transparan (Ciri khas glassmorphism) */
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+    }
 
-// Helper untuk membaca Token dari IndexedDB (karena SW tidak bisa akses localStorage)
-async function getAuthTokenFromIDB() {
-  return new Promise((resolve) => {
+    /* Overlay Latar Belakang Blur saat Menu Terbuka */
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 998;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .menu-overlay.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* Pointer Cursor Fix: Semua elemen interaktif harus memiliki pointer */
+    button, .btn, .btn-primary, .btn-secondary, .btn-small, .btn-action-subtle, 
+    .nav-item, .nav-menu-item, .menu-item, .header-toggle-btn, .fab, [onclick],
+    .action-button, input[type="button"], input[type="submit"],
+    .card-item[onclick], .summary-card[onclick] {
+      cursor: pointer !important;
+    }
+
+    /* Pertahankan indikator warna pada card-item */
+    body.dark-mode .card-item {
+      border-left: 6px solid var(--primary-color) !important;
+    }
+
+    /* Sesuaikan garis pemisah di dalam card agar tidak terlalu kontras */
+    body.dark-mode .card-actions, 
+    body.dark-mode .hr-light {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* SweetAlert Dark Mode Fix */
+    body.dark-mode .swal2-popup {
+      background-color: var(--bg-surface) !important;
+      color: var(--text-main) !important;
+      border: 1px solid var(--border-color);
+    }
+    body.dark-mode .swal2-title, body.dark-mode .swal2-html-container, body.dark-mode .swal2-input, body.dark-mode .swal2-textarea {
+      color: var(--text-main) !important;
+    }
+
+    body.dark-mode::before {
+      opacity: 0.15; /* Reduce texture visibility in dark mode */
+    }
+
+    /* Perbaikan Latar Belakang Paling Belakang di Mode Gelap */
+    body.dark-mode::after {
+      background: linear-gradient(-45deg, #0f172a, #1e293b, #111827, #0f172a) !important;
+    }
+
+    /* Animated Background Canvas Effect */
+    body::after {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(-45deg, #f1f5f9, #e2e8f0, #ffffff, #f1f5f9);
+      background-size: 400% 400%;
+      animation: softGradient 15s ease infinite;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    @keyframes softGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes slideDown {
+      from { 
+        opacity: 0; 
+        transform: translateY(-30px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+
+    /* Theme classes */
+    body.theme-warga { --primary-color: var(--warga-red); --primary-color-rgb: 239, 68, 68; --primary-dark: #b91c1c; }
+    body.theme-pkk { --primary-color: var(--pkk-green); --primary-color-rgb: 16, 185, 129; --primary-dark: #059669; }
+    body.theme-karangtaruna { --primary-color: var(--kt-blue); --primary-color-rgb: 56, 189, 248; --primary-dark: #0284c7; }
+    /* PERBAIKAN 1: Warna Tema Profil Kuning Elegan (#fbbf24) */
+    body.theme-profil { --primary-color: #fbbf24; --primary-color-rgb: 251, 191, 36; --primary-dark: #d97706; }
+    body.theme-profil #profileMainCard {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.05) 100%);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-bottom: 5px solid var(--primary-color);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      line-height: 1.5;
+      transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Animasi Transisi Halus untuk Seluruh Komponen Utama saat Switch Tema */
+    body, 
+    .header, 
+    .welcome-banner, 
+    .menu-item, 
+    .card-item, 
+    .page-header h3,
+    h4,
+    .summary-card, 
+    .crud-form, 
+    .table-container, 
+    table, 
+    th, 
+    td, 
+    input, 
+    select, 
+    textarea, 
+    .nav-menu,
+    .login-box,
+    .header-toggle-btn {
+      transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  color 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  backdrop-filter 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                  background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #mainApp {
+      max-width: 100%;
+      margin: 0 auto;
+      background: transparent;
+      min-height: 100vh;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+
+    @media (min-width: 768px) {
+      #mainApp {
+        max-width: 800px;
+        box-shadow: var(--shadow-lg);
+        margin: 20px auto;
+        border-radius: var(--border-radius);
+        overflow: hidden;
+      }
+
+      .menu-container {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+        gap: 30px !important;
+        padding: 30px !important;
+      }
+    }
+
+    /* Penyesuaian Responsivitas Mobile untuk Kartu Ringkasan */
+    @media (max-width: 400px) {
+      .welcome-banner .kas-summary {
+        grid-template-columns: 1fr !important; /* Paksa satu kolom di layar sangat kecil */
+      }
+      .summary-info h2 {
+        font-size: 1.1rem !important; /* Perkecil ukuran font nilai */
+      }
+      .summary-info h3 {
+        font-size: 0.75rem !important; /* Perkecil ukuran font label */
+      }
+    }
+
+    #loginScreen,
+    #registerScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 400px;
+      background: rgba(var(--bg-surface-rgb), 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: clamp(25px, 8vw, 35px) clamp(15px, 5vw, 25px);
+      border-radius: 24px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-color);
+      text-align: center;
+      transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .input-group {
+      position: relative;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .input-group i:not(.toggle-password) {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 20px;
+      z-index: 5;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 20px;
+      z-index: 5;
+    }
+
+    .login-box input {
+      padding-left: 44px;
+      padding-right: 44px;
+      margin: 0;
+      height: 54px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      transition: all 0.3s ease;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 30px 20px 40px;
+      border-radius: 0;
+      position: relative;
+      overflow: visible;
+      box-shadow: var(--shadow-md);
+      transition: background 0.4s ease;
+    }
+
+    /* Animasi Awan Khusus Karang Taruna */
+    .header-clouds {
+      position: absolute;
+      inset: 0;
+      /* MASALAH 3: Mengganti clouds.png yang 404 dengan CSS Gradient estetik */
+      background: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
+                  radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 30%);
+      opacity: 0.6; /* Membuat efek awan halus terlihat */
+      pointer-events: none;
+      z-index: 0;
+      transition: opacity 0.8s ease;
+      overflow: hidden;
+    }
+
+    /* Partikel Awan Bergerak (Floating Clouds) */
+    .cloud-particle {
+      position: absolute;
+      color: rgba(255, 255, 255, 0.35);
+      pointer-events: none;
+      z-index: 0;
+      animation: cloudDriftAcross 45s linear infinite;
+      filter: blur(1px);
+      transition: transform 0.4s cubic-bezier(0.2, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    @keyframes cloudDriftAcross {
+      from { left: -120px; opacity: 0; }
+      15% { opacity: 0.6; }
+      85% { opacity: 0.6; }
+      to { left: 100%; opacity: 0; }
+    }
+
+    body.theme-warga .header-clouds,
+    body.theme-pkk .header-clouds,
+    body.theme-karangtaruna .header-clouds {
+      opacity: 0.6;
+      animation: cloudDrift 90s linear infinite;
+    }
+
+    @keyframes cloudDrift {
+      from { background-position: 0 0; }
+      to { background-position: 1000px 0; }
+    }
+
+    /* Animasi Bintang Jatuh (Shooting Stars) */
+    .header-stars {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: opacity 1s ease;
+    }
+
+    /* Aktifkan Bintang Jatuh untuk Semua Modul saat Mode Gelap */
+    body.dark-mode .header-stars {
+      opacity: 1;
+    }
+
+    /* Efek Pelangi Animasi untuk Mode Terang */
+    .header-rainbow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+      background: linear-gradient(120deg, 
+        rgba(255, 0, 0, 0.05), 
+        rgba(255, 165, 0, 0.05), 
+        rgba(255, 255, 0, 0.05), 
+        rgba(0, 128, 0, 0.05), 
+        rgba(0, 0, 255, 0.05), 
+        rgba(75, 0, 130, 0.05), 
+        rgba(238, 130, 238, 0.05)
+      );
+      background-size: 300% 300%;
+    }
+    body:not(.dark-mode) .header-rainbow {
+      opacity: 1;
+      animation: rainbow-shift 10s ease infinite;
+    }
+    @keyframes rainbow-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .shooting-star {
+      position: absolute;
+      top: -10%;
+      width: 2px;
+      height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1), 0 0 10px rgba(255, 255, 255, 1);
+      animation: shoot 4s linear infinite;
+    }
+
+    .shooting-star::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 100px;
+      height: 1px;
+      background: linear-gradient(90deg, #fff, transparent);
+    }
+
+    @keyframes shoot {
+      0% { transform: rotate(315deg) translateX(0); opacity: 1; }
+      70% { opacity: 1; }
+      100% { transform: rotate(315deg) translateX(-1000px); opacity: 0; }
+    }
+
+    .header-toggle-btn {
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .header-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+    .header-toggle-btn:active {
+      transform: scale(0.92);
+    }
+
+    .header-toggle-btn i {
+      color: white;
+      font-size: 24px;
+    }
+
+    /* Tampilan Tombol saat Mode Gelap Aktif */
+    body.dark-mode .header-toggle-btn {
+      background: rgba(255, 255, 255, 0.1); /* Latar belakang transparan putih saat dark mode */
+      border-color: rgba(251, 191, 36, 0.4);
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.15); /* Efek glow keemasan */
+    }
+    body.dark-mode #headerDarkIcon {
+      filter: none; /* Pastikan gambar matahari tampil dengan warna aslinya */
+    }
+    @media (min-width: 768px) { .header { border-radius: 0 0 24px 24px; } }
+
+    .header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255,255,255,0.15), transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-logo {
+      height: 44px;
+      width: 44px;
+      object-fit: contain;
+      background: #fff;
+      padding: 4px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      margin-right: 12px;
+    }
+
+
+    .welcome-banner {
+      background: rgba(var(--bg-surface-rgb), 0.95);
+      color: var(--text-main);
+      text-align: left;
+      padding: clamp(20px, 6vw, 30px); /* Peningkatan padding dalam agar lebih lega */
+      border-radius: 24px;
+      /* FIX LAYOUT: Margin-top dinaikkan ke 50px untuk memberikan ruang di bawah lengkungan header */
+      margin: 50px auto 25px; 
+      width: calc(100% - clamp(24px, 8vw, 40px)); /* Responsive width */
+      box-shadow: var(--shadow-md);
+      position: relative;
+      transition: background-color 0.3s ease;
+      z-index: 10;
+    }
+
+
+    .menu-container {
+      padding: clamp(16px, 5vw, 24px);
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: clamp(12px, 4vw, 20px);
+      justify-content: center; /* Centers the grid itself */
+      align-items: stretch; /* Ensures items stretch to fill height */
+      width: 100%; /* Ensures it takes full width */
+      margin-top: 10px;
+    }
+
+
+    .menu-item {
+      background: var(--bg-surface);
+      border-radius: 24px;
+      width: 100%;
+      aspect-ratio: auto; /* Removed fixed aspect ratio */
+      min-height: 105px; /* Added min-height */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid var(--border-color);
+      padding: 15px 10px;
+      text-decoration: none;
+    }
+
+    .menu-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1);
+      border-color: var(--primary-color);
+      background: rgba(var(--primary-color-rgb), 0.03);
+    }
+
+    .menu-item:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+
+    .menu-item i {
+      color: var(--primary-color);
+      font-size: clamp(32px, 10vw, 42px);
+      margin-bottom: 10px;
+    }
+
+    .menu-item span {
+      font-size: clamp(11.5px, 3.5vw, 13px);
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+      color: var(--text-main);
+      text-align: center;
+    }
+
+    /* Bottom Navigation Bar Styles */
+    .nav-bar-bottom {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 75px;
+      background: rgba(var(--bg-surface-rgb), 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      border-top: 1px solid var(--border-color);
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 1000;
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+    }
+
+    body.dark-mode .nav-bar-bottom {
+      background: rgba(30, 41, 59, 0.9);
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: transparent;
+      border: none;
+      outline: none;
+    }
+
+    .nav-item i {
+      font-size: 26px;
+      transition: color 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .nav-item span {
+      font-size: 10px;
+      font-weight: 700;
+      transition: color 0.4s ease;
+    }
+
+    .nav-item.active {
+      color: var(--primary-color) !important;
+      transform: translateY(-2px);
+    }
+
+    .nav-item.active i {
+      font-weight: bold;
+      text-shadow: 0 0 15px rgba(var(--primary-color-rgb), 0.4);
+    }
+
+    /* Efek Glow Ikon Navigasi di Mode Gelap */
+    body.dark-mode .nav-item.active i {
+      text-shadow: 0 0 10px rgba(var(--primary-color-rgb), 0.8), 
+                   0 0 20px rgba(var(--primary-color-rgb), 0.4);
+    }
+
+    /* Indikator Garis Atas yang Mengikuti Tema */
+    .nav-item.active::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 24px;
+      height: 4px;
+      background: var(--primary-color);
+      border-radius: 0 0 4px 4px;
+      box-shadow: 0 2px 10px rgba(var(--primary-color-rgb), 0.5);
+    }
+
+    /* Styling khusus untuk menu Profil agar memiliki identitas warna kuning (Amber) */
+    .nav-item#nav-profil.active {
+      color: #f59e0b !important;
+    }
+
+    .nav-item#nav-profil.active i,
+    .nav-item#nav-profil.active span {
+      color: #f59e0b !important;
+    }
+
+    .nav-item#nav-profil.active::before {
+      background: #f59e0b !important;
+      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.5);
+    }
+
+    .nav-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      cursor: pointer;
+      transition: 0.2s;
+      color: var(--text-main);
+      font-weight: 500;
+      border-radius: 12px;
+      margin: 0 6px;
+    }
+    .nav-menu-item span {
+      color: var(--text-main);
+      border-radius: 12px;
+      margin: 0 6px;
+    }
+
+    .nav-menu-item i {
+      font-size: 22px;
+      width: 28px;
+    }
+
+    .nav-menu-item:hover {
+      background: rgba(var(--text-main-rgb), 0.08);
+      transform: translateX(4px);
+    }
+
+    /* Switch Toggle untuk Dark Mode di Profil */
+    .switch {
+      position:relative;
+      display:inline-block;
+      width:44px;
+      height:24px;
+    }
+    .switch input {
+      opacity:0;
+      width:0;
+      height:0;
+    }
+    .switch span {
+      position:absolute;
+      cursor:pointer;
+      top:0; left:0; right:0; bottom:0;
+      background-color:var(--border-color); /* Menggunakan variabel tema */
+      transition:.4s;
+      border-radius:24px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 40px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: var(--bg-app);
+      color: var(--text-main);
+      border: none;
+      border-radius: 40px;
+      margin-top: 10px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      margin-right: 8px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-small.danger {
+      background: #ef4444;
+    }
+
+    .btn-small.success {
+      background: #10b981;
+    }
+
+    .btn-small.warning {
+      background: #f59e0b;
+    }
+
+    .btn-small:hover {
+      filter: brightness(0.95);
+    }
+
+    /* ======================== Toast (Menu) ======================== */
+    .bbx-menu-toast__row{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      padding:2px 2px;
+    }
+    .bbx-menu-toast__icon{
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      background:rgba(211,47,47,0.10);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 auto;
+    }
+    .bbx-menu-toast__icon i{
+      color:var(--primary-color);
+      font-size:22px;
+    }
+    .bbx-menu-toast__text{
+      text-align:left;
+      padding-top:2px;
+    }
+    .bbx-menu-toast__title{
+      font-weight:700;
+      color:var(--primary-dark);
+      letter-spacing:0.1px;
+      font-size:14.5px;
+      margin-bottom:2px;
+    }
+    .bbx-menu-toast__subtitle{
+      color:var(--text-muted);
+      font-size:12.5px;
+      line-height:1.3;
+    }
+
+    .card-item {
+      margin: 0 auto 1rem; /* Centered */
+      width: 100%; /* Full width */
+
+      background: var(--bg-surface);
+      padding: 1.5rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-color);
+      border-left: 5px solid var(--primary-color);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    /* Visualisasi Pohon Organisasi */
+    .tree-branch {
+      margin-left: 20px;
+      border-left: 2px solid #cbd5e1;
+      padding-left: 20px;
+      position: relative;
+    }
+    .tree-branch::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 28px;
+      width: 20px;
+      height: 2px;
+      background: #cbd5e1;
+    }
+    .tree-branch:last-child {
+      border-left-color: transparent;
+    }
+    .tree-branch:last-child::after {
+      content: "";
+      position: absolute;
+      left: -2px;
+      top: 0;
+      width: 2px;
+      height: 28px;
+      background: #cbd5e1;
+    }
+
+    .card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid #f1f5f9;
+    }
+    
+    .btn-action-subtle {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-action-subtle:hover {
+      background: var(--bg-app);
+      color: var(--accent-blue);
+    }
+
+    .btn-action-subtle.danger-hover:hover {
+      background: rgba(var(--primary-color-rgb), 0.1);
+      color: var(--primary-red);
+    }
+    .btn-action-subtle.warning-hover:hover {
+      background: rgba(251, 191, 36, 0.1);
+      color: #d97706;
+    }
+    .btn-action-subtle.success-hover:hover {
+      background: rgba(16, 185, 129, 0.1);
+      color: #059669;
+    }
+
+    .card-item:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-md);
+    }
+
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.2rem;
+      margin-bottom: 1.5rem;
+    }
+    .page-header h3 {
+      flex: 1;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin: 0;
+      letter-spacing: -0.3px;
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 120px;
+      right: 20px;
+      z-index: 1001;
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-lg);
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    .crud-form {
+      background: var(--bg-surface);
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    /* Modal khusus untuk kategori iuran - tidak bentrok */
+    .modal-kategori {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 600px;
+      max-height: 85vh;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-lg);
+      z-index: 10000;
+      padding: 1.5rem;
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .modal-kategori.active {
+      display: flex;
+    }
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+      display: none;
+    }
+    .modal-backdrop.active {
+      display: block;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 11px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .status-belum {
+      background: #F44336;
+    }
+
+    .status-diproses {
+      background: #FF9800;
+    }
+
+    .status-selesai {
+      background: #4CAF50;
+    }
+
+    .galeri-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .galeri-card {
+      background: var(--bg-surface);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+
+    .galeri-img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    .img-thumbnail {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      display: block;
+      margin-top: 10px;
+    }
+
+    .lightbox-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.92);
+      z-index: 10000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 20px;
+      animation: fadeIn 160ms ease;
+    }
+
+    .lightbox-overlay.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      cursor: zoom-in;
+      border-radius: 12px;
+    }
+
+    .lightbox-img.zoomed {
+      transform: scale(2);
+      cursor: zoom-out;
+    }
+
+    .lightbox-close,
+    .lightbox-nav {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 24px;
+      cursor: pointer;
+      position: absolute;
+    }
+
+    .lightbox-close {
+      top: 20px;
+      right: 30px;
+    }
+
+    .lightbox-nav.prev {
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .lightbox-nav.next {
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .screen {
+      display: none;
+      padding: 1rem 12px 100px; /* Padding bawah disesuaikan untuk Bottom Nav */
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    /* Professional page transitions */
+    .screen {
+      animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #dashboardView {
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes slideInRight {
+      from { 
+        opacity: 0; 
+        transform: translateX(30px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateX(0); 
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Utility classes */
+    .muted { color: var(--text-muted); font-size: 0.85rem; }
+    .section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; display: block; }
+    .stack { display: flex; flex-direction: column; gap: 0.5rem; }
+    .row { display: flex; align-items: center; gap: 0.5rem; }
+    .text-bold { font-weight: 600; }
+    .hr-light { border: 0; border-top: 1px solid var(--border-color); margin: 0.75rem 0; }
+
+    /* Spinner custom untuk showLoading() */
+    .bbx-spinner {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 3px solid rgba(var(--primary-color-rgb), 0.18);
+      border-top-color: var(--primary-color);
+      animation: bbx-spin 0.9s linear infinite;
+      flex: 0 0 auto;
+      box-shadow: 0 0 15px rgba(var(--primary-color-rgb), 0.2);
+    }
+
+    @keyframes bbx-spin {
+      to { transform: rotate(360deg); }
+    }
+
+
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: rgba(226,232,240,0.9);
+      border-radius: 12px;
+    }
+    .skeleton::after {
+      content: "";
+      position: absolute;
+      top: 0; left: -150px;
+      width: 150px; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+      animation: shimmer 1.1s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(300px); }
+    }
+
+    /* Professional Skeleton Text */
+    .skeleton-text {
+      color: transparent !important;
+      background: var(--border-color) !important;
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      min-width: 80px;
+    }
+    .skeleton-text::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+      animation: shimmer-text 1.2s infinite;
+    }
+    @keyframes shimmer-text {
+      100% { transform: translateX(100%); }
+    }
+
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, .3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Animasi Rotasi Ikon Dark Mode */
+    .rotate-animation {
+      animation: rotate-once 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-block;
+    }
+    @keyframes rotate-once {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      margin: 8px 0;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      transition: 0.2s;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--bg-surface);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    th {
+      background: var(--bg-app);
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    tbody tr:nth-child(even) td {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    body.dark-mode tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+
+    .chart-container {
+      max-width: 100%;
+      margin: 20px 0;
+      background: var(--bg-surface);
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Compact & Modern Iuran Table for Mobile */
+    .iuran-table {
+      width: 100%;
+      min-width: 1050px; /* Diperlebar sedikit agar teks tidak berdesakan */
+      font-size: 16px; /* Ukuran standar aksesibilitas */
+      border-collapse: separate; 
+      border-spacing: 0; 
+      margin: 0 auto;
+      table-layout: fixed; /* Memastikan lebar kolom presisi */
+    }
+
+    /* Perbaikan Responsivitas Tabel Iuran untuk Layar HP Sangat Kecil */
+    @media (max-width: 500px) {
+      .iuran-table {
+        min-width: 900px; /* Tetap pertahankan lebar minimum agar scroll aktif */
+        font-size: 15px; 
+        border-collapse: separate;
+      }
+      
+      /* Perkecil kolom sticky agar area scroll lebih luas di layar HP */
+      .iuran-table th:nth-child(1),
+      .iuran-table td:nth-child(1) {
+        min-width: 150px; /* Cukup lebar untuk Nama di HP */
+        max-width: 150px;
+      }
+      
+      .iuran-table th:nth-child(2),
+      .iuran-table td:nth-child(2) {
+        left: 150px; /* Sesuai lebar kolom 1 */
+        min-width: 110px;
+        max-width: 110px;
+      }
+      
+      /* Kolom bulan lebih ramping dan rapat */
+      .iuran-table td:nth-child(n+3):nth-child(-n+14) {
+        width: 45px;
+        padding: 8px 2px !important;
+      }
+      .iuran-table input[type="checkbox"] {
+        width: 26px !important; /* Hit target lebih besar untuk jari orang tua */
+        height: 26px !important;
+      }
+    }
+
+    /* Sticky Kolom Nama (Kolom 1) */
+    .iuran-table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .iuran-table th,
+    .iuran-table td {
+      box-sizing: border-box;
+      vertical-align: middle;
+      overflow: hidden;
+    }
+
+    .iuran-table th:nth-child(1),
+    .iuran-table td:nth-child(1) {
+      position: sticky !important; 
+      left: 0;
+      z-index: 10;
+      background-color: var(--bg-surface) !important; /* Latar belakang solid agar tidak tembus */
+      background-clip: padding-box;
+      width: 180px;
+      min-width: 180px;
+      max-width: 180px;
+      white-space: normal;
+      word-break: break-word;
+      font-weight: 800; /* Teks Nama lebih tebal */
+      color: var(--text-main);
+      border-right: 1px solid var(--border-color);
+      padding: 15px 12px !important; /* Padding lebih lega */
+    }
+
+    /* Sticky Kolom Kategori (Kolom 2) */
+    .iuran-table th:nth-child(2),
+    .iuran-table td:nth-child(2) {
+      position: sticky !important;
+      left: 180px; /* Sesuai dengan lebar kolom pertama */
+      z-index: 9;
+      background-color: var(--bg-surface) !important;
+      background-clip: padding-box;
+      width: 130px;
+      min-width: 130px;
+      max-width: 130px;
+      font-size: 14px;
+      color: var(--text-muted);
+      /* Efek bayangan tipis sebagai pemisah visual saat discroll */
+      border-right: 2px solid var(--primary-color) !important;
+      box-shadow: 5px 0 10px -5px rgba(0,0,0,0.15);
+      padding: 15px 10px !important;
+    }
+
+    /* Header harus memiliki z-index lebih tinggi dari baris data */
+    .iuran-table th:nth-child(1),
+    .iuran-table th:nth-child(2) {
+      background-color: var(--bg-app) !important;
+      z-index: 20 !important; 
+    }
+
+    /* Peningkatan hit target checkbox */
+    .iuran-table input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: var(--primary-color);
+      transform: scale(1.1);
+    }
+
+    body.dark-mode .iuran-table th:nth-child(1),
+    body.dark-mode .iuran-table td:nth-child(1),
+    body.dark-mode .iuran-table th:nth-child(2),
+    body.dark-mode .iuran-table td:nth-child(2) {
+      background-color: var(--bg-surface) !important;
+      border-right-color: var(--border-color) !important;
+    }
+
+    .iuran-table td {
+      padding: 8px 6px !important;
+      white-space: nowrap;
+    }
+
+    /* Mengatur lebar kolom bulan agar seragam dan kompak */
+    .iuran-table td:nth-child(n+3):nth-child(-n+14) {
+      width: 48px;
+      text-align: center;
+    }
+
+    .iuran-table th {
+      padding: 10px 6px !important;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch; /* Scrolling lebih halus di iOS */
+      margin-bottom: 1.5rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .kas-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .summary-card {
+      background: rgba(var(--primary-color-rgb), 0.08); /* Latar belakang tint warna tema */
+      border-radius: var(--border-radius);
+      padding: 1rem;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(var(--primary-color-rgb), 0.15); /* Border juga mengikuti warna tema */
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: transform 0.2s;
+    }
+
+    .summary-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .summary-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(var(--primary-color-rgb), 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-color);
+    }
+
+    .summary-icon i {
+      font-size: 28px;
+    }
+
+    .summary-info h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--primary-color); /* Label menggunakan warna tema */
+    }
+
+    .summary-info h2 {
+      margin: 0;
+      font-size: clamp(1.2rem, 4vw, 1.6rem);
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    /* Theme-specific overrides for summary card labels */
+    body.theme-warga .summary-info h3 { color: var(--warga-red); }
+    body.theme-pkk .summary-info h3 { color: var(--pkk-green); }
+    body.theme-karangtaruna .summary-info h3 { color: var(--kt-blue); }
+
+    /* Nama di banner */
+    #welcomeUserName {
+      color: var(--text-main);
+      transition: color 0.3s;
+    }
+    body.theme-pkk #welcomeUserName { color: var(--pkk-green); }
+    body.theme-warga #welcomeUserName { color: var(--warga-red); }
+    body.theme-karangtaruna #welcomeUserName { color: var(--kt-blue); }
+
+    .filter-bar {
+      background: var(--bg-surface);
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .filter-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .table-container {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 1.5rem;
+    }
+
+    .table-header {
+      background: var(--bg-app);
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .rekapitulasi {
+      background: rgba(var(--primary-color-rgb), 0.1);
+      border-radius: var(--border-radius);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .filter-table {
+      background: var(--bg-surface);
+      padding: 0.75rem 1rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .kategori-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg-app);
+      color: var(--text-main);
+    }
+
+    @media (max-width: 640px) {
+      #mainApp {
+        padding: 12px 0 140px;
+      }
+
+      .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .filter-group select,
+      .filter-group input {
+        width: 100%;
+      }
+
+      .kas-summary {
+        grid-template-columns: 1fr;
+      }
+      .menu-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: clamp(10px, 3.5vw, 16px);
+        padding: clamp(12px, 4.5vw, 20px);
+        margin-top: 5px;
+      }
+
+      .menu-item {
+        width: 100%;
+        height: auto;
+        aspect-ratio: auto;
+        min-height: 100px;
+        padding: 18px 10px;
+        border-radius: 28px;
+      }
+
+      .menu-item i {
+        font-size: clamp(32px, 10vw, 42px);
+        margin-bottom: 10px;
+      }
+
+      .menu-item span {
+        font-size: clamp(11.5px, 3.5vw, 13px);
+        font-weight: 800;
+        line-height: 1.2;
+      }
+
+      .filter-table {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .fab {
+        right: 14px;
+      }
+      .card-item {
+        margin: 0 auto 1rem;
+        width: 100%;
+        padding: 1.25rem 1rem;
+      }
+
+      .fab {
+        bottom: 95px; /* Sesuaikan posisi FAB di atas Bottom Nav */
+      }
+    }
+
+    /* Pull to Refresh Styles */
+    .ptr-container {
+      position: fixed;
+      top: -70px;
+      left: 0;
+      width: 100%;
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      pointer-events: none;
+      transition: transform 0.3s cubic-bezier(0, 0, 0.31, 1);
+    }
+    .ptr-icon {
+      background: var(--bg-surface);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      color: var(--primary-color);
+      border: 1px solid var(--border-color);
+    }
+    .ptr-refreshing .ptr-icon i {
+      animation: ptr-spin 0.8s linear infinite;
+    }
+    @keyframes ptr-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Divider Bulan di Ronda */
+    .month-divider {
+      background: var(--bg-app) !important;
+      color: var(--primary-color) !important;
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 10px 15px !important;
+      border-bottom: 2px solid var(--primary-color);
+    }
+
+    /* Highlight untuk Baris Lunas Setahun (Hijau Emerald) */
+    .iuran-table tr.row-lunas td {
+      background-color: rgba(16, 185, 129, 0.25) !important;
+    }
+    body.dark-mode .iuran-table tr.row-lunas td {
+      background-color: rgba(16, 185, 129, 0.35) !important;
+    } 
+
+    /* Prefix Rp untuk Input Nominal */
+    .input-group-prefix {
+      display: flex;
+      align-items: center;
+      position: relative;
+      margin: 8px 0;
+    }
+    .input-group-prefix span {
+      position: absolute;
+      left: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      z-index: 5;
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .input-group-prefix input {
+      padding-left: 40px !important;
+      margin: 0 !important;
+    }
+
+  </style>
+</head>
+<body>
+
+<div id="offlineIndicator" style="display:none; position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; text-align:center; padding:10px; z-index:20002; font-size:13px; font-weight:700; box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+  <i class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:5px;">cloud_off</i>
+  Koneksi Terputus. Anda sedang menggunakan mode offline.
+</div>
+
+<div id="pullToRefresh" class="ptr-container">
+  <div class="ptr-icon"><i class="material-icons">refresh</i></div>
+</div>
+
+<div class="lightbox-overlay" id="lightboxOverlay">
+  <button class="lightbox-close" onclick="closeLightbox()">
+    <i class="material-icons">close</i>
+  </button>
+  <button class="lightbox-nav prev" onclick="navigateLightbox(-1)">
+    <i class="material-icons">chevron_left</i>
+  </button>
+  <img class="lightbox-img" id="lightboxImg" src="" onclick="toggleZoom(this)">
+  <div id="lightboxVideoWrapper" style="width:90%; max-width:800px; display:none;"></div>
+  <button class="lightbox-nav next" onclick="navigateLightbox(1)">
+    <i class="material-icons">chevron_right</i>
+  </button>
+</div>
+
+<div id="menuOverlay" class="menu-overlay" onclick="toggleMenuNavigasi()"></div>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <img src="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w256" alt="Logo Aplikasi" style="width: 80px; height: 80px; object-fit: contain; background: white; padding: 8px; border-radius: 20px; margin: 0 auto 20px; display: block; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+    <h2 style="color:var(--text-main); font-weight: 800; font-size: 24px; margin-bottom: 5px;">Selamat Datang</h2>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px;">Silakan masuk ke Portal RT01-RW03 Desa Ngelom</p>
+    
+    <div class="input-group">
+      <i class="material-icons">email</i>
+      <input type="email" id="email" placeholder="Alamat Email">
+    </div>
+    
+    <div class="input-group">
+      <i class="material-icons">lock</i>
+      <input type="password" id="password" placeholder="Kata Sandi">
+      <i class="material-icons toggle-password" onclick="togglePassword('password', this)">visibility_off</i>
+    </div>
+    
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px;">
+      <div style="font-size: 14px; color: var(--text-muted); font-style: italic;">Sesi login tersimpan otomatis</div>
+      <a href="#" onclick="lupaPassword(); return false;" style="color:var(--primary-red); font-size: 14px; font-weight: 600; text-decoration: none;">Lupa Password?</a>
+    </div>
+
+    <button class="btn-primary" onclick="doLogin()" id="btnLogin" style="height: 54px; font-size: 16px; letter-spacing: 0.5px;">Masuk Sekarang</button>
+    
+    <p style="margin-top:25px; font-size: 14px; color: var(--text-muted);">
+      Belum punya akun?  
+      <a href="#" onclick="bukaFormDaftar(); return false;" style="color:var(--primary-red); font-weight: 700; text-decoration: none;">Daftar Disini</a>
+    </p>
+    
+    <p style="margin-top:15px; font-size: 13px; color: var(--text-muted); padding-top: 15px; border-top: 1px dashed var(--border-color);">
+      Kendala akses? <a href="https://wa.me/6285236356569" id="linkHubungiAdmin" target="_blank" style="color:var(--accent-blue); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"><i class="material-icons" style="font-size:16px;">contact_support</i> Hubungi Dukungan</a>
+    </p>
+  </div>
+</div>
+
+<div id="registerScreen" style="display:none;">
+  <div class="login-box">
+    <img src="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w256" alt="Logo Aplikasi" style="width: 80px; height: 80px; object-fit: contain; background: white; padding: 8px; border-radius: 20px; margin: 0 auto 20px; display: block; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+    <h2 style="color:var(--text-main); font-weight: 800; font-size: 24px; margin-bottom: 5px;">Daftar Akun</h2>
+    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px;">Lengkapi data diri Anda sebagai warga</p>
+
+    <div class="input-group">
+      <i class="material-icons">person</i>
+      <input type="text" id="regNama" placeholder="Nama Lengkap">
+    </div>
+
+    <div class="input-group">
+      <i class="material-icons">email</i>
+      <input type="email" id="regEmail" placeholder="Alamat Email">
+    </div>
+
+    <div class="input-group">
+      <i class="material-icons">lock</i>
+      <input type="password" id="regPassword" placeholder="Buat Kata Sandi">
+      <i class="material-icons toggle-password" onclick="togglePassword('regPassword', this)">visibility_off</i>
+    </div>
+
+    <button class="btn-primary" id="btnDaftar" onclick="doRegister()" style="height: 50px; margin-top: 10px;">Daftar Sekarang</button>
+    
+    <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+      <button class="btn-secondary" onclick="tutupFormDaftar(); return false;" style="background: none; color: var(--text-muted); font-size: 14px;">
+        Sudah punya akun? <a href="#" style="color: var(--primary-red); font-weight: 700; text-decoration: none;">Login</a>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="mainApp" style="display:none;">
+    <!-- PWA Install Banner (Notifikasi Manual) -->
+    <div id="pwaInstallBanner" style="display:none; position:fixed; top:20px; left:20px; right:20px; background:var(--bg-surface); border-radius:16px; padding:15px; box-shadow:var(--shadow-lg); border:1px solid var(--border-color); z-index:10001; align-items:center; gap:12px; animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
+      <div style="background:rgba(var(--primary-color-rgb), 0.1); padding:8px; border-radius:10px;">
+        <i class="material-icons" style="color:var(--primary-color);">get_app</i>
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:700; font-size:14px; color:var(--text-main);">Instal Aplikasi Portal RT</div>
+        <div style="font-size:12px; color:var(--text-muted);">Akses lebih cepat & mudah dari layar beranda</div>
+      </div>
+      <button class="btn-small success" onclick="installPWA()" style="margin:0; padding:8px 16px;">Instal</button>
+      <i class="material-icons" onclick="dismissPWAInstall()" style="cursor:pointer; color:var(--text-muted); font-size:20px;">close</i>
+    </div>
+
+    <div class="header">
+      <div class="header-clouds">
+        <i class="material-icons cloud-particle" style="top: 5%; font-size: 50px; animation-delay: 0s; animation-duration: 55s;">cloud</i>
+        <i class="material-icons cloud-particle" style="top: 30%; font-size: 30px; animation-delay: 15s; animation-duration: 40s;">cloud</i>
+        <i class="material-icons cloud-particle" style="top: 55%; font-size: 80px; animation-delay: 5s; animation-duration: 65s;">cloud</i>
+        <i class="material-icons cloud-particle" style="top: 20%; font-size: 40px; animation-delay: 28s; animation-duration: 45s;">cloud</i>
+      </div>
+      <div class="header-rainbow"></div>
+      <div class="header-stars">
+        <span class="shooting-star" style="top:0; right:10%; animation-delay:0s; animation-duration:3s;"></span>
+        <span class="shooting-star" style="top:20px; right:40%; animation-delay:1.2s; animation-duration:2s;"></span>
+        <span class="shooting-star" style="top:50px; right:70%; animation-delay:2.5s; animation-duration:4.5s;"></span>
+        <span class="shooting-star" style="top:-10px; right:25%; animation-delay:4s; animation-duration:3.5s;"></span>
+        <span class="shooting-star" style="top:30px; right:90%; animation-delay:0.5s; animation-duration:2.5s;"></span>
+      </div>
+      <div class="header-title">
+        <div style="display:flex; align-items:center; flex:1;">
+          <img src="https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w256" alt="Logo" class="header-logo">
+          <div style="display:flex; flex-direction:column;">
+            <span style="font-size:18px; font-weight:800; letter-spacing:-0.5px; line-height:1.2;">Portal RT</span>
+            <span style="font-size:11px; opacity:0.85; font-weight:500;">RT01/RW03 - Desa Ngelom</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="header-toggle-btn" id="headerDarkIcon" onclick="toggleDarkMode()" title="Ganti Tema"></div>
+          <div class="header-toggle-btn" onclick="bukaNotifikasi()" title="Notifikasi" style="position:relative;">
+            <i class="material-icons">notifications</i>
+            <span id="notifBadge" style="display:none; position:absolute; top:8px; right:8px; background:#fbbf24; width:8px; height:8px; border-radius:50%; border:2px solid var(--primary-color);"></span>
+          </div>
+          <div class="header-toggle-btn" onclick="logout()" title="Keluar">
+            <i class="material-icons">power_settings_new</i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- Bottom Navigation Bar (Restored & Enhanced) -->
+  <nav class="nav-bar-bottom" id="bottomNav">
+    <button class="nav-item active" onclick="pilihMenu('warga')" id="nav-warga">
+      <i class="material-icons">people</i><span>Warga</span>
+    </button>
+    <button class="nav-item" onclick="pilihMenu('pkk')" id="nav-pkk">
+      <i class="material-icons">local_florist</i><span>PKK</span>
+    </button>
+    <button class="nav-item" onclick="pilihMenu('karangtaruna')" id="nav-karangtaruna">
+      <i class="material-icons">diversity_3</i><span>Karang Taruna</span>
+    </button>
+    <button class="nav-item" onclick="tampilkanProfil()" id="nav-profil">
+      <i class="material-icons">account_circle</i><span>Profil</span>
+    </button>
+  </nav>
+
+<div id="dashboardView">
+    <div class="welcome-banner">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+        <div style="background:rgba(var(--primary-color-rgb), 0.1); padding:10px; border-radius:12px;">
+          <i class="material-icons" style="color:var(--primary-color); font-size:32px;">waving_hand</i>
+        </div>
+        <div style="display:flex; flex-direction:column;">
+          <span style="font-weight:800; font-size:20px; letter-spacing:-0.5px;" id="welcomeUserName">Halo, Warga!</span>
+          <span style="font-size:13px; color:var(--text-muted); font-weight:500;">Warga RT01/RW03 Desa Ngelom</span>
+        </div>
+      </div>
+      <div class="kas-summary" style="margin-top:0; grid-template-columns: 1fr 1fr;">
+        <div id="summaryCard1" class="summary-card" style="padding:12px; border-radius:15px;">
+          <div class="summary-icon" style="width:36px; height:36px;">
+            <i class="material-icons">payments</i>
+          </div>
+          <div class="summary-info">
+            <h3 id="labelSummary1" style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--primary-color); letter-spacing:0.5px;">Saldo Kas</h3>
+            <div style="display:flex; align-items:baseline;">
+              <span id="totalKasIuranValue" style="font-size:1.3rem; font-weight:800; color:var(--text-main);">0</span>
+            </div>
+          </div>
+        </div>
+        <div id="summaryCard2" class="summary-card" style="padding:12px; border-radius:15px;">
+          <div class="summary-icon" style="width:36px; height:36px;">
+            <i class="material-icons">local_florist</i>
+          </div>
+          <div class="summary-info">
+            <h3 id="labelSummary2" style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--primary-color); letter-spacing:0.5px;">Dana Kematian</h3>
+            <div style="display:flex; align-items:baseline;">
+              <span id="totalKonsumsiRondaIuranValue" style="font-size:1.3rem; font-weight:800; color:var(--text-main);">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Banner Ronda Malam Hari Ini -->
+      <div id="rondaTodayBanner" class="summary-card" style="margin-top:12px; width:100%; display:none; padding:12px; border-radius:15px; background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.2); position:relative; overflow:hidden; cursor:pointer; user-select:none;">
+        <div class="summary-icon" style="width:36px; height:36px; background:rgba(251,191,36,0.1); color:#d97706;">
+          <i class="material-icons">security</i>
+        </div>
+        <div class="summary-info" id="rondaBannerContent" style="transition: opacity 0.3s ease; flex:1;">
+          <h3 id="rondaBannerTitle" style="font-size:10px; text-transform:uppercase; color:#d97706;">Jadwal Ronda Malam</h3>
+          <div id="rondaTodayInfo" style="font-size:13px; font-weight:700; color:var(--text-main); line-height:1.3; margin-top:2px;">Memuat jadwal...</div>
+          <!-- Dot indicators -->
+          <div style="display:flex; gap:4px; margin-top:8px;">
+            <div class="ronda-dot active" style="width:12px; height:4px; border-radius:2px; background:#d97706; transition:0.3s;"></div>
+            <div class="ronda-dot" style="width:6px; height:4px; border-radius:2px; background:rgba(217,119,6,0.2); transition:0.3s;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="menu-container" id="menuContainer"></div>
+  </div>
+
+    <!-- LAYAR PROFIL PENGGUNA -->
+    <div id="profilView" class="screen">
+      <div class="page-header">
+        <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+        <h3>Profil Saya</h3>
+      </div>
+      
+      <div id="profileMainCard" class="card-item" style="padding: 30px 20px; text-align: center; border-left: none;">
+        <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 15px;">
+          <div style="width: 100%; height: 100%; background: var(--bg-app); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-dark); border: 2px solid var(--border-color); overflow: hidden;">
+            <i class="material-icons" style="font-size: 64px;">person</i>
+          </div>
+          <div style="position: absolute; bottom: 0; right: 0; background: var(--primary-dark); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--bg-surface);"> 
+            <i class="material-icons" style="font-size: 16px;">verified</i>
+          </div>
+        </div>
+      <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span id="profNama">-</span>
+        <i class="material-icons" style="font-size: 18px; color: var(--text-muted); cursor: pointer;" onclick="editNamaProfil()" title="Ubah Nama">edit</i>
+      </h2>
+        <p id="profEmail" style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px; font-weight: 500;">-</p>
+        <div style="display: flex; justify-content: center;">
+          <span id="profRole" class="status-badge status-selesai" style="text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 6px 16px;">-</span>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top: 25px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">Preferensi & Keamanan</div>
+      <div class="card-item" style="padding: 0; overflow: hidden; border-left: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: rgba(var(--primary-color-rgb), 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: var(--primary-color); font-size: 20px;" id="profDarkIcon">dark_mode</i>
+            </div>
+            <span style="font-weight: 600; color: var(--text-main);">Mode Gelap</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="profilDarkToggle" onchange="toggleDarkMode()">
+            <span></span>
+          </label>
+        </div>
+        
+        <div onclick="gantiPasswordUI()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+          <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="material-icons" style="color: #f59e0b; font-size: 20px;">lock_reset</i>
+          </div>
+          <div style="flex: 1;">
+            <span style="font-weight: 600; color: var(--text-main); display: block;">Ubah Kata Sandi</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Perbarui keamanan akun Anda</span>
+          </div>
+          <i class="material-icons" style="color: var(--text-muted); font-size: 20px;">chevron_right</i>
+        </div>
+
+        <div id="profAdminOnly" style="display: none;">
+          <div onclick="bukaKelolaUser()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-main);">
+            <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+              <i class="material-icons" style="color: #f59e0b; font-size: 20px;">manage_accounts</i>
+            </div>
+            <div style="flex: 1;">
+              <span style="font-weight: 600; color: var(--text-main); display: block;">Kelola User & Role</span>
+              <span style="font-size: 11px; color: var(--text-muted);">Manajemen akses warga (Admin)</span>
+            </div>
+            <i class="material-icons" style="color: var(--text-muted); font-size: 20px;">chevron_right</i>
+          </div>
+        </div>
+
+        <div onclick="logout()" style="display: flex; align-items: center; gap: 15px; padding: 16px 20px; cursor: pointer; color: #f59e0b;">
+        <div style="background: rgba(245, 158, 11, 0.1); width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <i class="material-icons" style="color: #f59e0b; font-size: 20px;">logout</i>
+          </div>
+        <span style="font-weight: 600; color: #f59e0b;">Keluar dari Aplikasi</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 30px; text-align: center;">
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Portal RT01 RW03 - Desa Ngelom
+        </p>
+        <!-- PERBAIKAN 2: WhatsApp Deep-link Dukungan Resmi -->
+        <a href="https://wa.me/6285236356569" id="profAdminContact" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #b45309; text-decoration: none; font-size: 13px; font-weight: 700; background: var(--bg-surface); padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);">
+          <i class="material-icons" style="font-size: 18px;">support_agent</i> Hubungi Dukungan
+        </a>
+      </div>
+    </div>
+
+  <div id="jadwalView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Jadwal Kegiatan RT</h3>
+    </div>
+    <div id="formCrudJadwal" class="crud-form">
+      <h4 id="judulFormJadwal">Tambah Jadwal</h4>
+      <input type="hidden" id="jId">
+      <input type="text" id="jNama" placeholder="Nama Kegiatan">
+      <input type="text" id="jPerihal" placeholder="Perihal">
+      <input type="datetime-local" id="jWaktu">
+      <input type="text" id="jTempat" placeholder="Tempat">
+      <button class="btn-primary" onclick="simpanDataJadwal()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('formCrudJadwal','wrapListJadwal')">Batal</button>
+    </div>
+<div id="wrapListJadwal">
+      <div id="listJadwal"></div>
+<button id="btnTambahJadwal" class="fab" onclick="bukaFormJadwal()" style="display:flex !important;">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================== MODUL KARANG TARUNA SCREENS ======================== -->
+  <div id="ktJadwalView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Agenda Karang Taruna</h3>
+    </div>
+    <div id="ktFormCrudJadwal" class="crud-form">
+      <h4 id="ktJudulFormJadwal">Tambah Jadwal Karang Taruna</h4>
+      <input type="hidden" id="ktJId">
+      <input type="text" id="ktJNama" placeholder="Nama Kegiatan">
+      <input type="text" id="ktJPerihal" placeholder="Perihal">
+      <input type="datetime-local" id="ktJWaktu">
+      <input type="text" id="ktJTempat" placeholder="Tempat">
+      <textarea id="ktJDeskripsi" rows="3" placeholder="Deskripsi Tambahan"></textarea>
+      <button class="btn-primary" onclick="ktSimpanDataJadwal()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('ktFormCrudJadwal','ktWrapListJadwal')">Batal</button>
+    </div>
+    <div id="ktWrapListJadwal">
+      <div id="ktListJadwal"></div>
+      <button id="ktBtnTambahJadwal" class="fab" onclick="ktBukaFormJadwal()">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+  <div id="ktKaderView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Anggota Karang Taruna</h3>
+    </div>
+    <div id="ktFormCrudKader" class="crud-form">
+      <h4 id="ktJudulFormKader">Registrasi Anggota Karang Taruna</h4>
+      <input type="hidden" id="ktKaderId">
+      <input type="text" id="ktKaderNama" placeholder="Nama Lengkap">
+      <input type="text" id="ktKaderJabatan" placeholder="Jabatan">
+      <input type="text" id="ktKaderNoHp" placeholder="No WhatsApp">
+      <label class="muted" style="display:block; margin-top:10px; font-size:12px;">Foto Profil (Opsional):</label>
+      <input type="file" id="ktKaderFoto" accept="image/*" style="margin-top:4px;">
+      <div id="ktKaderPreviewFoto" style="margin-top:10px; text-align:center;"></div>
+      <button class="btn-primary" onclick="ktSimpanDataKader()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('ktFormCrudKader','ktWrapListKader')">Batal</button>
+    </div>
+    <div id="ktWrapListKader">
+      <div id="ktListKader"></div>
+      <button id="ktBtnTambahKader" class="fab" onclick="ktBukaFormKader()">
+        <i class="material-icons">person_add</i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================== MODUL PKK LAPORAN ADMIN ======================== -->
+  <div id="pkkLaporanAdminView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Manajemen Laporan PKK</h3>
+    </div>
+    <div id="pkkListLaporanAdmin"></div>
+  </div>
+
+
+  <div id="ktKasView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Laporan Kas Karang Taruna</h3>
+    </div>
+    <div class="kas-summary">
+      <div class="summary-card">
+        <div class="summary-icon"><i class="material-icons">payments</i></div>
+        <div class="summary-info">
+          <h3>Total Saldo Kas Karang Taruna</h3>
+          <h2 id="ktTotalKas">Rp 0</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="ktKasChart" width="400" height="200"></canvas>
+      <div style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
+        <select id="ktTahunKasSelect" style="width:auto;">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+        </select>
+        <button class="btn-small" onclick="ktMuatGrafikKas()">Update Grafik</button>
+        <button class="btn-small success" onclick="ktCetakLaporanKas()">Cetak Laporan</button>
+      </div>
+    </div>
+
+    <div id="ktActionButtonsKas" class="action-buttons" style="margin-bottom:1rem;"></div>
+    
+    <div id="ktFormKas" class="crud-form" style="display:none;">
+      <h4 id="ktJudulFormKas">Tambah Transaksi Karang Taruna</h4>
+      <input type="hidden" id="ktKasId">
+      <input type="date" id="ktKasTanggal">
+      <select id="ktKasJenis">
+        <option value="Pemasukan">Pemasukan</option>
+        <option value="Pengeluaran">Pengeluaran</option>
+      </select>
+      <input type="text" id="ktKasKeterangan" placeholder="Keterangan">
+      <div class="input-group-prefix">
+        <span>Rp</span>
+        <input type="text" id="ktKasNominal" placeholder="Nominal" oninput="formatNominal(this)" onblur="autoRound(this)">
+      </div>
+      <button class="btn-primary" onclick="ktSimpanDataKas()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('ktFormKas','')">Batal</button>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header"><span>Pemasukan Karang Taruna</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Aksi</th></tr></thead>
+          <tbody id="ktTbodyPemasukan"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="table-container">
+      <div class="table-header"><span>Pengeluaran Karang Taruna</span></div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Aksi</th></tr></thead>
+          <tbody id="ktTbodyPengeluaran"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="ktGaleriView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Galeri Dokumentasi KT</h3>
+    </div>
+    <div id="ktFormCrudGaleri" class="crud-form">
+      <h4>Upload Dokumentasi Karang Taruna</h4>
+      <input type="hidden" id="ktGaleriId">
+      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
+      <input type="date" id="ktGaleriTanggal" style="margin-bottom:12px;">
+      <input type="text" id="ktGaleriJudul" placeholder="Judul Kegiatan">
+      <select id="ktGaleriType" onchange="toggleGaleriType('kt')">
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
+      </select>
+      <div id="ktGaleriFileContainer">
+      <input type="file" id="ktGaleriFile" accept="image/*">
+        <div id="ktPreviewGaleri"></div>
+      </div>
+      <div id="ktGaleriVideoContainer" style="display:none;">
+        <input type="text" id="ktGaleriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
+        <p class="muted" style="font-size:11px;">Contoh: Link YouTube atau Link Foto (Google Drive/Lainnya)</p>
+      </div>
+      <textarea id="ktGaleriDeskripsi" rows="3" placeholder="Deskripsi Singkat"></textarea>
+      <div id="ktPreviewGaleri"></div>
+      <button class="btn-primary" onclick="ktUploadGaleri()">Upload</button>
+      <button class="btn-secondary" onclick="tutupForm('ktFormCrudGaleri','ktWrapListGaleri')">Batal</button>
+    </div>
+    <div id="ktWrapListGaleri">
+      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(56,189,248,0.06); border:1px solid var(--border-color);">
+        <div class="filter-group" style="flex:1;">
+          <label style="font-size:10px; font-weight:800; color:var(--kt-blue); letter-spacing:0.5px;">ARSIP TAHUN</label>
+          <select id="ktGaleriTahunFilter" onchange="ktFilterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
+            <option value="all">📅 Semua Dokumentasi</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+      </div>
+      <div id="ktListGaleri" class="galeri-grid"></div>
+      <button id="ktBtnTambahGaleri" class="fab" onclick="ktBukaFormGaleri()">
+        <i class="material-icons">add_a_photo</i>
+      </button>
+    </div>
+  </div>
+
+  <div id="kontakView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Struktur Pengurus RT</h3>
+    </div>
+    <div id="formCrudKontak" class="crud-form">
+      <h4 id="judulFormKontak">Tambah Kader</h4>
+      <input type="hidden" id="kId">
+      <input type="text" id="kNama" placeholder="Nama">
+      <input type="text" id="kJabatan" placeholder="Jabatan">
+      <input type="text" id="kNoHp" placeholder="No HP (Opsional)">
+      <label class="muted" style="display:block; margin-top:10px; font-size:12px;">Foto Profil:</label>
+      <input type="file" id="kFoto" accept="image/*" style="margin-top:4px;">
+      <div id="kPreviewFoto" style="margin-top:10px; text-align:center;"></div>
+      <button class="btn-primary" onclick="simpanDataKontak()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('formCrudKontak','wrapListKontak')">Batal</button>
+    </div>
+<div id="wrapListKontak">
+      <div id="listKontak"></div>
+<button id="btnTambahKontak" class="fab" onclick="bukaFormKontak()" style="display:flex !important;">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+    <div id="kelolaUserView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Kelola Akun Warga</h3>
+    </div>
+    <div style="margin-bottom:1rem; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+      <div class="kategori-badge" style="background:rgba(211,47,47,0.08); color:var(--primary-dark);">CRUD Role & Tambah User (Admin)</div>
+    </div>
+
+    <div style="margin-bottom:1rem; position:relative;">
+      <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">search</i>
+      <input type="text" id="userSearchInput" placeholder="Cari nama atau email warga..." onkeyup="cariUser()" style="padding-left:40px; margin:0;">
+    </div>
+
+    <!-- FAB Tambah User (melayang di atas navigasi) -->
+    <button id="btnTambahUser" class="fab" onclick="bukaFormTambahUser()" style="display:none; z-index:1001; bottom: 120px;">
+      <i class="material-icons">person_add</i>
+    </button>
+    <div id="formCrudUser" class="crud-form">
+      <h4 id="judulFormUser">Edit Akses User</h4>
+      <input type="hidden" id="uId">
+      <input type="text" id="uNama" placeholder="Nama">
+      <input type="email" id="uEmail" placeholder="Email">
+      <div class="input-group" style="margin: 8px 0;">
+        <i class="material-icons">lock</i>
+        <input type="password" id="uPassword" placeholder="Password" style="margin:0; padding-left:45px; padding-right:45px; height:46px; background:var(--bg-surface); color:var(--text-main);">
+        <i class="material-icons toggle-password" onclick="togglePassword('uPassword', this)">visibility_off</i>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+        <select id="uRole" style="flex:1; margin:0;" onchange="applyRoleDefaults(this.value)">
+          <!-- Opsi diisi via JS -->
+        </select>
+        <button type="button" class="btn-small success" onclick="buatRoleBaru()" title="Tambah Role Baru" style="padding:10px; border-radius:10px; margin:0; width:44px; height:44px; display:flex; align-items:center; justify-content:center;">
+          <i class="material-icons" style="font-size:24px;">add_circle</i>
+        </button>
+      </div>
+      
+      <div id="uPermissionContainer" style="text-align:left; margin-top:15px; border:1px solid var(--border-color); padding:10px; border-radius:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="font-weight:700; font-size:12px; color:var(--text-muted); display:block; margin:0;">HAK AKSES FITUR:</label>
+          <label style="font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px; color:var(--primary-color);">
+            <input type="checkbox" id="uPermSelectAll" style="width:auto; margin:0;" onclick="toggleAllPermissions(this.checked)"> Pilih Semua
+          </label>
+        </div>
+        <div style="position:relative; margin-bottom:12px;">
+          <i class="material-icons" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:18px; color:var(--text-muted);">search</i>
+          <input type="text" id="uPermSearch" placeholder="Cari nama fitur atau kode..." onkeyup="filterPermissions()" 
+                 style="padding-left:35px; margin:0; font-size:12px; height:36px; border-radius:8px; background:var(--bg-app); border:1px solid var(--border-color);">
+        </div>
+        <div id="uPermissionList" style="display:grid; grid-template-columns:1fr; gap:8px; max-height:200px; overflow-y:auto;">
+          <!-- Checkbox akan di-generate via JS -->
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="simpanDataUser()">Update</button>
+      <button class="btn-secondary" onclick="tutupForm('formCrudUser','wrapListUser')">Batal</button>
+    </div>
+    <div id="wrapListUser">
+      <div id="listUsers"></div>
+    </div>
+  </div>
+
+
+  <div id="formPengaduanView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Buat Laporan Baru</h3>
+    </div>
+    <textarea id="isiPengaduan" rows="4" placeholder="Detail laporan..."></textarea>
+    <input type="file" id="fotoPengaduan" accept="image/*">
+    <div id="previewUpload"></div>
+    <button class="btn-primary" onclick="submitPengaduan()">Kirim</button>
+  </div>
+
+  <div id="historiPengaduanView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Histori Laporan</h3>
+    </div>
+    <div id="listHistori"></div>
+  </div>
+
+  <div id="laporanPengaduanAdminView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Admin Pengaduan</h3>
+    </div>
+    <div id="listLaporanSemua"></div>
+  </div>
+
+  <div id="rondaView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Jadwal Ronda Malam</h3>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Bulan</label>
+        <select id="rondaFilterBulan" onchange="muatDataRonda()">
+          <option value="0">Tampilkan 1 Tahun</option>
+          <option value="1">Januari</option><option value="2">Februari</option>
+          <option value="3">Maret</option><option value="4">April</option>
+          <option value="5">Mei</option><option value="6">Juni</option>
+          <option value="7">Juli</option><option value="8">Agustus</option>
+          <option value="9">September</option><option value="10">Oktober</option>
+          <option value="11">November</option><option value="12">Desember</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Tahun</label>
+        <select id="rondaFilterTahun" onchange="muatDataRonda()"></select>
+      </div>
+      <div class="filter-group" style="flex:1;">
+        <label>Cari Petugas</label>
+        <input type="text" id="rondaSearchInput" placeholder="Ketik nama petugas..." onkeyup="filterRonda()">
+      </div>
+    </div>
+    <!-- Tombol Navigasi Cepat (Hanya muncul di mode tahunan) -->
+    <div id="rondaYearlyActions" style="display:none; margin-bottom:1.2rem; text-align:center;">
+      <button class="btn-small success" onclick="scrollToCurrentMonth()" style="width:auto; padding:10px 24px; border-radius:12px; box-shadow:var(--shadow-md);">
+        <i class="material-icons" style="font-size:18px; vertical-align:middle; margin-right:5px;">south</i> Ke Bulan Sekarang
+      </button>
+    </div>
+    <div style="margin-bottom:1.2rem; text-align:center;">
+      <button id="btnSalinRondaWa" class="btn-small" onclick="shareRondaWA()" style="width:auto; padding:12px 24px; border-radius:12px; box-shadow:var(--shadow-md); background:#25D366; display:flex; align-items:center; gap:8px; margin:0 auto;">
+        <i class="material-icons">whatsapp</i> Salin Jadwal ke WhatsApp
+      </button>
+    </div>
+    <div id="rondaFormCrud" class="crud-form">
+      <h4 id="rondaJudulForm">Tambah Jadwal Ronda</h4> 
+      <input type="hidden" id="rondaRow">
+      <input type="date" id="rondaTanggal">
+      <input type="text" id="rondaKelompok" placeholder="Nama Kelompok (Misal: Regu A)">
+      <textarea id="rondaPetugas" rows="4" placeholder="Daftar Petugas (Satu baris satu nama)"></textarea>
+      <button class="btn-primary" onclick="simpanDataRonda()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('rondaFormCrud','listRonda')">Batal</button>
+    </div>
+    <div id="listRonda" class="table-wrapper"></div> 
+    <button id="rondaBtnTambah" class="fab" onclick="bukaFormRonda()"><i class="material-icons">add</i></button>
+  </div>
+
+  <!-- ======================== MODUL PKK ======================== -->
+  <div id="pkkJadwalView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Agenda Kegiatan PKK</h3>
+    </div>
+    <div id="formPkkCrudJadwal" class="crud-form">
+      <h4 id="judulFormPkkJadwal">Tambah Jadwal PKK</h4>
+      <input type="hidden" id="pkkJId">
+      <input type="text" id="pkkNama" placeholder="Nama Kegiatan">
+      <input type="datetime-local" id="pkkWaktu">
+      <input type="text" id="pkkTempat" placeholder="Tempat">
+      <input type="text" id="pkkPic" placeholder="PIC (Penanggung Jawab)">
+      <input type="text" id="pkkKeterangan" placeholder="Keterangan">
+      <button class="btn-primary" onclick="pkkSimpanDataJadwal()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('formPkkCrudJadwal','pkkWrapListJadwal')">Batal</button>
+    </div>
+    <div id="pkkWrapListJadwal">
+      <div id="pkkListJadwal"></div>
+      <button id="pkkBtnTambahJadwal" class="fab" onclick="pkkBukaFormJadwal()">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+  <div id="pkkKaderView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Data Pengurus PKK</h3>
+    </div>
+    <div id="formPkkCrudKader" class="crud-form">
+      <h4 id="judulFormPkkKader">Tambah Kader PKK</h4>
+      <input type="hidden" id="pkkKaderId">
+      <input type="text" id="pkkKaderNama" placeholder="Nama">
+      <input type="text" id="pkkKaderJabatan" placeholder="Jabatan">
+      <input type="text" id="pkkKaderNoHp" placeholder="No HP">
+      <label class="muted" style="display:block; margin-top:10px; font-size:12px;">Foto Profil (Opsional):</label>
+      <input type="file" id="pkkKaderFoto" accept="image/*" style="margin-top:4px;">
+      <div id="pkkKaderPreviewFoto" style="margin-top:10px; text-align:center;"></div>
+      <button class="btn-primary" onclick="pkkSimpanDataKader()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('formPkkCrudKader','pkkWrapListKader')">Batal</button>
+    </div>
+    <div id="pkkWrapListKader">
+      <div id="pkkListKader"></div>
+      <button id="pkkBtnTambahKader" class="fab" onclick="pkkBukaFormKader()">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+  <div id="pkkKirimLaporanView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Laporan Kegiatan PKK</h3>
+    </div>
+    <div id="pkkFormLaporan"> 
+      <input type="text" id="pkkJudulLaporan" placeholder="Judul Laporan" style="margin-top:10px;">
+      <textarea id="pkkDeskripsiLaporan" rows="4" placeholder="Detail laporan..."></textarea>
+      <input type="file" id="pkkFotoLaporan" accept="image/*">
+      <div id="pkkPreviewUpload"></div>
+      <button class="btn-primary" onclick="pkkSubmitLaporan()">Kirim</button>
+    </div>
+  </div>
+
+  <div id="pkkHistoriView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Riwayat Laporan Saya</h3>
+    </div>
+    <div id="pkkListHistori"></div>
+  </div>
+
+  <div id="pkkGaleriView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Dokumentasi PKK</h3>
+    </div>
+    <div id="formPkkCrudGaleri" class="crud-form">
+      <h4>Tambah Foto ke Galeri PKK</h4>
+      <input type="hidden" id="pkkGaleriId">
+      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
+      <input type="date" id="pkkGaleriTanggal" style="margin-bottom:12px;">
+      <input type="text" id="pkkGaleriCaption" placeholder="Caption / Deskripsi Foto">
+      <select id="pkkGaleriType" onchange="toggleGaleriType('pkk')">
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
+      </select>
+      <div id="pkkGaleriFileContainer">
+      <input type="file" id="pkkGaleriFile" accept="image/*">
+      <div id="pkkPreviewGaleri"></div>
+      </div>
+      <div id="pkkGaleriVideoContainer" style="display:none;">
+        <input type="text" id="pkkGaleriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
+        <p class="muted" style="font-size:11px;">Bisa berupa link foto atau link video</p>
+      </div>
+      <button class="btn-primary" onclick="pkkUploadGaleri()">Upload</button>
+      <button class="btn-secondary" onclick="tutupForm('formPkkCrudGaleri','pkkWrapListGaleri')">Batal</button>
+    </div>
+    <div id="pkkWrapListGaleri">
+      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(16,185,129,0.06); border:1px solid var(--border-color);">
+        <div class="filter-group" style="flex:1;">
+          <label style="font-size:10px; font-weight:800; color:var(--pkk-green); letter-spacing:0.5px;">LIHAT TAHUN</label>
+          <select id="pkkGaleriTahunFilter" onchange="pkkFilterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
+            <option value="all">🌸 Seluruh Galeri</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+      </div>
+      <div id="pkkListGaleri" class="galeri-grid"></div>
+      <button id="pkkBtnTambahGaleri" class="fab" onclick="pkkBukaFormGaleri()">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+
+
+  <div id="kasView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Laporan Keuangan Warga</h3>
+    </div>
+
+    <div class="kas-summary">
+      <div class="summary-card">
+        <div class="summary-icon">
+          <i class="material-icons">payments</i>
+        </div>
+        <div class="summary-info">
+          <h3>Total Saldo Kas (Semua Tahun)</h3>
+          <h2 id="totalKasIuran">Rp 0</h2>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon">
+          <i class="material-icons">local_florist</i>
+        </div>
+        <div class="summary-info">
+          <h3>Total Uang Kematian</h3>
+          <h2 id="totalKonsumsiRondaIuran">Rp 0</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="kasChart" width="400" height="200"></canvas>
+      <div style="margin-top:10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+        <select id="tahunKasSelect" style="width:auto;">
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+        </select>
+        <button class="btn-small" onclick="muatGrafikKas()">Tampilkan Grafik</button>
+        <button class="btn-small success" onclick="cetakLaporanKas()">Cetak Laporan</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Mode Laporan</label>
+        <select id="laporanMode" onchange="toggleLaporanMode()">
+          <option value="tahunan">Tahunan</option>
+          <option value="bulan">Per Bulan</option>
+          <option value="custom">Rentang Tanggal</option>
+        </select>
+      </div>
+      <div id="laporanTahunanMode" style="display:flex; flex-direction:row; gap:0.5rem; align-items:flex-end;">
+        <div>
+          <label>Tahun</label>
+          <input type="number" id="tahunLaporanTahunan" value="2026" style="width:100px;">
+        </div>
+      </div>
+      <div id="laporanBulanMode" style="display:none; flex-direction:row; gap:0.5rem; align-items:flex-end;">
+        <div>
+          <label>Bulan</label>
+          <select id="bulanLaporan">
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div>
+          <label>Tahun</label>
+          <input type="number" id="tahunLaporanBulan" value="2026" style="width:90px;">
+        </div>
+      </div>
+      <div id="laporanCustomMode" style="display:none; flex-direction:row; gap:0.5rem; align-items:flex-end;">
+        <div>
+          <label>Dari</label>
+          <input type="date" id="startDate">
+        </div>
+        <div>
+          <label>Sampai</label>
+          <input type="date" id="endDate">
+        </div>
+      </div>
+      <div>
+        <button class="btn-small" onclick="muatRekapPeriode()">Rekap</button>
+      </div>
+    </div>
+
+    <div id="actionButtonsKas" class="action-buttons" style="margin-bottom:1rem;"></div>
+
+    <div id="formKas" class="crud-form" style="display:none;">
+      <h4 id="judulFormKas">Tambah Transaksi</h4>
+      <input type="hidden" id="kasId">
+      <input type="date" id="kasTanggal" required>
+      <select id="kasKategori">
+        <option value="">-- Pilih Kategori --</option>
+        <option value="Kas">Kas</option>
+        <option value="Kematian">Kematian</option>
+        <option value="Ambulans">Ambulans</option>
+        <option value="Konsumsi Ronda">Konsumsi Ronda</option>
+        <option value="Sumbangan">Sumbangan</option>
+        <option value="Lain-lain">Lain-lain</option>
+      </select>
+      <input type="text" id="kasDeskripsi" placeholder="Deskripsi / Keterangan">
+      <div class="input-group-prefix">
+        <span>Rp</span>
+        <input type="text" id="kasJumlah" placeholder="Jumlah" required oninput="formatNominal(this)" onblur="autoRound(this)">
+      </div>
+      <button class="btn-primary" onclick="simpanKas()">Simpan</button>
+      <button class="btn-secondary" onclick="tutupForm('formKas','')">Batal</button>
+    </div>
+
+    <div class="rekapitulasi" id="rekapitulasiBox">
+      <p><strong>Periode: <span id="periodeText">Tahun 2026</span></strong></p>
+      <p>Total Pemasukan: <strong id="rekapTotalPemasukan">Rp 0</strong></p>
+      <p>Total Pengeluaran: <strong id="rekapTotalPengeluaran">Rp 0</strong></p>
+      <p id="rekapLabelSelisih">Total Uang: <strong id="rekapSelisih">Rp 0</strong></p>
+    </div>
+
+    <div class="filter-table">
+      <div class="filter-group">
+        <label>Filter Tabel Bulan</label>
+        <select id="filterBulanTransaksi">
+          <option value="0">Semua Bulan</option>
+          <option value="1">Januari</option>
+          <option value="2">Februari</option>
+          <option value="3">Maret</option>
+          <option value="4">April</option>
+          <option value="5">Mei</option>
+          <option value="6">Juni</option>
+          <option value="7">Juli</option>
+          <option value="8">Agustus</option>
+          <option value="9">September</option>
+          <option value="10">Oktober</option>
+          <option value="11">November</option>
+          <option value="12">Desember</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Tahun</label>
+        <input type="number" id="filterTahunTransaksi" value="2026" style="width:100px;">
+      </div>
+      <div>
+        <button class="btn-small" onclick="filterTabelTransaksi()">Terapkan Filter</button>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <span><i class="material-icons">arrow_upward</i> Pemasukan</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Tanggal</th><th>Kategori</th><th>Deskripsi</th><th>Jumlah</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="tbodyPemasukan"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <span><i class="material-icons">arrow_downward</i> Pengeluaran</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Tanggal</th><th>Kategori</th><th>Deskripsi</th><th>Jumlah</th><th>Aksi</th></tr>
+          </thead>
+          <tbody id="tbodyPengeluaran"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-header" style="margin-top:2rem;">
+      <h3>
+        <i class="material-icons">payments</i>
+        Manajemen Iuran Warga
+      </h3>
+    </div>
+    <div id="iuranAdminButtons" style="display:flex; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap;"></div>
+
+    <div style="margin-bottom:1rem; position:relative;">
+      <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">search</i>
+      <input type="text" id="iuranSearchInput" placeholder="Cari nama warga di tabel iuran..." onkeyup="cariWargaIuran()" style="padding-left:40px; margin:0;">
+    </div>
+
+    <div style="display:flex; gap:0.75rem; margin-bottom:1rem; align-items:center; flex-wrap:wrap;">
+      <label>Tahun Iuran:</label>
+      <select id="tahunIuranSelect" style="width:auto;" onchange="muatTabelIuran()">
+        <!-- Opsi akan diisi otomatis dari database -->
+      </select>
+      <button class="btn-small" onclick="muatTabelIuran()">Tampilkan</button>
+    </div>
+    <div class="table-wrapper">
+      <table class="iuran-table" id="tabelIuran">
+        <thead id="theadIuran"></thead>
+        <tbody id="tbodyIuran"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal Kategori Iuran (tidak bertumpuk) -->
+  <div id="modalKategoriIuran" class="modal-kategori">
+    <h4>Kelola Kategori Iuran</h4>
+    <div id="listKategoriIuran" style="max-height: 300px; overflow-y: auto;"></div>
+    <div style="margin-top:20px; color:var(--text-main);">
+      <input type="text" id="newKategoriName" placeholder="Nama Kategori Baru" style="width:100%; margin-bottom:8px;">
+      <div class="input-group-prefix">
+        <span>Rp</span>
+        <input type="text" id="newKategoriNominal" placeholder="Nominal Iuran" style="width:100%;" oninput="formatNominal(this)" onblur="autoRound(this)">
+      </div>
+      <button class="btn-primary" onclick="tambahKategoriIuran()" style="margin-top:10px;">Tambah Kategori</button>
+    </div>
+    <button class="btn-secondary" onclick="tutupModalKategoriIuran()" style="margin-top:10px;">Tutup</button>
+  </div>
+  <div id="modalBackdrop" class="modal-backdrop"></div>
+  
+  <div id="modalWarga" class="modal-kategori" style="display:none; max-width:500px;">
+    <h4>Kelola Nama Warga</h4>
+    <div id="listWarga" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px;"></div>
+    <input type="text" id="newWarga" placeholder="Nama Warga Baru">
+    <button class="btn-primary" onclick="tambahWargaIuran()">Tambah</button>
+    <button class="btn-secondary" onclick="tutupModalWarga()">Tutup</button>
+  </div>
+
+  <div id="galeriView" class="screen">
+    <div class="page-header">
+      <i class="material-icons" style="cursor:pointer; color:var(--primary-color);" onclick="kembaliKeDashboard()">arrow_back</i>
+      <h3>Galeri Dokumentasi Warga</h3>
+    </div>
+  
+    <div id="formCrudGaleri" class="crud-form">
+      <h4 id="judulFormGaleri">Upload Dokumentasi</h4>
+      <input type="hidden" id="galeriId">
+      <label class="muted" style="display:block; margin-bottom:4px; font-size:12px; font-weight:700;">TANGGAL KEGIATAN:</label>
+      <input type="date" id="galeriTanggal" style="margin-bottom:12px;">
+      <input type="text" id="galeriCaption" placeholder="Caption / Deskripsi Foto">
+      <select id="galeriType" onchange="toggleGaleriType('rt')">
+        <option value="image">Upload File Gambar</option>
+        <option value="video">Link Media (Gambar/Video)</option>
+      </select>
+      <div id="rtGaleriFileContainer">
+      <input type="file" id="galeriFile" accept="image/*">
+      <div id="previewGaleri"></div>
+      </div>
+      <div id="rtGaleriVideoContainer" style="display:none;">
+        <input type="text" id="galeriVideoLink" placeholder="Link YouTube/TikTok/Instagram">
+        <p class="muted" style="font-size:11px;">Bisa berupa link foto atau link video</p>
+      </div>
+      <button class="btn-primary" onclick="uploadGaleri()">Upload</button>
+      <button class="btn-secondary" onclick="tutupForm('formCrudGaleri','wrapListGaleri')">Batal</button>
+    </div>
+<div id="wrapListGaleri">
+      <div class="filter-bar" style="margin-bottom:1.5rem; background:rgba(var(--primary-color-rgb), 0.04); border:1px solid var(--border-color);">
+        <div class="filter-group" style="flex:1;">
+          <label style="font-size:10px; font-weight:800; color:var(--primary-red); letter-spacing:0.5px;">URUTKAN TAHUN</label>
+          <select id="galeriTahunFilter" onchange="filterDataGaleri()" style="margin:0; height:44px; font-weight:600;">
+            <option value="all">📅 Semua Tahun</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+      </div>
+      <div id="listGaleri" class="galeri-grid"></div>
+<button id="btnTambahGaleri" class="fab" onclick="bukaFormGaleri()" style="display:flex !important;">
+        <i class="material-icons">add</i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ======================== CLOUD HOSTING ADAPTER ========================
+  // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
+  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
+
+  // ENGINE NOTIFIKASI LATAR BELAKANG (NATIVE WEB PUSH)
+  const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  /**
+   * Registrasi Web Push Native (Background Capability)
+   */
+  async function registrasiWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('Web Push tidak didukung di browser ini.');
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register('sw.js');
+      console.log('Service Worker aktif:', registration.scope);
+
+      // Minta izin notifikasi
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      // Subscribe ke Push Service
+      let subscription = await registration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+
+      // Kirim Subscription ke GAS
+      google.script.run.withSuccessHandler(function(res) {
+        console.log('Web Push Subscription tersinkronisasi ke server.');
+      }).savePushSubscription(JSON.stringify(subscription), currentUser.email);
+
+    } catch (err) {
+      console.error('Gagal registrasi Web Push:', err);
+    }
+  }
+
+  /**
+   * Polyfill google.script.run menggunakan Proxy untuk mendukung hosting eksternal
+   */
+  const google = {
+    script: {
+      run: (function() {
+        const createRunner = (handlers) => {
+          return new Proxy({}, {
+            get(target, prop) {
+              if (prop === 'withSuccessHandler') return (h) => createRunner({ ...handlers, success: h });
+              if (prop === 'withFailureHandler') return (h) => createRunner({ ...handlers, failure: h });
+
+              return async (...args) => {
+                if (!navigator.onLine) {
+                  const offErr = new Error("Koneksi Terputus: Anda sedang offline.");
+                  if (handlers.failure) handlers.failure(offErr);
+                  else showError(offErr.message);
+                  return;
+                }
+
+                try {
+                  // 10XTHINK FIX: Proteksi URL Cache-Busting Pintar (Anti-CORS)
+                  const urlBase = GAS_BASE_URL;
+                  const separator = urlBase.includes('?') ? '&' : '?';
+                  const requestUrl = `${urlBase}${separator}v=${Date.now()}`;
+                  
+                  const res = await fetch(requestUrl, { 
+                    method: 'POST', 
+                    mode: 'cors',
+                    // Jangan tambahkan header Content-Type agar tetap menjadi "Simple Request"
+                    body: JSON.stringify({ action: prop, data: args }) 
+                  });
+                  const text = await res.text();
+                  if (!text) throw new Error("Respon kosong dari server.");
+
+                  let json;
+                  try { json = JSON.parse(text); } catch(e) { throw new Error("Format data server tidak valid (Bukan JSON)."); }
+                  
+                  // Masukkan hasil ke success handler (biar UI yang menangani status 'success' atau 'error' di dalamnya)
+                  if (handlers.success) handlers.success(json);
+                  return json; // PENTING: Kembalikan data agar 'await' berfungsi
+                } catch (err) {
+                  const errorToReport = !navigator.onLine ? new Error("Gagal terhubung ke server. Anda sedang offline.") : err;
+                  if (handlers.failure) handlers.failure(errorToReport);
+                  else {
+                    console.error("GAS Server Error:", errorToReport);
+                    showError("Gangguan Jaringan: Pastikan internet Anda stabil.");
+                  }
+                  throw errorToReport;
+                }
+              };
+            }
+          });
+        };
+        return createRunner({ success: null, failure: null });
+      })()
+    }
+  };
+
+  /**
+   * 10XTHINK: SINKRONISASI OTOMATIS GLOBAL (STATE MANAGEMENT)
+   * Mengelola data lokal agar UI terupdate instan tanpa fetch ulang.
+   */
+  window.updateGlobalDatabaseState = function(newData, menuType) {
+    console.log(`[State] Optimistic Update for: ${menuType}`);
+    
+    if (menuType === 'pengaduan') {
+      // Jika ID sudah ada (update), ganti. Jika belum (create), unshift ke paling atas.
+      const index = window.pengaduanDataGlobal.findIndex(it => it.id === newData.id);
+      if (index > -1) window.pengaduanDataGlobal[index] = newData;
+      else window.pengaduanDataGlobal.unshift(newData);
+      
+      // Trigger re-render hanya pada komponen terkait
+      if (document.getElementById('historiPengaduanView').style.display === 'block') {
+        renderListHistoriUI(window.pengaduanDataGlobal);
+      }
+    } 
+    
+    if (menuType === 'pkk_laporan') {
+      const index = window.pkkLaporanDataGlobal.findIndex(it => it.id === newData.id);
+      if (index > -1) window.pkkLaporanDataGlobal[index] = newData;
+      else window.pkkLaporanDataGlobal.unshift(newData);
+      
+      if (document.getElementById('pkkHistoriView').style.display === 'block') {
+        renderPkkHistoriUI(window.pkkLaporanDataGlobal);
+      }
+    }
+  };
+
+  /**
+   * ASYNCHRONOUS FILE READER (ANTI-BLOCKING)
+   */
+  async function readFileAsync(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ base64: reader.result.split(',')[1], mime: file.type });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ======================== GLOBAL VARIABLES ========================
+  var currentUser = { role: 'warga' };
+  var currentToken = null;
+  var allUsers = []; // Global variable to store all user data
+  
+  // STATE MANAGEMENT: Local Cache untuk Optimistic Update
+  window.pengaduanDataGlobal = [];
+  window.pkkLaporanDataGlobal = [];
+  
+  var activeNotifications = []; // Helper untuk simpan list notif saat ini
+  var currentThisWeekEntries = []; // Storage untuk Share WA
+  var currentNextWeekEntries = []; // Storage untuk Share WA
+  var rtGaleriDataGlobal = [];
+  var ktGaleriDataGlobal = [];
+  var pkkGaleriDataGlobal = [];
+  // Global storage untuk 2 data terpilih (Minggu Ini & Minggu Depan)
+  var pickedRondaWeek1 = null;
+  var pickedRondaWeek2 = null;
+
+  // Global Loading Spinner Component
+  const SPINNER_HTML = '<div style="display:flex; justify-content:center; padding:40px; width:100%;"><div class="bbx-spinner"></div></div>';
+
+  // Definisi daftar izin yang tersedia untuk Kelola Role
+  const availablePermissions = [
+    { key: 'rt_jadwal', label: 'Melihat Jadwal RT' },
+    { key: 'rt_jadwal_crud', label: 'Kelola Jadwal RT' },
+    { key: 'rt_ronda', label: 'Melihat Ronda' },
+    { key: 'rt_ronda_crud', label: 'Kelola Ronda' },
+    { key: 'rt_user', label: 'Melihat User' },
+    { key: 'rt_user_crud', label: 'Kelola User/Role' },
+    { key: 'rt_kontak', label: 'Melihat Kontak' },
+    { key: 'rt_kontak_crud', label: 'Kelola Kontak' },
+    { key: 'rt_pengaduan_kirim', label: 'Kirim Pengaduan' },
+    { key: 'rt_pengaduan_admin', label: 'Melihat Semua Pengaduan' },
+    { key: 'rt_pengaduan_admin_crud', label: 'Kelola Pengaduan' },
+    { key: 'rt_kas', label: 'Melihat Kas RT' },
+    { key: 'rt_kas_crud', label: 'Kelola Kas RT' },
+    { key: 'rt_galeri', label: 'Melihat Galeri RT' },
+    { key: 'rt_galeri_crud', label: 'Kelola Galeri RT' },
+    { key: 'rt_iuran_manage', label: 'Kelola Iuran Warga' },
+    { key: 'pkk_jadwal', label: 'Melihat Jadwal PKK' },
+    { key: 'pkk_jadwal_crud', label: 'Kelola Jadwal PKK' },
+    { key: 'pkk_kader', label: 'Melihat Kader PKK' },
+    { key: 'pkk_kader_crud', label: 'Kelola Kader PKK' },
+    { key: 'pkk_laporan_kirim', label: 'Kirim Laporan PKK' },
+    { key: 'pkk_laporan_histori', label: 'Melihat Histori Laporan PKK' },
+    { key: 'pkk_laporan_admin', label: 'Kelola Laporan PKK' },
+    { key: 'pkk_galeri', label: 'Melihat Galeri PKK' },
+    { key: 'pkk_galeri_crud', label: 'Kelola Galeri PKK' },
+    { key: 'kt_jadwal', label: 'Melihat Jadwal KT' },
+    { key: 'kt_jadwal_crud', label: 'Kelola Jadwal KT' },
+    { key: 'kt_kader', label: 'Melihat Kader KT' },
+    { key: 'kt_kader_crud', label: 'Kelola Kader KT' },
+    { key: 'kt_kas', label: 'Melihat Kas KT' },
+    { key: 'kt_kas_crud', label: 'Kelola Kas KT' },
+    { key: 'kt_galeri', label: 'Melihat Galeri KT' },
+    { key: 'kt_galeri_crud', label: 'Kelola Galeri KT' }
+  ];
+
+  // Pemetaan Hak Akses Otomatis berdasarkan Role
+  const roleDefaultPermissions = {
+    'warga': ['rt_jadwal', 'rt_ronda', 'rt_kontak', 'rt_pengaduan_kirim', 'rt_kas', 'rt_galeri', 'pkk_jadwal', 'pkk_kader', 'pkk_laporan_kirim', 'pkk_laporan_histori', 'pkk_galeri', 'kt_jadwal', 'kt_kader', 'kt_kas', 'kt_galeri'],
+    'pengurus rt': ['rt_jadwal', 'rt_jadwal_crud', 'rt_ronda', 'rt_ronda_crud', 'rt_kontak', 'rt_kontak_crud', 'rt_pengaduan_kirim', 'rt_pengaduan_admin', 'rt_pengaduan_admin_crud', 'rt_kas', 'rt_kas_crud', 'rt_galeri', 'rt_galeri_crud', 'rt_iuran_manage', 'pkk_jadwal', 'pkk_kader', 'pkk_laporan_kirim', 'pkk_laporan_histori', 'pkk_galeri', 'kt_jadwal', 'kt_kader', 'kt_kas', 'kt_galeri'],
+    'pengurus pkk': ['rt_jadwal', 'rt_ronda', 'rt_kontak', 'rt_pengaduan_kirim', 'rt_kas', 'rt_galeri', 'pkk_jadwal', 'pkk_jadwal_crud', 'pkk_kader', 'pkk_kader_crud', 'pkk_laporan_kirim', 'pkk_laporan_histori', 'pkk_laporan_admin', 'pkk_galeri', 'pkk_galeri_crud', 'kt_jadwal', 'kt_kader', 'kt_kas', 'kt_galeri'],
+    'pengurus karang taruna': ['rt_jadwal', 'rt_ronda', 'rt_kontak', 'rt_pengaduan_kirim', 'rt_kas', 'rt_galeri', 'pkk_jadwal', 'pkk_kader', 'pkk_laporan_kirim', 'pkk_laporan_histori', 'pkk_galeri', 'kt_jadwal', 'kt_jadwal_crud', 'kt_kader', 'kt_kader_crud', 'kt_kas', 'kt_kas_crud', 'kt_galeri', 'kt_galeri_crud'],
+    'admin': availablePermissions.map(p => p.key)
+  };
+
+  function applyRoleDefaults(role) {
+    const defaults = roleDefaultPermissions[role.toLowerCase()] || [];
+    const checkboxes = document.querySelectorAll('.u-perm-chk');
+    
+    checkboxes.forEach(chk => {
+      if (defaults.includes(chk.value)) {
+        chk.checked = true;
+      } else {
+        chk.checked = false;
+      }
+    });
+    updateSelectAllState();
+  }
+
+  // ======================== MEDIA HELPERS ========================
+  function checkAndRequestNotificationPermission(silent) {
+    if (!("Notification" in window)) {
+      console.warn('Browser ini tidak mendukung notifikasi.');
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      subscribeUserToPush(silent);
+    } else if (Notification.permission !== "denied") {
+      // iOS 16.4+ Memerlukan interaksi manual. 
+      // Jangan panggil otomatis jika silent = true
+      if (!silent) {
+        Swal.fire({
+          title: 'Aktifkan Notifikasi?',
+          text: 'Agar Anda menerima info ronda dan iuran secara real-time di HP.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Aktifkan',
+          confirmButtonColor: 'var(--primary-color)'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            Notification.requestPermission().then(permission => {
+              if (permission === "granted") subscribeUserToPush(false);
+            });
+          }
+        });
+      }
+    }
+  }
+
+  function subscribeUserToPush(silent) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    navigator.serviceWorker.ready.then(function(registration) {
+      return registration.pushManager.getSubscription().then(function(subscription) {
+        if (subscription) {
+          updatePushSubscriptionOnServer(subscription);
+          return subscription;
+        }
+
+        return registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        }).then(function(newSubscription) {
+          updatePushSubscriptionOnServer(newSubscription);
+          if (!silent) showSuccess('Notifikasi latar belakang aktif!');
+          return newSubscription;
+        });
+      });
+    }).catch(function(err) {
+      console.error('Push Subscription Error:', err);
+    });
+  }
+
+  function updatePushSubscriptionOnServer(subscription) {
+    if (!subscription) return;
+    try {
+      google.script.run.withSuccessHandler(function(res) {
+        if (res && res.status === 'success') {
+          console.log('Token perangkat tersimpan di database.');
+        }
+      }).savePushSubscription(JSON.stringify(subscription));
+    } catch (e) {
+      console.error('Gagal mengirim token ke GAS:', e);
+    }
+  }
+
+  function requestNotificationPermission() {
+    checkAndRequestNotificationPermission(false);
+  }
+
+  function triggerSystemNotification(judul, isi, targetPage) {
+    if (Notification.permission === "granted") {
+      const options = {
+        body: isi,
+        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+        badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
+        vibrate: [200, 100, 200],
+        tag: 'portal-rt-notif-' + Date.now(),
+        renotify: true,
+        data: { targetPage: targetPage } // Kirim data halaman tujuan ke Service Worker
+      };
+
+      var notification;
+      // Gunakan Service Worker jika tersedia untuk notifikasi yang lebih stabil di latar belakang
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(function(registration) {
+          registration.showNotification(judul, options);
+        });
+      } else {
+        notification = new Notification(judul, options);
+        notification.onclick = function(event) {
+          event.preventDefault(); // cegah browser fokus otomatis secara default
+          window.focus();
+          handleNotifLihat(targetPage);
+          notification.close();
+        };
+      }
+    }
+  }
+
+  function togglePassword(inputId, iconEl) {
+    var input = document.getElementById(inputId);
+    if (input.type === "password") {
+      input.type = "text";
+      iconEl.textContent = "visibility";
+    } else {
+      input.type = "password";
+      iconEl.textContent = "visibility_off";
+    }
+  }
+
+  function isVideoLink(url) {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('tiktok.com') || url.includes('instagram.com/reels') || url.includes('instagram.com/p/');
+  }
+
+  function getMediaThumbnail(url) {
+    if (!url) return 'https://placehold.co/600x400?text=No+Media';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      var id = extractYoutubeId(url);
+      return id ? 'https://img.youtube.com/vi/' + id + '/0.jpg' : 'https://placehold.co/600x400?text=Video+YouTube';
+    }
+    if (url.includes('tiktok.com')) return 'https://placehold.co/600x400?text=TikTok+Video';
+    if (url.includes('instagram.com')) return 'https://placehold.co/600x400?text=Instagram+Video';
+    return getDirectUrl(url);
+  }
+
+  function extractYoutubeId(url) {
+    var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    var match = url.match(regExp);
+    return (match && match[2].length == 11) ? match[2] : null;
+  }
+
+  // HELPER: Image Compression (Resize & Compress to < 1MB)
+  function compressImage(file, callback, maxDim) {
+    showLoading('Mengompresi gambar...');
+    updateProgress(5, 'Membaca file...');
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function(event) {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = function() {
+        updateProgress(15, 'Memproses resolusi...');
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = maxDim || 1080; // Max dimension for clear but lightweight image
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 0.6 is optimal for storage vs quality
+        callback(dataUrl.split(',')[1], 'image/jpeg');
+      };
+    };
+  }
+
+  // Helper untuk format tanggal Indonesia: Hari, Tanggal Bulan Tahun Jam WIB
+  function formatIndoDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    const dayName = days[d.getDay()];
+    const date = d.getDate();
+    const monthName = months[d.getMonth()];
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    
+    return `${dayName}, ${date} ${monthName} ${d.getFullYear()} Pukul ${hours}:${minutes} WIB`;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function(char) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char];
+    });
+  }
+
+  function escapeJsString(value) {
+    return String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
+  }
+
+  function toggleGaleriType(prefix) {
+    var typeId = prefix === 'rt' ? 'galeriType' : prefix + 'GaleriType';
+    var fileContId = prefix === 'rt' ? 'rtGaleriFileContainer' : prefix + 'GaleriFileContainer';
+    var videoContId = prefix === 'rt' ? 'rtGaleriVideoContainer' : prefix + 'GaleriVideoContainer';
+    var fileInputId = prefix === 'rt' ? 'galeriFile' : prefix + 'GaleriFile';
+    var previewId = prefix === 'rt' ? 'previewGaleri' : prefix + 'PreviewGaleri';
+    
+    // Reset input saat ganti tipe
+    if(document.getElementById(fileInputId)) document.getElementById(fileInputId).value = '';
+    if(document.getElementById(previewId)) document.getElementById(previewId).innerHTML = '';
+    
+    var type = document.getElementById(typeId).value;
+    var fileCont = document.getElementById(fileContId);
+    var videoCont = document.getElementById(videoContId);
+    
+    if (type === 'video') {
+      if (fileCont) fileCont.style.display = 'none';
+      if (videoCont) videoCont.style.display = 'block';
+    } else {
+      if (fileCont) fileCont.style.display = 'block';
+      if (videoCont) videoCont.style.display = 'none';
+    }
+  }
+
+  // start polling notifikasi setelah login
+  function startNotifikasiPolling() {
+    try {
+      if (notifPollingHandle) return;
+      var savedTs = localStorage.getItem('lastNotifTs');
+
+      // hit sekali dulu agar cepat
+      muatNotifikasiSekali(savedTs);
+
+      notifPollingHandle = setInterval(function() {
+        muatNotifikasiSekali(localStorage.getItem('lastNotifTs'));
+      }, NOTIF_POLL_INTERVAL_MS);
+    } catch (e) {
+      console.error('startNotifikasiPolling error', e);
+    }
+  }
+
+  function stopNotifikasiPolling() {
+    try {
+      if (notifPollingHandle) {
+        clearInterval(notifPollingHandle);
+        notifPollingHandle = null;
+      }
+    } catch (e) {}
+  }
+
+  function muatNotifikasiSekali(lastTs) {
+    if (!currentUser || !currentUser.role) return;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || res.status !== 'success') return;
+        var items = res.data || [];
+        var latest = res.latestTs || null;
+        var lastRead = Number(localStorage.getItem('lastReadNotifTs') || 0);
+
+        // Tampilkan badge jika ada item baru hasil polling atau ada pesan di server yang lebih baru dari klik terakhir user
+        if (items.length > 0 || (latest && latest > lastRead)) {
+          document.getElementById('notifBadge').style.display = 'block';
+        }
+
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          if (notifAlreadyShownIds.has(it.id)) continue;
+          notifAlreadyShownIds.add(it.id);
+
+          // Trigger Notifikasi Sistem HP
+          triggerSystemNotification(it.judul, it.isi, it.targetPage);
+
+                    Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: '<span style="font-weight:800; color:var(--primary-dark);">' + (it.judul || 'Notifikasi') + '</span>',
+            html: it.isi ? '<div style="text-align:left; font-size:13px; line-height:1.4;">' + String(it.isi).replace(/\n/g, '<br>') + '</div>' : '',
+            showConfirmButton: true,
+            confirmButtonText: 'Lihat',
+            showCancelButton: false,
+            timer: 6000,
+            timerProgressBar: true,
+            didOpen: function(toast) {
+              // tidak perlu
+            }
+          }).then(function(res) {
+            if (res && res.isConfirmed) {
+              handleNotifLihat(it.targetPage);
+            }
+          });
+
+        }
+
+        if (latest !== null) {
+          localStorage.setItem('lastNotifTs', String(latest));
+        }
+      })
+      .withFailureHandler(function(err) {
+        console.error('muatNotifikasiSekali error', err);
+      })
+      .getNotifikasiTerbaru(lastTs ? Number(lastTs) : null, currentToken);
+  }
+
+  function handleNotifLihat(targetPage) {
+    sembunyikanSemuaLayar(); // Pastikan layar dibersihkan dulu
+    switch (String(targetPage || '').toLowerCase()) {
+      case 'pengaduan':
+        pilihMenu('warga'); bukaHistori();
+        break;
+      case 'jadwal':
+        pilihMenu('warga'); bukaJadwal();
+        break;
+      case 'kas':
+        pilihMenu('warga'); bukaKas();
+        break;
+      case 'galeri':
+        pilihMenu('warga'); bukaGaleri();
+        break;
+
+      case 'pkkjadwal':
+        pilihMenu('pkk'); bukaPkkJadwal();
+        break;
+      case 'pkkkirimlaporan':
+        pilihMenu('pkk'); bukaPkkKirimLaporan();
+        break;
+      case 'pkkhistori':
+        pilihMenu('pkk'); bukaPkkHistori();
+        break;
+      case 'pkkgaleri':
+        pilihMenu('pkk'); bukaPkkGaleri();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function bukaNotifikasi() {
+    // tampilkan beberapa notifikasi terakhir (tanpa stop polling)
+    showLoading('Memuat notifikasi...');
+    google.script.run
+      .withSuccessHandler(function(res) {
+        Swal.close();
+        if (!res || res.status !== 'success') {
+          return showError(res && res.pesan ? res.pesan : 'Gagal memuat notifikasi');
+        }
+        
+        // Sembunyikan badge saat user melihat daftar notifikasi
+        document.getElementById('notifBadge').style.display = 'none';
+        var latestInHistory = 0;
+
+        activeNotifications = res.data || [];
+        var list = activeNotifications;
+        if (!list.length) {
+          return Swal.fire({
+            title: 'Notifikasi',
+            text: 'Belum ada notifikasi baru untuk Anda.',
+            icon: 'info',
+            confirmButtonColor: 'var(--primary-color)'
+          });
+        }
+
+        // Cek apakah user Admin atau Pengurus (RT/PKK/KT)
+        var role = (currentUser.role || '').toLowerCase();
+        var isManagement = role === 'admin' || role.includes('pengurus');
+
+        var html = '<div style="text-align:left; max-height:65vh; overflow-y:auto; padding-right:5px;">';
+        list.forEach(function(it) {
+          if (it.timestamp > latestInHistory) latestInHistory = it.timestamp;
+          
+          var dateStr = new Date(Number(it.timestamp)).toLocaleString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+          var aksiButtons = isManagement ? `
+            <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap; border-top:1px solid var(--border-color); padding-top:8px;">
+              <button class="btn-action-subtle" onclick="editNotifikasiUI('${it.id}')">
+                <i class="material-icons" style="font-size:16px;">edit</i> Edit
+              </button>
+              <button class="btn-action-subtle danger-hover" onclick="hapusNotifikasiUI('${it.id}')">
+                <i class="material-icons" style="font-size:16px;">delete</i> Hapus
+              </button>
+            </div>` : '';
+
+          html += `
+            <div class="card-item" style="padding:12px; margin-bottom:10px; border-left-width:4px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px;">
+                <div style="font-weight:800; color:var(--primary-color); font-size:14px;">${it.judul}</div>
+                <div style="font-size:10px; color:var(--text-muted); font-weight:600;">${dateStr}</div>
+              </div>
+              <div style="font-size:13px; margin-top:5px; color:var(--text-main); white-space:pre-wrap;">${it.isi}</div>
+              ${aksiButtons}
+            </div>`;
+        });
+        html += '</div>';
+
+        // Simpan timestamp terbaru sebagai penanda user sudah membaca semua
+        if (latestInHistory > 0) localStorage.setItem('lastReadNotifTs', String(latestInHistory));
+
+        Swal.fire({
+          title: 'Notifikasi Terbaru',
+          html: html,
+          width: '90%',
+          maxWidth: '500px',
+          showCloseButton: true,
+          showConfirmButton: false,
+          background: 'var(--bg-surface)'
+        });
+      })
+      .withFailureHandler(function(err) {
+        Swal.close();
+        showError('Gagal memuat notifikasi: ' + err.message);
+      })
+      .getNotifikasiHistory(currentUser.role, 20);
+  }
+
+  var lightboxImages = [];
+  var lightboxCurrentIndex = 0;
+  var currentTab = 'warga';
+  
+  // MASALAH 1: Deklarasi Konstanta Global DEFAULT_ADMIN_WA
+  const DEFAULT_ADMIN_WA = '6285236356569';
+  var adminWhatsappNumber = DEFAULT_ADMIN_WA;
+  var kasChart = null;
+  var iuranData = [];
+  var daftarKategori = [];
+  var allKasData = [];
+
+  // ======================== PULL TO REFRESH LOGIC ========================
+  var ptr = document.getElementById('pullToRefresh');
+  var startY = 0;
+  var pullDelta = 0;
+  const PTR_THRESHOLD = 80;
+
+  window.addEventListener('touchstart', function(e) {
+    if (window.scrollY === 0) {
+      startY = e.touches[0].pageY;
+      ptr.classList.remove('ptr-refreshing');
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', function(e) {
+    if (window.scrollY === 0 && startY > 0) {
+      var currentY = e.touches[0].pageY;
+      pullDelta = currentY - startY;
+      
+      if (pullDelta > 0) {
+        // Berikan efek resistance/tahanan agar tarikan terasa natural
+        var move = Math.pow(pullDelta, 0.85);
+        if (move > 110) move = 110; // Batas maksimal tarikan visual
+        
+        ptr.style.transform = 'translateY(' + move + 'px)';
+        ptr.querySelector('i').style.transform = 'rotate(' + (pullDelta * 2) + 'deg)';
+        
+        // Jika tarikan sudah melewati ambang batas, cegah scroll default
+        if (pullDelta > 10 && e.cancelable) e.preventDefault();
+      }
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', function() {
+    if (pullDelta > PTR_THRESHOLD) {
+      triggerPullToRefresh();
+    } else {
+      ptr.style.transform = 'translateY(0)';
+    }
+    startY = 0;
+    pullDelta = 0;
+  });
+
+  function triggerPullToRefresh() {
+    ptr.classList.add('ptr-refreshing');
+    ptr.style.transform = 'translateY(100px)';
+    
+    refreshActiveViewData(function() {
+      // Berikan sedikit jeda agar user melihat animasi selesai (UX)
+      setTimeout(function() {
+        ptr.style.transform = 'translateY(0)';
+        setTimeout(function() {
+          ptr.classList.remove('ptr-refreshing');
+        }, 300);
+      }, 800);
+    });
+  }
+
+  function refreshActiveViewData(callback) {
+    // 1. Jika di Beranda, refresh ringkasan iuran/kas
+    if (document.getElementById('dashboardView').style.display === 'block') {
+      if (currentTab === 'karangtaruna') {
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success' && currentTab === 'karangtaruna') {
+            var el = document.getElementById('totalKasIuranValue');
+            if (el) el.innerText = (res.totalSaldo || 0).toLocaleString('id-ID');
+          }
+          if(callback) callback();
+        }).ktGetKas();
+      } else {
+        muatDataKas(callback);
+      }
+      return;
+    }
+
+    // 2. Jika di halaman Kas detail, refresh tabelnya
+    if (document.getElementById('kasView').style.display === 'block') {
+      muatDataKas(callback);
+    } else if (document.getElementById('ktKasView').style.display === 'block') {
+      ktMuatDataKas(); if(callback) callback();
+    } else {
+      if(callback) callback();
+    }
+  }
+
+  // ======================== NOTIFIKASI ========================
+  var notifPollingHandle = null;
+  var notifAlreadyShownIds = new Set();
+  // LOGIKA PSEUDO-REALTIME PERMISSIONS: Polling setiap 5 menit (300.000 ms)
+  var NOTIF_POLL_INTERVAL_MS = 300000; 
+  var rondaFilterBulanSelect = document.getElementById('rondaFilterBulan');
+  var rondaFilterTahunSelect = document.getElementById('rondaFilterTahun');
+  var currentRondaData = [];
+  var rondaChart = null;
+  let touchStartX = 0;
+
+  // Global Promise to track login status (for Point 2: Race Condition Auto-Login)
+  let loginReadyPromise = new Promise(resolve => {
+    window.resolveLoginReady = resolve; // Expose resolve function globally
+  });
+
+  var originalPemasukanList = [];
+  var originalPengeluaranList = [];
+
+  // ======================== HELPER FUNCTIONS ========================
+  function getDirectUrl(url) {
+    if (!url) {
+      return '';
+    }
+    var match = url.match(/[-\w]{25,}/);
+    if (match) {
+      return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w800';
+    }
+    return url;
+  }
+
+  /**
+   * Menampilkan modal detail profil kader dengan gaya profesional
+   */
+  function tampilkanDetailKader(nama, jabatan, nohp, fotoUrl) {
+    var wa = nohp ? nohp.replace(/^0/, "62") : '';
+    var waLink = nohp ? `
+      <a href="https://wa.me/${wa}" target="_blank" style="text-decoration:none; color:white; background:#25D366; padding:10px 24px; border-radius:50px; display:inline-flex; align-items:center; gap:8px; font-weight:700; margin-top:15px; box-shadow:0 8px 16px rgba(37, 211, 102, 0.25);">
+        <i class="material-icons">chat</i> WhatsApp
+      </a>` : '';
+    
+    var avatarHtml = fotoUrl ? `
+      <img src="${getDirectUrl(fotoUrl, 'w400')}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid rgba(255,255,255,0.8); box-shadow:0 10px 25px rgba(0,0,0,0.2);">` : `
+      <div style="width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; margin:0 auto; border:4px solid rgba(255,255,255,0.8);">
+        <i class="material-icons" style="font-size:64px; color:white;">person</i>
+      </div>`;
+
+    Swal.fire({
+      showConfirmButton: false,
+      showCloseButton: true,
+      padding: '0',
+      width: 'min(90%, 350px)',
+          width: 'min(90%, 500px)',
+      background: 'transparent',
+      html: `
+        <div style="background:var(--bg-surface); border-radius:28px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--border-color);">
+          <div style="background:linear-gradient(135deg, var(--primary-red) 0%, #b71c1c 100%); padding:40px 20px 30px; text-align:center; position:relative;">
+            ${avatarHtml}
+          </div>
+          <div style="padding:30px 20px; text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:var(--text-main); letter-spacing:-0.5px; line-height:1.2; margin-bottom:4px;">${nama}</div>
+            <div style="font-size:12px; font-weight:700; color:var(--primary-red); text-transform:uppercase; margin-top:4px; letter-spacing:1px;">${jabatan || 'Anggota'}</div>
+            <div style="height:1px; background:var(--border-color); margin:20px 40px;"></div>
+            <div style="font-size:15px; color:var(--text-muted); font-weight:500;">
+              <div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                <i class="material-icons" style="font-size:18px; color:var(--primary-red);">phone</i>
+                ${nohp || 'Nomor tidak tersedia'}
+              </div>
+            </div>
+            ${waLink}
+          </div>
+        </div>
+      `,
+      customClass: {
+        popup: 'professional-modal-radius'
+      }
+    });
+  }
+
+  function showSuccess(msg) {
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil!',
+      text: msg,
+      timer: 2000,
+      showConfirmButton: false,
+      iconColor: '#d32f2f'
+    });
+  }
+
+  function showError(msg) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: msg,
+      confirmButtonColor: '#d32f2f'
+    });
+  }
+
+  function showWarning(msg) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Perhatian',
+      text: msg,
+      confirmButtonColor: '#d32f2f'
+    });
+  }
+
+  function showConfirm(msg) {
+    return Swal.fire({
+      title: 'Konfirmasi',
+      text: msg,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#d32f2f',
+      cancelButtonColor: '#666',
+      confirmButtonText: 'Ya'
+    });
+  }
+
+  function showLoading(msg) {
+    // loading custom: spinner modern + teks, terlihat jelas tanpa perlu ganti content halaman
+    Swal.fire({
+      title: '',
+      html:
+        '<div style="display:flex; align-items:center; gap:14px; padding:6px 2px;">'
+          + '  <div class="bbx-spinner" aria-hidden="true"></div>'
+          + '  <div style="text-align:left;">'
+          + '    <div style="font-weight:700; color:var(--primary-dark); margin-bottom:4px;">Memproses...</div>'
+          + '    <div style="color:var(--text-muted); font-size:13px; line-height:1.35;">' + (msg || '') + '</div>'
+          + '  </div>'
+          + '</div>',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      showCancelButton: false,
+      background: 'var(--bg-surface)',
+      width: 'min(calc(100% - 40px), 420px)',
+      padding: '16px',
+      customClass: {
+        popup: 'swal2-modern-loading'
+      },
+      didOpen: function() {
+        var el = Swal.getPopup();
+        if (el) {
+          el.style.border = '1px solid rgba(211, 47, 47, 0.15)';
+          el.style.boxShadow = '0 14px 40px rgba(2,6,23,0.12)';
+        }
+      }
+    });
+  }
+
+
+
+
+  function tutupForm(formId, wrapperId) {
+    document.getElementById(formId).style.display = 'none';
+    if (wrapperId) {
+      var wrapper = document.getElementById(wrapperId);
+      if (wrapper) {
+        wrapper.style.display = 'block';
+      }
+    }
+  }
+
+  function bukaFormMode(formId, wrapperId) {
+    document.getElementById(formId).style.display = 'block';
+    if (wrapperId) {
+      var wrapper = document.getElementById(wrapperId);
+      if (wrapper) {
+        wrapper.style.display = 'none';
+      }
+    }
+  }
+
+  function sembunyikanSemuaLayar() {
+    var screens = document.querySelectorAll('.screen, #dashboardView');
+    for (var i = 0; i < screens.length; i++) {
+      screens[i].style.display = 'none';
+    }
+  }
+
+  function kembaliKeDashboard() {
+    // Jika ada history state, gunakan history.back() agar sinkron dengan tombol HP
+    if (history.state && history.state.view !== 'dashboardView') {
+      history.back();
+    } else {
+      sembunyikanSemuaLayar();
+      document.getElementById('dashboardView').style.display = 'block';
+      if (typeof refreshNavVisibility === 'function') refreshNavVisibility();
+      renderMenu(currentTab);
+      updateNavActiveState(currentTab);
+    }
+  }
+
+  window.addEventListener('popstate', function() {
+    // Logika untuk menangani tombol back HP
+    sembunyikanSemuaLayar();
+    if (history.state && history.state.view) {
+      var state = history.state;
+      document.getElementById(state.view).style.display = 'block';
+      if (state.tab) {
+        currentTab = state.tab;
+        if (state.view === 'dashboardView' || state.view === 'home') {
+          renderMenu(currentTab);
+        }
+        updateNavActiveState(currentTab);
+      }
+      // Jalankan fungsi muat data jika ada
+      if (state.onLoad && typeof window[state.onLoad] === 'function') {
+        window[state.onLoad]();
+      }
+    } else {
+      document.getElementById('dashboardView').style.display = 'block';
+      setAplikasiActiveTab(currentTab);
+    }
+  });
+
+  // ======================== CLOUD INTERACTION ========================
+  function initCloudInteraction() {
+    const header = document.querySelector('.header');
+    const clouds = document.querySelectorAll('.cloud-particle');
+    if (!header || clouds.length === 0) return;
+
+    const handleMove = (e) => {
+      // Jangan jalankan jika mode malam (awan tersembunyi)
+      if (document.body.classList.contains('dark-mode')) return;
+
+      let clientX, clientY;
+      if (e.type === 'touchmove') {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const { left, top, width, height } = header.getBoundingClientRect();
+      // Koordinat relatif terhadap tengah header (-0.5 sampai 0.5)
+      const nx = (clientX - left) / width - 0.5;
+      const ny = (clientY - top) / height - 0.5;
+
+      clouds.forEach((cloud, i) => {
+        // Setiap awan bergeser dengan intensitas berbeda (efek kedalaman)
+        const intensity = (i + 1) * 20; 
+        cloud.style.transform = `translate(${nx * intensity}px, ${ny * intensity}px)`;
+      });
+    };
+
+    const resetPosition = () => {
+      clouds.forEach(cloud => cloud.style.transform = 'translate(0, 0)');
+    };
+
+    header.addEventListener('mousemove', handleMove);
+    header.addEventListener('touchmove', handleMove, { passive: true });
+    header.addEventListener('mouseleave', resetPosition);
+    header.addEventListener('touchend', resetPosition);
+  }
+
+  // Helper untuk sinkronisasi token ke IndexedDB agar bisa dibaca sw.js
+  function syncTokenToIDB(token) {
     const request = indexedDB.open('AuthDB', 1);
     request.onupgradeneeded = (e) => {
       e.target.result.createObjectStore('session', { keyPath: 'id' });
     };
     request.onsuccess = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains('session')) {
-        resolve(null); return;
-      }
-      const transaction = db.transaction('session', 'readonly');
+      const transaction = db.transaction('session', 'readwrite');
       const store = transaction.objectStore('session');
-      const getRequest = store.get('currentToken');
-      getRequest.onsuccess = () => resolve(getRequest.result ? getRequest.result.token : null);
-      getRequest.onerror = () => resolve(null);
+      store.put({ id: 'currentToken', token: token, updatedAt: Date.now() });
     };
-    request.onerror = () => resolve(null);
+  }
+
+  /**
+   * Menangani perubahan status koneksi internet
+   */
+  function updateOnlineStatus() {
+    const indicator = document.getElementById('offlineIndicator');
+    if (!indicator) return;
+
+    if (navigator.onLine) {
+      indicator.style.display = 'none';
+      // Opsional: Refresh data otomatis saat kembali online jika user sudah login
+      if (currentToken && document.getElementById('dashboardView').style.display === 'block') {
+        refreshActiveViewData();
+      }
+    } else {
+      indicator.style.display = 'block';
+    }
+  }
+
+  // ======================== SESSION & LOGIN ========================
+  window.addEventListener('load', function () {
+    applyDarkModePreference();
+
+    // Dengar perubahan pengaturan sistem secara real-time
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      if (localStorage.getItem('darkMode') === null) {
+        applyDarkModePreference();
+      }
+    });
+
+    // Listener Koneksi Internet
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus(); // Cek status saat pertama kali load
+
+    // Inisialisasi interaksi awan
+    initCloudInteraction();
+
+    // Jalankan Engine Web Push
+    registrasiWebPush();
+
+    // Otomatis Log In: Periksa token yang tersimpan di perangkat
+    updateAdminContactLink();
+    var savedToken = localStorage.getItem('sessionToken');
+    if (savedToken) {
+      // Tampilkan indikator loading saat memverifikasi sesi otomatis
+      var loginBox = document.querySelector('.login-box');
+      if (loginBox) {
+        loginBox.innerHTML = '<div style="padding:40px; text-align:center;">' +
+          '<div class="bbx-spinner" style="margin:0 auto 20px;"></div>' +
+          '<div style="font-weight:700; color:var(--primary-color); font-size:16px;">Memulihkan Sesi...</div>' +
+          '<div style="color:var(--text-muted); font-size:13px; margin-top:8px;">Menghubungkan ke server</div>' +
+          '</div>';
+      }
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (res && res.status === 'success') {
+            currentUser = res;
+            currentToken = res.token;
+          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
+            syncTokenToIDB(res.token); // Sinkronisasi ke IDB
+
+            // Perbaikan: Update nama di dashboard saat load awal
+            var nameEl = document.getElementById('welcomeUserName');
+            if (nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
+
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+
+            // Deep Linking Logic: Tangkap parameter redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectPage = urlParams.get('redirect');
+
+            if (redirectPage) {
+              // Bersihkan URL dari parameter agar tidak redirect berulang saat refresh
+              window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+              // Jalankan navigasi spesifik
+              handleNotifLihat(redirectPage);
+            } else {
+            history.replaceState({ view: 'dashboardView', tab: 'warga' }, '', '#warga');
+            currentTab = 'warga';
+            kembaliKeDashboard();
+            }
+
+            if (typeof muatDataKas === 'function') {
+              muatDataKas(function () {
+                // ringkasan kas akan otomatis ter-update lewat updateRingkasanUI
+              });
+            }
+            checkAndRequestNotificationPermission(true); // Aktifkan izin notifikasi sistem
+            // Jalankan polling notifikasi setelah login berhasil
+            startNotifikasiPolling();
+            updateAdminContactLink();
+            showSuccess('Selamat datang kembali, ' + currentUser.nama + '!');
+          } else {
+            localStorage.removeItem('sessionToken');
+            location.reload(); // Sesi tidak valid, kembali ke tampilan awal
+          }
+        })
+        .withFailureHandler(function (err) {
+          console.error(err);
+          localStorage.removeItem('sessionToken');
+          location.reload();
+        })
+        .checkSession(savedToken);
+    } else {
+      updateAdminContactLink();
+      document.getElementById('loginScreen').style.display = 'flex';
+    }
   });
-}
 
-// Helper function for resilient caching
-async function customCacheAll(cacheName, urls) {
-  const cache = await caches.open(cacheName);
-  
-  // Mengunduh aset satu per satu secara independen
-  const promises = urls.map(url => 
-    fetch(url)
-      .then(response => {
-        if (!response.ok) throw new Error(`Offline storage error: ${response.status}`);
-        return cache.put(url, response);
-      })
-      .catch(err => {
-        // Laporkan error ke konsol, tapi jangan hentikan proses instalasi
-        console.warn(`[Service Worker] Skipping cache for: ${url} - Reason: ${err.message}`);
-        return Promise.resolve(); 
-      })
-  );
+  function normalizeAdminWhatsapp(value) {
+    if (!value) return '6285236356569';
+    var normalized = String(value).trim().replace(/\D/g, '');
+    if (normalized.startsWith('0')) normalized = '62' + normalized.substring(1);
+    return normalized || '6285236356569';
+  }
 
-  return Promise.all(promises);
-}
+  function setAdminContactLinks(number) {
+    if (!number) number = '6285236356569';
+    var link = document.getElementById('linkHubungiAdmin');
+    var profLink = document.getElementById('profAdminContact');
+    if (link) link.href = 'https://wa.me/' + number;
+    if (profLink) profLink.href = 'https://wa.me/' + number;
+  }
 
-self.addEventListener('install', (event) => {
-  console.log(`[Service Worker] Installing version ${APP_VERSION}...`);
+  function updateAdminContactLink() {
+    // 1. ISOLASI & RESET: Paksa reset variabel ke nomor default setiap kali fungsi dipanggil
+    // Jangan gunakan nilai adminWhatsappNumber yang tersisa di memory
+    adminWhatsappNumber = normalizeAdminWhatsapp(DEFAULT_ADMIN_WA);
+    
+    // 2. IDEMPOTENSI: Segera bind ulang UI dengan nomor yang benar tanpa menunggu server
+    setAdminContactLinks(adminWhatsappNumber);
 
-  event.waitUntil(
-    customCacheAll(CACHE_NAME, ASSETS_TO_CACHE).then(() => {
-      console.log('[Service Worker] Install complete.');
-      return self.skipWaiting(); // Paksa versi baru aktif segera
-    })
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  console.log(`[Service Worker] Activated version ${APP_VERSION}`);
-
-  event.waitUntil((async () => {
-    // Aggressive eviction: hapus semua cache selain CACHE_NAME saat versi berubah
-    try {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => {
-        if (k !== CACHE_NAME) {
-          return caches.delete(k);
+    // 3. SINKRONISASI DINAMIS: Ambil data terbaru dari database (jika ada perubahan oleh Admin)
+    google.script.run.withSuccessHandler(function(res) {
+      if (res && res.status === 'success' && res.data && res.data.admin_whatsapp) {
+        var latestNumber = normalizeAdminWhatsapp(res.data.admin_whatsapp);
+        // Pastikan hanya update jika datanya valid dan berbeda
+        if (latestNumber !== adminWhatsappNumber) {
+          adminWhatsappNumber = latestNumber;
+          setAdminContactLinks(adminWhatsappNumber);
         }
-        return Promise.resolve();
-      }));
-    } catch (e) {
-      console.warn('[Service Worker] Failed to clean old caches:', e);
+      }
+    }).getSettings();
+  }
+
+  function doLogin() {
+    var email = document.getElementById('email').value;
+    var pass = document.getElementById('password').value;
+    if (!email || !pass) {
+      return showWarning("Email dan Password harus diisi!");
+    }
+    var btn = document.getElementById('btnLogin');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.innerHTML = 'Masuk';
+        btn.disabled = false;
+        if (res.status === 'success') {
+          currentUser = res;
+          currentToken = res.token;
+          // Perbaikan: Update nama di dashboard saat login sukses
+          var nameEl = document.getElementById('welcomeUserName');
+          if(nameEl) nameEl.innerText = 'Halo, ' + (res.nama || 'Warga') + '!';
+
+          localStorage.setItem('sessionToken', res.token);
+          syncTokenToIDB(res.token); // Sinkronisasi ke IDB
+
+          document.getElementById('loginScreen').style.display = 'none';
+          document.getElementById('mainApp').style.display = 'block';
+          // Set state awal setelah login
+          history.replaceState({view: 'dashboardView', tab: 'warga'}, '', '#warga');
+          window.resolveLoginReady(); // Resolve the login promise here (Point 2)
+          
+          // Jalankan Registrasi Push setelah login sukses
+          registrasiWebPush();
+
+          currentTab = 'warga';
+          kembaliKeDashboard();
+          showSuccess('Selamat datang, ' + currentUser.nama + '!');
+        } else {
+          showError(res.pesan);
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.innerHTML = 'Masuk';
+        btn.disabled = false;
+        showError('Gagal menghubungi server: ' + err.message);
+      })
+      .prosesLoginStay(email, pass);
+  }
+
+  function updateDarkModeIcons() {
+    var isDark = document.body.classList.contains('dark-mode');
+    var headerBtn = document.getElementById('headerDarkIcon');
+    
+    // SVG Matahari (Pro)
+    var sunSVG = '<svg viewBox="0 0 24 24" fill="#fbbf24" xmlns="http://www.w3.org/2000/svg"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 000-1.41.996.996 0 00-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>';
+    
+    // SVG Bulan (Pro)
+    var moonSVG = '<svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+    if (headerBtn) {
+      headerBtn.innerHTML = isDark ? moonSVG : sunSVG;
     }
 
-    // Paksa SW baru langsung ambil alih semua tab
-    await self.clients.claim();
-  })());
-});
+    var profDarkIcon = document.getElementById('profDarkIcon');
+    if (profDarkIcon) {
+      profDarkIcon.innerText = isDark ? 'light_mode' : 'dark_mode';
+    }
+
+    var profileToggle = document.getElementById('profilDarkToggle');
+    if (profileToggle) {
+      profileToggle.checked = isDark;
+      var span = profileToggle.nextElementSibling;
+      if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
+    }
+  }
+
+  function applyDarkModePreference() {
+    var manualPref = localStorage.getItem('darkMode');
+    var systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // Jika ada pilihan manual, pakai itu. Jika tidak, pakai sistem.
+    if (manualPref === 'enabled' || (manualPref === null && systemPref)) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    updateDarkModeIcons();
+  }
+
+  function toggleDarkMode() {
+    // Tambahkan animasi rotasi pada ikon header
+    var icon = document.getElementById('headerDarkIcon');
+    if (icon) {
+      icon.classList.remove('rotate-animation');
+      void icon.offsetWidth; // Trigger reflow untuk merestart animasi
+      icon.classList.add('rotate-animation');
+    }
+
+    if (document.body.classList.contains('dark-mode')) {
+      document.body.classList.remove('dark-mode');
+      localStorage.setItem('darkMode', 'disabled');
+    } else {
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('darkMode', 'enabled');
+    }
+    updateDarkModeIcons();
+
+    // Refresh tampilan banner ronda agar warnanya sinkron saat tema diubah
+    if (typeof muatRondaMingguIni === 'function' && document.getElementById('rondaTodayBanner')) {
+      muatRondaHariIni(false);
+    }
+  }
+
+  function lupaPassword() {
+    Swal.fire({
+      title: 'Reset Password',
+      input: 'email',
+      inputLabel: 'Masukkan email Anda',
+      inputPlaceholder: 'email@contoh.com',
+      showCancelButton: true,
+      confirmButtonText: 'Reset',
+      cancelButtonText: 'Batal'
+    }).then(function(result) {
+      if (result.isConfirmed && result.value) {
+        var emailReset = result.value;
+        showLoading('Memproses reset password...');
+        google.script.run
+          .withSuccessHandler(function(res) {
+            Swal.close();
+            if (res.status === 'success') {
+              Swal.fire({
+                icon: 'success',
+                title: 'Password Berhasil Direset!',
+                html: '<p>Password baru untuk <strong>' + res.nama + '</strong></p>'
+                  + '<p style="font-size:24px; font-weight:bold; background:#f0f0f0; padding:10px; border-radius:8px;">'
+                  + res.passwordBaru + '</p>'
+                  + '<p>Silakan login dengan password di atas.</p>',
+                confirmButtonColor: '#d32f2f'
+              });
+            } else {
+              showError(res.pesan);
+            }
+          })
+          .withFailureHandler(function(err) {
+            Swal.close();
+            showError('Gagal reset password: ' + err.message);
+          })
+          .resetPasswordDirect(emailReset);
+      }
+    });
+  }
+
+  function logout() {
+    showConfirm('Yakin keluar?').then(function(res) {
+      if (res.isConfirmed) {
+        // Hentikan polling segera
+        stopNotifikasiPolling();
+        
+        var token = currentToken;
+
+        // Hapus semua data sesi di perangkat
+        localStorage.removeItem('sessionToken');
+        sessionStorage.removeItem('sessionToken');
+        localStorage.removeItem('lastNotifTs');
+
+        // Beritahu server (async, tidak perlu ditunggu)
+        if (token) {
+          google.script.run.prosesLogout(token);
+        }
+        
+        // Muat ulang aplikasi agar UI bersih kembali ke form login
+        location.reload();
+      }
+    });
+  }
 
 
-// Handler untuk menerima sinyal "Push" dari server (Bekerja saat aplikasi ditutup)
-self.addEventListener('push', (event) => {
-  event.waitUntil((async () => {
-    try {
-      let data = {
-        title: 'Portal RT Ngelom',
-        body: 'Ada informasi terbaru untuk warga.',
-        targetPage: ''
-      };
+  function doRegister() {
+    var nama = document.getElementById('regNama').value.trim();
+    var email = document.getElementById('regEmail').value.trim();
+    var pass = document.getElementById('regPassword').value;
 
-      // Parsing payload JSON dari Push Service
-      if (event.data) {
-        const payload = event.data.json();
-        data = payload.payload || payload;
+    if (!nama || !email || !pass) {
+      return showWarning("Harap lengkapi semua data pendaftaran!");
+    }
+
+    var btn = document.getElementById('btnDaftar');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.innerHTML = 'Daftar Sekarang';
+        btn.disabled = false;
+        if (res.status === 'success') {
+          // "akun sudah berhasil di buat"
+          Swal.fire({ icon: 'success', title: 'Berhasil', text: res.pesan, confirmButtonColor: 'var(--primary-color)' }).then(function() {
+            tutupFormDaftar();
+          });
+        } else {
+          // "akun sudah terdaftar di database"
+          if (res.pesan && res.pesan.toLowerCase().includes('terdaftar')) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Sudah Terdaftar',
+              text: 'Akun ini sudah terdaftar di database. Silakan langsung login atau hubungi admin jika lupa password.',
+              showCancelButton: true,
+              confirmButtonText: 'Coba Masuk (Login)',
+              cancelButtonText: 'Batal',
+              confirmButtonColor: 'var(--primary-color)'
+            }).then((result) => {
+              if (result.isConfirmed) tutupFormDaftar();
+            });
+          } else {
+            showError(res.pesan);
+          }
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.innerHTML = 'Daftar Sekarang';
+        btn.disabled = false;
+        
+        // JIKA TERJADI GANGGUAN JARINGAN (Timeout)
+        Swal.fire({
+          icon: 'question',
+          title: 'Cek Status Pendaftaran',
+          text: 'Koneksi lambat. Data mungkin sudah masuk tapi konfirmasi belum diterima. Silakan coba Login, jika gagal barulah coba daftar kembali.',
+          showCancelButton: true,
+          confirmButtonText: 'Coba Login',
+          cancelButtonText: 'Tetap di Sini'
+        }).then((result) => {
+          if (result.isConfirmed) tutupFormDaftar();
+        });
+      })
+      .prosesDaftar(nama, email, pass);
+  }
+
+  function bukaFormDaftar() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('registerScreen').style.display = 'flex';
+  }
+
+  function tutupFormDaftar() {
+    document.getElementById('registerScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
+
+  // ======================== MENU NAVIGATION ========================
+  function initSwipeNavigation() {
+    let touchStartX = 0; // Isolated for this function
+    let touchEndX = 0;   // Isolated for this function
+
+    const mainApp = document.getElementById('mainApp');
+    mainApp.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    mainApp.addEventListener('touchend', e => {
+      // Swipe hanya aktif jika sedang di dashboard untuk menghindari konflik dengan scroll form/tabel
+      if (document.getElementById('dashboardView').style.display !== 'block') return;
+      
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, {passive: true});
+
+    function handleSwipe() { // Also moved inside to form a closure
+      const deltaX = touchEndX - touchStartX;
+      const threshold = 70; 
+      const modules = ['warga', 'pkk', 'karangtaruna', 'profil']; 
+      let currentIdx = modules.indexOf(currentTab);
+      
+      if (document.getElementById('profilView').style.display === 'block') currentIdx = modules.indexOf('profil');
+      if (currentIdx === -1) return;
+
+      let targetIdx = -1;
+      if (deltaX > threshold && currentIdx > 0) {
+        targetIdx = currentIdx - 1;
+      } else if (deltaX < -threshold && currentIdx < modules.length - 1) {
+        targetIdx = currentIdx + 1;
       }
 
-      const targetPage = data.targetPage || '';
-      
-      const options = {
-        body: data.body || 'Ketuk untuk melihat informasi terbaru.',
-        icon: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
-        badge: 'https://drive.google.com/thumbnail?id=11fh_T74_ljF_WPq7EJddDvAuFFMpiRXz&sz=w128',
-        vibrate: [200, 100, 200],
-        timestamp: Date.now(),
-        data: {
-          // Deep Linking: Gunakan query param agar tidak hilang saat auto-login di frontend
-          url: `${self.location.origin}${self.location.pathname}?redirect=${targetPage}#${targetPage}`
-        },
-        tag: 'portal-rt-push', // Mencegah duplikasi notifikasi dengan topik sama
-        renotify: true
-      };
+      if (targetIdx !== -1) {
+        const targetModule = modules[targetIdx];
+        if (targetModule === 'profil') {
+          tampilkanProfil();
+        } else {
+          pilihMenu(targetModule);
+        }
+      }
+    }
+  }
 
-      return self.registration.showNotification(data.title || 'Portal RT Ngelom', options);
-    } catch (error) {
-      console.error('[SW] Push processing failed:', error);
-      // Fallback notifikasi jika payload rusak
-      return self.registration.showNotification('Portal RT Ngelom', {
-        body: 'Ada pembaruan informasi untuk Anda.'
+  function pilihMenuOrProfil(moduleName) {
+    if (moduleName === 'profil') tampilkanProfil(); else pilihMenu(moduleName);
+  }
+
+  function tutupMenuNavigasi() {
+  }
+
+  // Helper untuk cek izin
+  function hasPermission(permKey) {
+    if (currentUser.role === 'admin') return true;
+    if (!currentUser.permissions) return false;
+    return currentUser.permissions.indexOf(permKey) !== -1;
+  }
+
+  /**
+   * MASALAH 2: Sinkronisasi Navigasi Terpusat (Idempotent)
+   * Mengatur warna aktif menu (khususnya Profil) secara konsisten.
+   */
+  function setAplikasiActiveTab(targetTabId) {
+    try {
+      // 1. Bersihkan semua state aktif dari elemen navigasi
+      // Menggunakan querySelectorAll agar mencakup semua elemen dengan class .nav-item
+      const allNavs = document.querySelectorAll('.nav-item');
+      allNavs.forEach(el => {
+        el.classList.remove('active');
+        // Reset manual style jika ada inline-style dari manipulasi DOM liar
+        el.style.color = ''; 
+      });
+
+      // 2. Force Bind class 'active' ke target yang dituju
+      const targetEl = document.getElementById('nav-' + targetTabId);
+      if (targetEl) {
+        targetEl.classList.add('active');
+      }
+
+      // 3. Sinkronisasi Tema Body (Termasuk tema kuning untuk profil)
+      const themes = ['theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil'];
+      document.body.classList.remove(...themes);
+      document.body.classList.add('theme-' + targetTabId.replace('-', ''));
+
+      // 4. Update Global State
+      currentTab = targetTabId;
+      
+      console.log(`Navigation State: ${targetTabId} is now locked active.`);
+    } catch (err) {
+      console.error("Navigation State Error:", err);
+    }
+  }
+
+  // Refactor updateNavActiveState lama agar memanggil fungsi baru
+  function updateNavActiveState(tabName) {
+    setAplikasiActiveTab(tabName);
+  }
+
+  function pilihMenu(tabName) {
+    currentTab = tabName;
+    sembunyikanSemuaLayar();
+    
+    // Update Theme Class on Body
+    document.body.classList.remove('theme-warga', 'theme-pkk', 'theme-karangtaruna', 'theme-profil');
+    document.body.classList.add('theme-' + tabName.toLowerCase());
+    
+    setAplikasiActiveTab(tabName);
+
+    document.getElementById('dashboardView').style.display = 'block';
+    history.pushState({view: 'dashboardView', tab: tabName}, '', '#' + tabName);
+    renderMenu(tabName);
+
+    var label;
+    if (String(tabName).toLowerCase() === 'karangtaruna') label = 'Karang Taruna';
+    else if (String(tabName).toLowerCase() === 'pkk') label = 'PKK';
+    else label = String(tabName).charAt(0).toUpperCase() + String(tabName).slice(1);
+
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 1800,
+      icon: 'success',
+      iconColor: '#d32f2f',
+      background: 'var(--bg-surface)',
+      customClass: {
+        popup: 'bbx-menu-toast'
+      },
+      html:
+        '<div class="bbx-menu-toast__row">'
+          + '  <div class="bbx-menu-toast__icon">'
+          + '    <i class="material-icons">check_circle</i>'
+          + '  </div>'
+          + '  <div class="bbx-menu-toast__text">'
+          + '    <div class="bbx-menu-toast__title">Anda di ' + label + '</div>'
+          + '    <div class="bbx-menu-toast__subtitle">Menu aktif: ' + label + '</div>'
+          + '  </div>'
+          + '</div>'
+    });
+  }
+
+  function tampilkanProfil() {
+    currentTab = 'profil';
+    sembunyikanSemuaLayar();
+    document.getElementById('profilView').style.display = 'block';
+    
+    setAplikasiActiveTab('profil');
+    
+    history.pushState({view: 'profilView', tab: 'profil'}, '', '#profil');
+
+    // Isi data user
+    document.getElementById('profNama').innerText = currentUser.nama || '-';
+    document.getElementById('profEmail').innerText = currentUser.email || '-';
+    document.getElementById('profRole').innerText = currentUser.role ? currentUser.role.toUpperCase() : '-';
+    
+    // Tampilkan menu khusus admin jika perlu
+    if (currentUser.role === 'admin') {
+      document.getElementById('profAdminOnly').style.display = 'block';
+    } else {
+      document.getElementById('profAdminOnly').style.display = 'none';
+    }
+
+    // Sinkronisasi status toggle mode gelap
+    var isDark = document.body.classList.contains('dark-mode');
+    var toggle = document.getElementById('profilDarkToggle');
+    if (toggle) {
+      toggle.checked = isDark;
+      var span = toggle.nextElementSibling;
+      if (span) span.style.backgroundColor = isDark ? 'var(--primary-color)' : 'var(--border-color)';
+    }
+    
+    // Selalu paksa refresh nomor admin dari server setiap kali profil dibuka
+    updateAdminContactLink();
+    // Force reset ke nomor dukungan resmi jika admin_whatsapp kosong
+    const contactEl = document.getElementById('profAdminContact');
+    if (contactEl) contactEl.href = "https://wa.me/6285236356569";
+  }
+
+  window.addEventListener('load', function() {
+    initSwipeNavigation();
+  });
+
+  // Fungsi untuk memfilter Bottom FAB Navigasi berdasarkan Role
+  function refreshNavVisibility() {
+    var navItems = document.querySelectorAll('.nav-menu-item');
+    navItems.forEach(function(item) {
+      var m = item.getAttribute('data-menu');
+      // Semua menu navigasi utama (Warga, PKK, Karang Taruna, Profil) akan selalu ditampilkan.
+      // Pembatasan akses ke fitur-fitur di dalamnya akan ditangani oleh fungsi renderMenu()
+      item.style.display = 'flex';
+    });
+  }
+
+  var menus = {
+    warga: [
+      { title: "Jadwal Kegiatan", icon: "calendar_month", roles: ["admin", "pengurus rt", "warga"], action: "bukaJadwal", perm: "rt_jadwal" },
+      { title: "Jadwal Ronda", icon: "security", roles: ["admin", "pengurus rt", "warga"], action: "bukaRonda", perm: "rt_ronda" },
+      { title: "Kelola User", icon: "manage_accounts", roles: ["admin"], action: "bukaKelolaUser", perm: "rt_user" },
+      { title: "Daftar Kader Pengurus", icon: "account_tree", roles: ["admin", "pengurus rt", "warga"], action: "bukaKontak", perm: "rt_kontak" },
+      { title: "Kirim Pengaduan", icon: "rate_review", roles: ["admin", "pengurus rt", "warga"], action: "bukaFormPengaduan", perm: "rt_pengaduan_kirim" },
+      { title: "Laporan Kas Warga", icon: "account_balance_wallet", roles: ["admin", "pengurus rt", "warga"], action: "bukaKas", perm: "rt_kas" },
+      { title: "Galeri Kegiatan", icon: "photo_library", roles: ["admin", "pengurus rt", "warga"], action: "bukaGaleri", perm: "rt_galeri" },
+      { title: "Laporan Pengaduan", icon: "admin_panel_settings", roles: ["admin", "pengurus rt"], action: "bukaLaporanAdmin", perm: "rt_pengaduan_admin" }
+    ],
+    pkk: [
+      { title: "Jadwal Kegiatan PKK", icon: "event", roles: ["admin", "pengurus pkk", "warga"], action: "bukaPkkJadwal", perm: "pkk_jadwal" },
+      { title: "Daftar Kader PKK", icon: "groups", roles: ["admin", "pengurus pkk", "warga"], action: "bukaPkkKader", perm: "pkk_kader" },
+      { title: "Kirim Laporan PKK", icon: "rate_review", roles: ["admin", "pengurus pkk", "warga"], action: "bukaPkkKirimLaporan", perm: "pkk_laporan_kirim" },
+      { title: "Histori Laporan PKK", icon: "history", roles: ["admin", "pengurus pkk", "warga"], action: "bukaPkkHistori", perm: "pkk_laporan_histori" },
+      { title: "Galeri Dokumentasi PKK", icon: "photo_library", roles: ["admin", "pengurus pkk", "warga"], action: "bukaPkkGaleri", perm: "pkk_galeri" },
+      { title: "Kelola Laporan PKK", icon: "admin_panel_settings", roles: ["admin", "pengurus pkk"], action: "bukaPkkLaporanAdmin", perm: "pkk_laporan_admin" }
+    ],
+    karangtaruna: [
+      { title: "Jadwal Kegiatan Karang Taruna", icon: "calendar_month", roles: ["admin", "pengurus rt", "warga", "pengurus karang taruna"], action: "bukaKtJadwal", perm: "kt_jadwal" },
+      { title: "Anggota Karang Taruna", icon: "groups", roles: ["admin", "pengurus rt", "warga", "pengurus karang taruna"], action: "bukaKtKader", perm: "kt_kader" },
+      { title: "Laporan Kas Karang Taruna", icon: "account_balance_wallet", roles: ["admin", "pengurus rt", "warga", "pengurus karang taruna"], action: "bukaKtKas", perm: "kt_kas" },
+      { title: "Galeri Karang Taruna", icon: "photo_library", roles: ["admin", "pengurus rt", "warga", "pengurus karang taruna"], action: "bukaKtGaleri", perm: "kt_galeri" }
+    ]
+  };
+
+  function renderMenu(tabName) {
+    var container = document.getElementById('menuContainer');
+    container.innerHTML = '';
+    var availableMenus = menus[tabName] || menus.warga;
+    
+    // Refresh user name in welcome banner
+    var welcomeSection = document.getElementById('welcomeUserName');
+    if(welcomeSection) welcomeSection.innerText = 'Halo, ' + (currentUser.nama || 'Warga') + '!';
+
+
+    // Update Ringkasan Dashboard (Banner) berdasarkan Tab
+    var label1 = document.getElementById('labelSummary1');
+    var label2 = document.getElementById('labelSummary2');
+    var val1 = document.getElementById('totalKasIuranValue');
+    var val2 = document.getElementById('totalKonsumsiRondaIuranValue');
+    var card2 = document.getElementById('summaryCard2');
+    var summaryContainer = document.querySelector('.welcome-banner .kas-summary');
+
+    if (tabName === 'karangtaruna') {
+      if (label1) label1.innerText = 'Saldo Kas Karang Taruna';
+      card2.style.display = 'none'; // KT biasanya hanya menampilkan satu saldo utama
+      if (document.getElementById('rondaTodayBanner')) document.getElementById('rondaTodayBanner').style.display = 'none';
+      if (summaryContainer) {
+        summaryContainer.style.display = 'grid';
+        summaryContainer.style.gridTemplateColumns = '1fr';
+      }
+      if (val1) val1.style.fontSize = '1.6rem';
+      val1.classList.add('skeleton-text');
+      val1.innerText = '0000000';
+      google.script.run.withSuccessHandler(function(res) {
+        val1.classList.remove('skeleton-text');
+        if (res.status === 'success' && currentTab === 'karangtaruna') {
+          val1.innerText = (res.totalSaldo || 0).toLocaleString('id-ID');
+        }
+      }).ktGetKas();
+    } else if (tabName === 'warga') {
+      if (label1) label1.innerText = 'Total Saldo Kas (Semua Tahun)';
+      if (label2) label2.innerText = 'Total Uang Kematian';
+      card2.style.display = 'flex';
+      var rb = document.getElementById('rondaTodayBanner');
+      if (rb) { rb.style.display = 'flex'; muatRondaHariIni(false); }
+      if (summaryContainer) {
+        summaryContainer.style.display = 'grid';
+        summaryContainer.style.gridTemplateColumns = '1fr 1fr';
+      }
+      if (val1) val1.style.fontSize = '1.2rem';
+      // Kembalikan ke nilai kas RT yang sudah ada di memori
+      if (kasBackendTotalsGlobal) {
+        updateRingkasanUI(kasBackendTotalsGlobal);
+      }
+    } else {
+      // Hilangkan ringkasan untuk menu PKK agar beranda lebih bersih dan fokus pada menu
+      if (summaryContainer) summaryContainer.style.display = 'none';
+      if (document.getElementById('rondaTodayBanner')) document.getElementById('rondaTodayBanner').style.display = 'none';
+    }
+
+    for (var i = 0; i < availableMenus.length; i++) {
+      var menu = availableMenus[i];
+      
+      // Cek apakah role diizinkan ATAU memiliki izin spesifik (perm)
+      var roleMatch = menu.roles.indexOf(currentUser.role) !== -1;
+      var permMatch = hasPermission(menu.perm);
+      
+      if (roleMatch || permMatch) {
+        var div = document.createElement('div');
+        div.className = 'menu-item';
+        // Logo diperbesar dan ditata lebih rapi
+        div.innerHTML = '<i class="material-icons">' + menu.icon + '</i><span>' + menu.title + '</span>';
+        (function(action, title) {
+          div.onclick = function() {
+            sembunyikanSemuaLayar();
+            // 2. Jalankan aksi jika fungsi ada
+            if (typeof window[action] === 'function') {
+                window[action]();
+            } else {
+              console.warn('Fungsi aksi menu tidak ada:', action);
+              Swal.fire({
+                icon: 'info',
+                title: title,
+                text: 'Halaman sedang dalam pengembangan (belum tersedia).',
+                confirmButtonColor: '#d32f2f'
+              });
+              kembaliKeDashboard();
+            }
+          };
+        })(menu.action, menu.title);
+        container.appendChild(div);
+      }
+    }
+  }
+  
+  // ======================== MODUL KARANG TARUNA (JS) ========================
+  
+  function bukaKtJadwal() {
+    sembunyikanSemuaLayar();
+    document.getElementById('ktJadwalView').style.display = 'block';
+    history.pushState({view: 'ktJadwalView', tab: 'karangtaruna', onLoad: 'ktMuatDataJadwal'}, '', '#ktJadwal');
+    document.getElementById('ktBtnTambahJadwal').style.display = hasPermission('kt_jadwal_crud') ? 'flex' : 'none';
+    ktMuatDataJadwal();
+  }
+
+  function ktMuatDataJadwal() {
+    var list = document.getElementById('ktListJadwal');
+    list.innerHTML = '<div class="skeleton" style="height:100px;"></div>';
+    google.script.run.withSuccessHandler(function(res) {
+      list.innerHTML = ''; // Clear skeleton
+      if (res.data && res.data.length) {
+        res.data.forEach(function(item) {
+          var aksi = hasPermission('kt_jadwal_crud') ? `
+            <div class="card-actions" style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:12px;">
+              <button class="btn-action-subtle success-hover" onclick="ktEditJadwal('${item.id}','${item.nama}','${item.waktu}','${item.tempat}','${item.perihal}','${item.deskripsi}')">
+                <i class="material-icons">edit_note</i> Edit
+              </button>
+              <button class="btn-action-subtle danger-hover" onclick="ktHapusJadwal('${item.id}')">
+                <i class="material-icons">delete_outline</i> Hapus
+              </button>
+            </div>` : '';
+          
+          list.innerHTML += `
+            <div class="card-item" style="border-left-width: 5px; border-left-color: var(--kt-blue);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                <div style="font-size:17px; font-weight:800; color:var(--text-main); line-height:1.2; flex:1; padding-right:10px;">${item.nama}</div>
+                <span style="background:rgba(56,189,248,0.1); color:var(--kt-blue); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">Karang Taruna</span>
+              </div>
+              <div style="display:grid; gap:8px;">
+                <div class="row" style="align-items:flex-start;"><i class="material-icons" style="font-size:18px; color:var(--kt-blue); margin-top:2px;">info_outline</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.perihal}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--kt-blue);">schedule</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${formatIndoDate(item.waktu)}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--kt-blue);">place</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.tempat}</div>
+                </div>
+              </div>
+              ${aksi}
+            </div>`;
+        });
+      } else list.innerHTML = '<p>Belum ada jadwal KT.</p>';
+    }).ktGetJadwal();
+  }
+
+  function ktBukaFormJadwal() {
+    if (!hasPermission('kt_jadwal_crud')) { showError('Akses ditolak!'); return; }
+    document.getElementById('ktJId').value = '';
+    document.getElementById('ktJNama').value = '';
+    document.getElementById('ktJPerihal').value = '';
+    document.getElementById('ktJWaktu').value = '';
+    document.getElementById('ktJTempat').value = '';
+    document.getElementById('ktJDeskripsi').value = '';
+    document.getElementById('ktJudulFormJadwal').innerText = 'Tambah Jadwal KT';
+    bukaFormMode('ktFormCrudJadwal', 'ktWrapListJadwal');
+  }
+
+  function ktEditJadwal(id, nama, waktu, tempat, perihal, deskripsi) {
+    if (!hasPermission('kt_jadwal_crud')) return;
+    document.getElementById('ktJId').value = id;
+    document.getElementById('ktJNama').value = nama;
+    document.getElementById('ktJWaktu').value = waktu;
+    document.getElementById('ktJTempat').value = tempat;
+    document.getElementById('ktJPerihal').value = perihal;
+    document.getElementById('ktJDeskripsi').value = deskripsi;
+    document.getElementById('ktJudulFormJadwal').innerText = 'Edit Jadwal KT';
+    bukaFormMode('ktFormCrudJadwal', 'ktWrapListJadwal');
+  }
+
+  function ktSimpanDataJadwal() {
+    var id = document.getElementById('ktJId').value;
+    var n = document.getElementById('ktJNama').value;
+    var w = document.getElementById('ktJWaktu').value;
+    var t = document.getElementById('ktJTempat').value;
+    var p = document.getElementById('ktJPerihal').value;
+    var d = document.getElementById('ktJDeskripsi').value;
+    if(!n || !w) return showWarning('Nama dan Waktu wajib!');
+    google.script.run.withSuccessHandler(function(){ showSuccess('Berhasil!'); tutupForm('ktFormCrudJadwal','ktWrapListJadwal'); ktMuatDataJadwal(); }).ktSimpanJadwal(id,n,w,t,p,d);
+  }
+
+  function ktHapusJadwal(id) {
+    showConfirm('Hapus jadwal ini?').then(function(r){ if(r.isConfirmed) google.script.run.withSuccessHandler(function(){ showSuccess('Dihapus!'); ktMuatDataJadwal(); }).ktHapusJadwal(id); });
+  }
+
+  function bukaKtKader() {
+    sembunyikanSemuaLayar();
+    document.getElementById('ktKaderView').style.display = 'block';
+    history.pushState({view: 'ktKaderView', tab: 'karangtaruna', onLoad: 'ktMuatDataKader'}, '', '#ktKader');
+    document.getElementById('ktBtnTambahKader').style.display = hasPermission('kt_kader_crud') ? 'flex' : 'none';
+    ktMuatDataKader();
+  }
+
+  function ktMuatDataKader() {
+    var list = document.getElementById('ktListKader');
+    list.innerHTML = '<div class="skeleton" style="height:80px;"></div>';
+    google.script.run.withSuccessHandler(function(res) {
+      list.innerHTML = ''; // Clear skeleton
+      if (res.data && res.data.length) {
+        res.data.forEach(function(item) {
+          var aksi = hasPermission('kt_kader_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditKader(\''+item.id+'\',\''+item.nama.replace(/'/g,"\\'")+'\',\''+item.usia+'\',\''+item.alamat.replace(/'/g,"\\'")+'\',\''+item.nohp+'\',\''+item.status+'\',\''+item.jabatan.replace(/'/g,"\\'")+'\')">Edit</button><button class="btn-small danger" onclick="ktHapusKader(\''+item.id+'\')">Hapus</button>' : '';
+          list.innerHTML += '<div class="card-item"><strong>'+item.nama+'</strong> ('+item.jabatan+')<br><span class="muted">'+item.status+' | '+item.usia+' Thn | '+item.nohp+'</span>'+aksi+'</div>';
+        });
+      } else list.innerHTML = '<p>Belum ada anggota terdaftar.</p>';
+    }).ktGetKader();
+  }
+
+  function ktBukaFormKader() {
+    if (!hasPermission('kt_kader_crud')) return;
+    document.getElementById('ktKaderId').value = '';
+    document.getElementById('ktKaderNama').value = '';
+    document.getElementById('ktKaderJabatan').value = '';
+    document.getElementById('ktKaderNoHp').value = '';
+    document.getElementById('ktKaderFoto').value = '';
+    document.getElementById('ktKaderPreviewFoto').innerHTML = '';
+    document.getElementById('ktJudulFormKader').innerText = 'Registrasi Anggota Karang Taruna';
+    bukaFormMode('ktFormCrudKader', 'ktWrapListKader');
+  }
+
+  function ktEditKader(id, nama, usia, alamat, nohp, status, jabatan) {
+    document.getElementById('ktKaderId').value = id;
+    document.getElementById('ktKaderNama').value = nama;
+    document.getElementById('ktKaderNoHp').value = nohp;
+    document.getElementById('ktKaderJabatan').value = jabatan;
+    document.getElementById('ktJudulFormKader').innerText = 'Edit Data Anggota';
+    bukaFormMode('ktFormCrudKader', 'ktWrapListKader');
+  }
+
+  function ktEditGaleri(id, judul, url, deskripsi, tanggal) {
+    document.getElementById('ktGaleriId').value = id;
+    document.getElementById('ktGaleriJudul').value = judul;
+    document.getElementById('ktGaleriTanggal').value = tanggal || '';
+    document.getElementById('ktGaleriDeskripsi').value = deskripsi;
+    document.getElementById('ktGaleriVideoLink').value = isVideoLink(url) ? url : '';
+    document.getElementById('ktGaleriType').value = isVideoLink(url) ? 'video' : 'image';
+    toggleGaleriType('kt');
+    bukaFormMode('ktFormCrudGaleri', 'ktWrapListGaleri');
+  }
+
+  function ktSimpanDataKader() {
+    var id = document.getElementById('ktKaderId').value;
+    var n = document.getElementById('ktKaderNama').value;
+    var h = document.getElementById('ktKaderNoHp').value;
+    var j = document.getElementById('ktKaderJabatan').value;
+    var fInput = document.getElementById('ktKaderFoto');
+
+    if (!n) return showWarning('Nama wajib diisi!');
+
+    var processSave = function(dataFile, mimeType, fileName) {
+      showLoading('Menyimpan data anggota...');
+      google.script.run.withSuccessHandler(function(res) {
+        Swal.close();
+        if (res.status === 'success') {
+          showSuccess(res.pesan);
+          tutupForm('ktFormCrudKader', 'ktWrapListKader');
+          ktMuatDataKader();
+        } else {
+          showError(res.pesan);
+        }
+      }).ktSimpanKader(id, n, j, h, dataFile, mimeType, fileName);
+    };
+
+    if (fInput && fInput.files.length > 0) {
+      var file = fInput.files[0];
+      if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      compressImage(file, function(base64, mime) {
+        processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
+      }, 800); // Profile photos only need 800px
+    } else {
+      processSave(null, null, null);
+    }
+  }
+
+  function ktHapusKader(id) {
+    showConfirm('Hapus anggota ini?').then(function(r){ if(r.isConfirmed) google.script.run.withSuccessHandler(function(){ showSuccess('Dihapus!'); ktMuatDataKader(); }).ktHapusKader(id); });
+  }
+
+  var ktKasChart = null;
+  var ktAllKasData = [];
+
+  function bukaKtKas() {
+    sembunyikanSemuaLayar();
+    document.getElementById('ktKasView').style.display = 'block';
+    history.pushState({view: 'ktKasView', tab: 'karangtaruna', onLoad: 'ktMuatDataKas'}, '', '#ktkas');
+    
+    var actionDiv = document.getElementById('ktActionButtonsKas');
+    if (hasPermission('kt_kas_crud')) {
+      actionDiv.innerHTML = '<button class="btn-small success" onclick="ktBukaFormKas(\'Pemasukan\')">+ Pemasukan KT</button>'
+        + '<button class="btn-small danger" onclick="ktBukaFormKas(\'Pengeluaran\')">+ Pengeluaran KT</button>';
+    } else {
+      actionDiv.innerHTML = '';
+    }
+    ktMuatDataKas();
+  }
+
+  function ktMuatDataKas() {
+    var totalEl = document.getElementById('ktTotalKas');
+    if (totalEl) {
+      totalEl.classList.add('skeleton-text');
+      totalEl.innerText = 'Rp 0.000.000';
+    }
+    google.script.run.withSuccessHandler(function(res) {
+      if (totalEl) totalEl.classList.remove('skeleton-text');
+      if (res.status === 'success') {
+        ktAllKasData = res.data || [];
+        document.getElementById('ktTotalKas').innerText = 'Rp ' + (res.totalSaldo || 0).toLocaleString('id-ID');
+        renderTabelKasKT(ktAllKasData);
+        ktMuatGrafikKas();
+      }
+    }).ktGetKas();
+  }
+
+  function renderTabelKasKT(data) {
+    var tbodyP = document.getElementById('ktTbodyPemasukan');
+    var tbodyG = document.getElementById('ktTbodyPengeluaran');
+    tbodyP.innerHTML = ''; 
+    tbodyG.innerHTML = '';
+    var canEdit = hasPermission('kt_kas_crud');
+    
+    data.forEach(function(item) {
+      var isOut = item.jenis === 'Pengeluaran';
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + item.tanggal + '</td>'
+                   + '<td>' + item.keterangan + '</td>'
+                   + '<td style="color:' + (isOut ? '#ef4444' : '#10b981') + '; font-weight:700;">Rp ' + item.nominal.toLocaleString('id-ID') + '</td>';
+      
+      var tdAksi = document.createElement('td');
+      if (canEdit) {
+        var eb = document.createElement('button'); eb.className = 'btn-small'; eb.innerHTML = '<i class="material-icons" style="font-size:14px;">edit</i>';
+        eb.onclick = function() { ktEditKas(item.id, item.tanggal, item.jenis, item.keterangan, item.nominal); };
+        var db = document.createElement('button'); db.className = 'btn-small danger'; db.innerHTML = '<i class="material-icons" style="font-size:14px;">delete</i>';
+        db.onclick = function() { ktHapusDataKas(item.id); };
+        tdAksi.appendChild(eb); tdAksi.appendChild(db);
+      } else { tdAksi.innerText = '-'; }
+      
+      tr.appendChild(tdAksi);
+      if (item.jenis === 'Pemasukan') tbodyP.appendChild(tr);
+      else tbodyG.appendChild(tr);
+    });
+  }
+
+  function ktBukaFormKas(jenis) {
+    document.getElementById('ktJudulFormKas').innerText = 'Tambah ' + jenis + ' KT';
+    document.getElementById('ktKasId').value = '';
+    document.getElementById('ktKasTanggal').value = new Date().toISOString().slice(0,10);
+    document.getElementById('ktKasJenis').value = jenis;
+    document.getElementById('ktKasKeterangan').value = '';
+    document.getElementById('ktKasNominal').value = '';
+    document.getElementById('ktFormKas').style.display = 'block';
+  }
+
+  function ktEditKas(id, tgl, jenis, ket, nom) {
+    document.getElementById('ktJudulFormKas').innerText = 'Edit ' + jenis + ' KT';
+    document.getElementById('ktKasId').value = id;
+    document.getElementById('ktKasTanggal').value = tgl;
+    document.getElementById('ktKasJenis').value = jenis;
+    document.getElementById('ktKasKeterangan').value = ket;
+    document.getElementById('ktKasNominal').value = nom ? Number(nom).toLocaleString('id-ID') : '';
+    document.getElementById('ktFormKas').style.display = 'block';
+  }
+
+  function ktSimpanDataKas() {
+    var id = document.getElementById('ktKasId').value;
+    var tgl = document.getElementById('ktKasTanggal').value;
+    var jns = document.getElementById('ktKasJenis').value;
+    var ket = document.getElementById('ktKasKeterangan').value;
+    var nom = document.getElementById('ktKasNominal').value.replace(/\D/g, '');
+    if (!tgl || !nom) return showWarning('Lengkapi data transaksi!');
+    
+    showLoading('Menyimpan Kas KT...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        tutupForm('ktFormKas', '');
+        ktMuatDataKas();
+      } else { showError(res.pesan); }
+    }).ktSimpanKas(id, tgl, jns, nom, ket, null, '', '');
+  }
+
+  function ktHapusDataKas(id) {
+    showConfirm('Hapus transaksi Kas KT ini?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            ktMuatDataKas();
+          } else { showError(r.pesan); }
+        }).ktHapusKas(id);
+      }
+    });
+  }
+
+  function ktCetakLaporanKas() {
+    var tahun = document.getElementById('ktTahunKasSelect').value;
+    var bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    var dataBulanan = Array.from({ length: 12 }, (_, i) => ({
+      namaBulan: bulanIndo[i],
+      pemasukan: 0,
+      pengeluaran: 0,
+      keterangan: []
+    }));
+
+    ktAllKasData.forEach(item => {
+      var d = item.tanggal.split('-');
+      if (d[0] == tahun) {
+        var mIdx = parseInt(d[1]) - 1;
+        if (item.jenis === 'Pemasukan') dataBulanan[mIdx].pemasukan += item.nominal;
+        else dataBulanan[mIdx].pengeluaran += item.nominal;
+        if (item.keterangan) dataBulanan[mIdx].keterangan.push(item.keterangan);
+      }
+    });
+
+    var total = { p: 0, g: 0 };
+    var tableRows = dataBulanan.map(b => {
+      if (b.pemasukan === 0 && b.pengeluaran === 0) return '';
+      total.p += b.pemasukan; total.g += b.pengeluaran;
+      return `<tr>
+        <td>${b.namaBulan}</td>
+        <td align="right">${b.pemasukan.toLocaleString('id-ID')}</td>
+        <td align="right">${b.pengeluaran.toLocaleString('id-ID')}</td>
+        <td><small>${b.keterangan.slice(0,3).join(', ')}</small></td>
+      </tr>`;
+    }).join('');
+
+    var printWin = window.open('', '_blank');
+    printWin.document.write(`
+      <html><head><title>Laporan Kas Karang Taruna</title>
+      <style>
+        body { font-family: sans-serif; padding: 40px; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #000; padding: 10px; font-size: 13px; }
+        th { background: #f2f2f2; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .footer { margin-top: 50px; float: right; text-align: center; width: 250px; }
+      </style></head><body>
+      <div class="header">
+        <h2>LAPORAN KEUANGAN KARANG TARUNA</h2>
+        <p>RT 01 RW 03 - Desa Ngelom</p>
+        <p>Tahun Anggaran: ${tahun}</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Bulan</th>
+            <th>Pemasukan (Rp)</th>
+            <th>Pengeluaran (Rp)</th>
+            <th>Keterangan Kegiatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr style="font-weight:bold; background:#f2f2f2;">
+            <td>TOTAL TAHUNAN</td>
+            <td align="right">${total.p.toLocaleString('id-ID')}</td>
+            <td align="right">${total.g.toLocaleString('id-ID')}</td>
+            <td>Saldo Akhir: Rp ${(total.p - total.g).toLocaleString('id-ID')}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="footer">
+        <p>Ngelom, ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p>
+        <p>Bendahara Karang Taruna</p>
+        <br><br><br>
+        <p><strong>( .................... )</strong></p>
+      </div>
+      </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  }
+
+  function ktMuatGrafikKas() {
+    var year = parseInt(document.getElementById('ktTahunKasSelect').value);
+    renderGrafikKasKT(year);
+  }
+
+  function renderGrafikKasKT(tahun) {
+    var pemasukanPerBulan = Array(12).fill(0);
+    var pengeluaranPerBulan = Array(12).fill(0);
+    
+    ktAllKasData.forEach(function(item) {
+      var parts = item.tanggal.split('-');
+      if (parts.length === 3 && parseInt(parts[0]) === tahun) {
+        var bln = parseInt(parts[1]) - 1;
+        if (item.jenis === 'Pemasukan') pemasukanPerBulan[bln] += item.nominal;
+        else if (item.jenis === 'Pengeluaran') pengeluaranPerBulan[bln] += item.nominal;
+      }
+    });
+
+    var labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    if (ktKasChart) ktKasChart.destroy();
+    
+    var ctx = document.getElementById('ktKasChart').getContext('2d');
+    ktKasChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Pemasukan KT', data: pemasukanPerBulan, borderColor: '#10b981', backgroundColor: 'transparent', borderWidth: 3, tension: 0.3, pointRadius: 4 },
+          { label: 'Pengeluaran KT', data: pengeluaranPerBulan, borderColor: '#ef4444', backgroundColor: 'transparent', borderWidth: 3, tension: 0.3, pointRadius: 4 }
+        ]
+      },
+      options: { 
+        responsive: true, 
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true, ticks: { callback: function(v) { return 'Rp ' + v.toLocaleString('id-ID'); } } } }
+      }
+    });
+  }
+
+  function ktHapusGaleri(id) {
+    showConfirm('Hapus foto ini?').then(function(r){ 
+      if(r.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(res){ 
+          Swal.close();
+          if(res.status==='success') { showSuccess(res.pesan); ktMuatDataGaleri(); }
+          else showError(res.pesan);
+        }).ktHapusGaleri(id); 
+      }
+    });
+  }
+
+  function bukaKtGaleri() {
+    sembunyikanSemuaLayar();
+    document.getElementById('ktGaleriView').style.display = 'block';
+    history.pushState({view: 'ktGaleriView', tab: 'karangtaruna', onLoad: 'ktMuatDataGaleri'}, '', '#ktGaleri');
+    document.getElementById('ktBtnTambahGaleri').style.display = hasPermission('kt_galeri_crud') ? 'flex' : 'none';
+    ktMuatDataGaleri();
+  }
+
+  function ktBukaFormGaleri() {
+    if(!hasPermission('kt_galeri_crud')) return;
+    document.getElementById('ktGaleriId').value = '';
+    document.getElementById('ktGaleriTanggal').value = new Date().toISOString().slice(0,10);
+    document.getElementById('ktGaleriJudul').value = '';
+    document.getElementById('ktGaleriFile').value = '';
+    document.getElementById('ktGaleriVideoLink').value = '';
+    document.getElementById('ktGaleriDeskripsi').value = '';
+    document.getElementById('ktPreviewGaleri').innerHTML = '';
+    bukaFormMode('ktFormCrudGaleri', 'ktWrapListGaleri');
+  }
+
+  function ktUploadGaleri() {
+    var id = document.getElementById('ktGaleriId').value;
+    var j = document.getElementById('ktGaleriJudul').value;
+    var tgl = document.getElementById('ktGaleriTanggal').value;
+    var d = document.getElementById('ktGaleriDeskripsi').value;
+    var type = document.getElementById('ktGaleriType').value;
+    var fInput = document.getElementById('ktGaleriFile');
+    var vLink = document.getElementById('ktGaleriVideoLink').value;
+
+    if(!j) return showWarning('Judul wajib diisi!');
+    
+    if (type === 'video') {
+      if (!vLink) return showWarning('Link video wajib diisi!');
+      showLoading('Menyimpan Video Karang Taruna...');
+      google.script.run.withSuccessHandler(function(res){ 
+        Swal.close(); 
+        if(res && res.status === 'success') {
+          showSuccess(res.pesan || 'Tersimpan!'); 
+          tutupForm('ktFormCrudGaleri','ktWrapListGaleri'); 
+          ktMuatDataGaleri(); 
+        } else {
+          showError(res ? res.pesan : 'Gagal menyimpan data');
+        }
+      }).ktSimpanGaleri(id, j, null, '', '', d, vLink, tgl);
+      return;
+    }
+
+    if(!fInput.files.length && !id) return showWarning('Foto wajib dipilih!');
+    var file = fInput.files[0];
+    if (file && file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+    compressImage(file, function(base64, mime) {
+      startSimulatedUpload();
+      google.script.run.withSuccessHandler(function(res){
+        clearInterval(progressInterval);
+        updateProgress(100, 'Selesai!');
+        Swal.close();
+        if(res && res.status === 'success') {
+          showSuccess(res.pesan || 'Terupload!');
+          tutupForm('ktFormCrudGaleri','ktWrapListGaleri');
+          ktMuatDataGaleri();
+        } else { showError(res ? res.pesan : 'Gagal upload'); }
+      }).ktSimpanGaleri(id, j, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", d, "", tgl);
+    });
+  }
+
+  function ktHapusGaleri(id) {
+    showConfirm('Hapus foto ini?').then(function(r){ if(r.isConfirmed) google.script.run.withSuccessHandler(function(){ showSuccess('Dihapus!'); ktMuatDataGaleri(); }).ktHapusGaleri(id); });
+  }
+
+  function ktMuatDataGaleri() {
+    var list = document.getElementById('ktListGaleri');
+    list.innerHTML = '<div class="skeleton" style="height:150px;"></div>';
+    google.script.run.withSuccessHandler(function(res) {
+      list.innerHTML = ''; // Clear skeleton
+      if (res.status === 'error') {
+        showError('Gagal memuat database: ' + res.pesan);
+        list.innerHTML = '<p class="muted">Gagal mengambil data dari database.</p>';
+        return;
+      }
+      ktGaleriDataGlobal = res.data || [];
+      ktFilterDataGaleri();
+    }).ktGetGaleri();
+  }
+
+  function ktFilterDataGaleri() {
+    var tahun = document.getElementById('ktGaleriTahunFilter').value;
+    var filtered = ktGaleriDataGlobal;
+    if (tahun !== 'all') {
+      filtered = ktGaleriDataGlobal.filter(function(item) {
+        return item.tanggal && item.tanggal.includes(tahun);
       });
     }
-  })());
-});
+    ktRenderGaleriGrid(filtered);
+  }
 
-// Handler klik notifikasi
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const targetUrl = event.notification.data.url;
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === targetUrl && 'focus' in client) {
-          return client.focus();
-        }
+  function ktRenderGaleriGrid(data) {
+    var list = document.getElementById('ktListGaleri');
+    list.innerHTML = '';
+    if (data && data.length) {
+        var allMedia = data.map(function(it){ return it.url; });
+        data.forEach(function(item, idx) {
+          var safeJudul = escapeHtml(item.judul || '-');
+          var safeTanggal = escapeHtml(item.tanggal || '-');
+          var safeTanggalRaw = escapeJsString(item.tanggalRaw || '');
+          var safeDescription = escapeJsString(item.deskripsi || '');
+          var safeUrl = escapeJsString(item.url);
+          var safeItemId = escapeJsString(item.id);
+          var del = hasPermission('kt_galeri_crud') ? '<div class="hr-light"></div><button class="btn-small" onclick="ktEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.judul || '') + '\',\'' + safeUrl + '\',\'' + safeDescription + '\',\'' + safeTanggalRaw + '\')">Edit</button><button class="btn-small danger" onclick="ktHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
+          var thumb = getMediaThumbnail(item.url);
+          var icon = isVideoLink(item.url) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
+          list.innerHTML += `
+            <div class="galeri-card" style="position:relative; display:flex; flex-direction:column; height:100%;">
+              ${icon}
+              <img src="${thumb}" class="galeri-img" onclick="openLightbox('${safeUrl}', ${JSON.stringify(allMedia).replace(/"/g,'&quot;')}, ${idx})" style="aspect-ratio:16/9; object-fit:cover;">
+              <div style="padding:16px; flex:1; display:flex; flex-direction:column;">
+                <div style="font-weight:800; font-size:15px; color:var(--text-main); line-height:1.4; margin-bottom:4px;">${safeJudul}</div>
+                <div style="font-size:11px; font-weight:600; color:var(--kt-blue); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">
+                  <i class="material-icons" style="font-size:14px;">event</i> ${safeTanggal}
+                </div>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
+                  ${escapeHtml(item.deskripsi || 'Tidak ada deskripsi kegiatan.')}
+                </div>
+                <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
+                  ${del}
+                </div>
+              </div>
+            </div>`;
+        });
+      } else {
+        list.innerHTML = '<p>Belum ada dokumentasi Karang Taruna.</p>';
       }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
-    })
-  );
-});
+  }
 
-self.addEventListener('fetch', (event) => {
-  // Force Cache Invalidation on version mismatch is handled by CACHE_NAME versioning.
-  // Strategy: Cache First, then Network.
+  // ======================== JADWAL ========================
+  function bukaRonda() {
+    sembunyikanSemuaLayar();
+    document.getElementById('rondaView').style.display = 'block';
+    muatTahunRondaList();
+    // Muat Engine Ronda untuk Beranda & Fitur Share
+    muatRondaHariIni(false); 
+    history.pushState({view: 'rondaView', tab: 'warga', onLoad: 'muatTahunRondaList'}, '', '#ronda');
+    // Control visibility of the new button
+    document.getElementById('btnSalinRondaWa').style.display = 'flex';
+  }
+function bukaJadwal() {
+    sembunyikanSemuaLayar();
+    document.getElementById('jadwalView').style.display = 'block';
+    history.pushState({view: 'jadwalView', tab: 'warga', onLoad: 'muatDataJadwal'}, '', '#jadwal');
 
-  // Strategy: Cache First, then Network, with Offline Fallback for navigation (Point 3)
-event.respondWith((async () => {
-    const req = event.request;
-    const url = new URL(req.url);
-
-    // Untuk navigasi/HTML: gunakan network-first agar web/desktop tidak stuck versi lama
-    const isNavigation = req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept') && req.headers.get('accept').includes('text/html'));
-    if (isNavigation) {
-      try {
-        const networkResponse = await fetch(req);
-        if (networkResponse && networkResponse.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(req, networkResponse.clone());
-        }
-        return networkResponse;
-      } catch (e) {
-        const cached = await caches.match(req);
-        if (cached) return cached;
-        return caches.match('./offline.html');
-      }
+    // Kontrol visibilitas tombol Tambah berdasarkan izin
+    if (hasPermission('rt_jadwal_crud')) {
+      document.getElementById('btnTambahJadwal').style.display = 'flex';
+    } else {
+      document.getElementById('btnTambahJadwal').style.display = 'none';
     }
 
-    // Selain navigasi: cache-first (performa)
-    const cachedResponse = await caches.match(req);
-    if (cachedResponse) return cachedResponse;
+    muatDataJadwal();
+  }
+
+  function muatDataJadwal() {
+    var list = document.getElementById('listJadwal');
+    list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
+    google.script.run.withSuccessHandler(function(res) {
+      list.innerHTML = '';
+      if (res.status === 'error') { // Tambahkan penanganan error
+        showError(res.pesan);
+        list.innerHTML = '<p class="muted" style="text-align:center; padding:20px;">Gagal memuat data jadwal.</p>';
+        return;
+      }
+      if (res.data && res.data.length) {
+        for (var i = 0; i < res.data.length; i++) {
+          var item = res.data[i];
+          var aksi = '';
+          if (hasPermission('rt_jadwal_crud')) {
+            aksi = `
+              <div class="card-actions" style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:12px;">
+                <button class="btn-action-subtle success-hover" onclick="editJadwal('${item.id}','${item.nama.replace(/'/g, "\\'")}','${item.perihal.replace(/'/g, "\\'")}','${item.waktu}','${item.tempat.replace(/'/g, "\\'")}')">
+                  <i class="material-icons">edit_note</i> Edit
+                </button>
+                <button class="btn-action-subtle danger-hover" onclick="hapusDataJadwal('${item.id}')">
+                  <i class="material-icons">delete_outline</i> Hapus
+                </button>
+              </div>`;
+          }
+          list.innerHTML += `
+            <div class="card-item" style="border-left-width: 5px; border-left-color: var(--primary-red);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                <div style="font-size:17px; font-weight:800; color:var(--text-main); line-height:1.2; flex:1; padding-right:10px;">${item.nama}</div>
+                <span style="background:rgba(239,68,68,0.1); color:var(--primary-red); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">RT 01/RW 03</span>
+              </div>
+              
+              <!-- UI Jadwal Warga yang Dirapikan -->
+              <div style="background:rgba(var(--primary-color-rgb), 0.04); border-radius:12px; padding:12px; border:1px solid rgba(var(--primary-color-rgb), 0.08);">
+                <div style="display:grid; gap:10px;">
+                  <div class="row" style="align-items:flex-start;">
+                    <i class="material-icons" style="font-size:18px; color:var(--primary-red); margin-top:2px;">description</i> 
+                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${item.perihal}</div>
+                  </div>
+                  <div class="row">
+                    <i class="material-icons" style="font-size:18px; color:var(--primary-red);">event</i> 
+                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${formatIndoDate(item.waktu)}</div>
+                  </div>
+                  <div class="row">
+                    <i class="material-icons" style="font-size:18px; color:var(--primary-red);">location_on</i> 
+                    <div style="font-size:13px; color:var(--text-main); font-weight:600;">${item.tempat}</div>
+                  </div>
+                </div>
+              </div>
+
+              ${aksi}
+            </div>`;
+        }
+      } else {
+        list.innerHTML = `
+          <div class="card-item" style="text-align:center; padding:30px; opacity:0.6;">
+            <i class="material-icons" style="font-size:48px; margin-bottom:10px;">event_busy</i><br>Belum ada jadwal kegiatan terdekat.</div>`;
+      }
+    }).getJadwalKegiatan();
+  }
+
+  function bukaFormJadwal() {
+    if (!hasPermission('rt_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal.'); return; }
+    document.getElementById('jId').value = '';
+    document.getElementById('jNama').value = '';
+    document.getElementById('jPerihal').value = '';
+    document.getElementById('jWaktu').value = '';
+    document.getElementById('jTempat').value = '';
+    document.getElementById('judulFormJadwal').innerText = 'Tambah Jadwal Baru';
+    bukaFormMode('formCrudJadwal', 'wrapListJadwal');
+  }
+
+  function editJadwal(id, nama, perihal, waktu, tempat) {
+    if (!hasPermission('rt_jadwal_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal.'); return; }
+    document.getElementById('jId').value = id;
+    document.getElementById('jNama').value = nama;
+    document.getElementById('jPerihal').value = perihal;
+    document.getElementById('jWaktu').value = waktu;
+    document.getElementById('jTempat').value = tempat;
+    document.getElementById('judulFormJadwal').innerText = 'Edit Jadwal';
+    bukaFormMode('formCrudJadwal', 'wrapListJadwal');
+  }
+
+  function simpanDataJadwal() {
+    var id = document.getElementById('jId').value;
+    if (!hasPermission('rt_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal.'); return; }
+    var nama = document.getElementById('jNama').value;
+    var perihal = document.getElementById('jPerihal').value;
+    var waktu = document.getElementById('jWaktu').value;
+    var tempat = document.getElementById('jTempat').value;
+    if (!nama || !perihal) {
+      return showWarning('Nama dan Perihal wajib diisi!');
+    }
+    var btn = document.querySelector('#formCrudJadwal .btn-primary');
+    var old = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = old;
+      btn.disabled = false;
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        tutupForm('formCrudJadwal', 'wrapListJadwal');
+        muatDataJadwal();
+      } else {
+        showError(res.pesan);
+      }
+    }).simpanJadwal(id, nama, perihal, waktu, tempat);
+  }
+
+  function hapusDataJadwal(id) {
+    if (!hasPermission('rt_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menghapus jadwal.'); return; }
+    showConfirm('Yakin hapus jadwal?').then(function(res) {
+      if (res.isConfirmed) {
+        google.script.run.withSuccessHandler(function(r) {
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDataJadwal();
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus jadwal: ' + err.message);
+        }).hapusJadwal(id);
+      }
+    });
+  }
+
+  function muatDataRonda() {
+    var bulan = document.getElementById('rondaFilterBulan').value;
+    var tahun = document.getElementById('rondaFilterTahun').value;
+    var list = document.getElementById('listRonda');
+    list.innerHTML = '<div class="skeleton" style="height:100px;"></div>';
+    showLoading('Memuat data ronda...');
+    
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close(); // Close loading modal
+      if (res.status === 'success') {
+        currentRondaData = res.data || [];
+        filterRonda();
+      } else { 
+        list.innerHTML = '';
+        showError(res.pesan); 
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data ronda: ' + err.message);
+    }).getRonda(bulan, tahun);
+  }
+
+  // ======================== OPTIMASI BANNER RONDA (10XTHINK REWRITE) ========================
+  /**
+   * ROLLING CALENDAR ENGINE: Dual-Fetch Parallel untuk transisi bulan anti-blank.
+   */
+  /**
+   * ROLLING CALENDAR ENGINE: Dual-Fetch Parallel (Anti-Blank State)
+   */
+  async function muatRondaHariIni(isManualRefresh = false) {
+    const info = document.getElementById('rondaTodayInfo');
+    if (!info) return;
+
+    info.innerHTML = `<div style="display:flex; justify-content:center; padding:15px;"><div class="bbx-spinner" style="width:20px; height:20px;"></div></div>`;
+
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curYear = now.getFullYear();
+    
+    let nextMonth = curMonth + 1;
+    let nextYear = curYear;
+    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
 
     try {
-      const networkResponse = await fetch(req);
-      if (networkResponse && networkResponse.ok && req.method === 'GET') {
-        const cache = await caches.open(CACHE_NAME);
-        await cache.put(req, networkResponse.clone());
-      }
-      return networkResponse;
+      // Tarik data 2 bulan sekaligus secara simultan
+      const [res1, res2] = await Promise.all([
+        google.script.run.getRonda(curMonth, curYear),
+        google.script.run.getRonda(nextMonth, nextYear)
+      ]);
+
+      let combinedData = [];
+      if (res1 && res1.status === 'success') combinedData = combinedData.concat(res1.data);
+      if (res2 && res2.status === 'success') combinedData = combinedData.concat(res2.data);
+
+      // SORTING ASCENDING: Berdasarkan tanggal asli data Sheets
+      combinedData.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+
+      prosesDataJadwalRonda(combinedData);
+      if (isManualRefresh) showSuccess('Jadwal Sinkron!');
     } catch (e) {
-      console.warn(`[Service Worker] Network request failed for ${req.url}. Not found in cache.`);
-      if (url.pathname.endsWith('.html') || isNavigation) {
-        return caches.match('./offline.html');
-      }
-      return new Response(null, { status: 503, statusText: 'Service Unavailable (Offline)' });
+      console.error("Ronda Dashboard Error:", e);
+      info.innerHTML = `<div class="muted" style="text-align:center;">Gagal memuat jadwal.</div>`;
     }
-  })());
-});
+  }
+
+  /**
+   * ALGORITMA FILTER 2 MINGGU (MINGGU INI & MINGGU DEPAN)
+   */
+  function prosesDataJadwalRonda(data) {
+    const info = document.getElementById('rondaTodayInfo');
+    if (!info) return;
+    
+    rondaSlides = [];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Get Monday of current week
+    const day = today.getDay();
+    const diffToMon = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monThisWeek = new Date(today);
+    monThisWeek.setDate(diffToMon);
+    monThisWeek.setHours(0,0,0,0);
+
+    const sunThisWeek = new Date(monThisWeek);
+    sunThisWeek.setDate(monThisWeek.getDate() + 6);
+    sunThisWeek.setHours(23,59,59,999);
+
+    // Get Monday of next week
+    const monNextWeek = new Date(monThisWeek);
+    monNextWeek.setDate(monThisWeek.getDate() + 7);
+    const sunNextWeek = new Date(monNextWeek);
+    sunNextWeek.setDate(monNextWeek.getDate() + 6);
+
+    const parse = (s) => { 
+      if(!s || s.includes('?')) return new Date(0); 
+      const p = s.split('-'); 
+      return new Date(p[0], p[1]-1, p[2]); 
+    };
+
+    // 1. Filter: Jadwal Minggu Ini (Yg terdekat dengan hari ini dalam range Sen-Min)
+    pickedRondaWeek1 = data.find(it => { 
+      const d = parse(it.tanggal);
+      return d >= monThisWeek && d <= sunThisWeek && it.tanggal >= todayStr;
+    }) || data.find(it => { 
+      const d = parse(it.tanggal); 
+      return d >= monThisWeek && d <= sunThisWeek; 
+    });
+
+    // 2. Filter: Jadwal Minggu Depan (Strict)
+    pickedRondaWeek2 = data.find(it => {
+      const d = parse(it.tanggal);
+      return d >= monNextWeek && d <= sunNextWeek;
+    }) || { 
+      tanggal: Utilities.formatDate(monNextWeek, "GMT+7", "yyyy-MM-dd"), 
+      kelompok: 'LIBUR', 
+      petugas: 'Ditiadakan',
+      isLibur: true
+    };
+
+    // UI RENDERING ENGINE
+    const formatSlide = (entry, label) => {
+      if (!entry) return `<div class="muted" style="text-align:center; padding:10px;">${label}: Belum Ada Jadwal</div>`;
+      const pRaw = String(entry.petugas || "");
+      const names = pRaw.split(/\r?\n/).filter(x => x.trim() !== "").map(p => 
+        `<span style="background:var(--bg-app); border:1px solid var(--border-color); padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; margin:2px 2px 0 0; display:inline-block;">${p}</span>`
+      ).join("");
+      
+      const dObj = parse(entry.tanggal);
+      const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][dObj.getDay()];
+      const isToday = entry.tanggal === todayStr;
+
+      return `
+        <div style="border-left:4px solid ${isToday ? 'var(--primary-color)' : 'rgba(var(--primary-color-rgb),0.2)'}; padding-left:10px; margin-bottom:5px;">
+          <div style="font-size:12px; font-weight:800; color:var(--text-main);">${hari}, Tgl ${entry.tanggal.split('-')[2]} • ${entry.kelompok}</div>
+          <div style="margin-top:4px;">${(entry.kelompok === 'LIBUR') ? '<span class="muted" style="font-size:10px;">Ditiadakan</span>' : (names || '<span class="muted" style="font-size:10px;">Ditiadakan</span>')}</div>
+        </div>`;
+    };
+
+    rondaSlides.push({ title: "⚡ Jadwal Ronda Minggu Ini", html: formatSlide(pickedRondaWeek1, "Minggu Ini") });
+    
+    const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const labelW2 = monthNames[parse(pickedRondaWeek2.tanggal).getMonth()];
+    rondaSlides.push({ title: "📅 Jadwal Ronda " + labelW2, html: formatSlide(pickedRondaWeek2, "Minggu Depan") });
+
+    displayRondaSlide(0);
+    initRondaInteractions();
+  }
+
+  /**
+   * 10XTHINK: TEMPLATE SHARE WHATSAPP (2 WEEKS STRICT)
+   */
+  function shareRondaWA() {
+    const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const monthIndo = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const now = new Date();
+    const updateTime = `${daysIndo[now.getDay()]}, ${now.getDate()} ${monthIndo[now.getMonth()]} ${now.getFullYear()}`;
+
+    const formatEntry = (entry) => {
+      if (!entry) return `Data tidak tersedia`;
+      const p = entry.tanggal.split('-');
+      const d = new Date(p[0], p[1]-1, p[2]);
+      const list = String(entry.petugas || "Ditiadakan").split(/\r?\n/).filter(n => n.trim() !== "").join(", ");
+      return `${daysIndo[d.getDay()]}, Tgl ${p[2]} - ${entry.kelompok}\n  Petugas: ${list}`;
+    };
+
+    const monthW2 = monthIndo[new Date(pickedRondaWeek2.tanggal.split('-')[0], pickedRondaWeek2.tanggal.split('-')[1]-1, pickedRondaWeek2.tanggal.split('-')[2]).getMonth()];
+
+    let waText = `*Jadwal Ronda Malam RT01/RW03*\n`;
+    waText += `_Diperbarui: ${updateTime}_\n\n`;
+    waText += `*Jadwal Ronda Minggu Ini*\n`;
+    waText += `${formatEntry(pickedRondaWeek1)}\n\n`;
+    waText += `*Jadwal Ronda ${monthW2}*\n`;
+    waText += `${formatEntry(pickedRondaWeek2)}\n\n`;
+    waText += `_Informasi ini dibagikan melalui Portal RT01/RW03._`;
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  var rondaSlides = [];
+  var currentRondaSlideIdx = 0;
+
+  function displayRondaSlide(idx) {
+    const content = document.getElementById('rondaBannerContent');
+    const info = document.getElementById('rondaTodayInfo');
+    const title = document.getElementById('rondaBannerTitle');
+    if (!rondaSlides[idx] || !content) return;
+
+    content.style.opacity = '0';
+    setTimeout(() => {
+      title.innerText = rondaSlides[idx].title;
+      info.innerHTML = rondaSlides[idx].html;
+      content.style.opacity = '1';
+      updateRondaDots(idx);
+    }, 200);
+  }
+
+  function updateRondaDots(activeIdx) {
+    const dotContainer = document.querySelector('#rondaTodayBanner .ronda-dot')?.parentElement;
+    if (!dotContainer) return;
+    
+    dotContainer.innerHTML = '';
+    rondaSlides.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = `ronda-dot ${i === activeIdx ? 'active' : ''}`;
+      const isActive = i === activeIdx;
+      dot.style.cssText = `width:${isActive ? '15px' : '6px'}; height:4px; border-radius:2px; background:${isActive ? '#d97706' : 'rgba(217, 119, 6, 0.2)'}; transition:all 0.3s ease; cursor:pointer;`;
+      dot.onclick = (e) => { e.stopPropagation(); currentRondaSlideIdx = i; displayRondaSlide(i); };
+      dotContainer.appendChild(dot);
+    });
+  }
+  
+  function initRondaInteractions() {
+    const banner = document.getElementById('rondaTodayBanner');
+    if (!banner) return;
+
+    let touchY = 0;
+    let startX = 0;
+
+    banner.addEventListener('touchstart', (e) => {
+      touchY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+    }, {passive: true});
+
+    banner.addEventListener('touchend', (e) => {
+      const deltaY = e.changedTouches[0].clientY - touchY;
+      const deltaX = e.changedTouches[0].clientX - startX;
+
+      // PULL DOWN DETECTED (Threshold 60px)
+      if (deltaY > 60 && Math.abs(deltaX) < 30) {
+        muatRondaHariIni(true);
+        return;
+      }
+
+      // SWIPE HORIZONTAL (Pindah Slide)
+      if (Math.abs(deltaX) > 40 && Math.abs(deltaY) < 30) {
+        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
+      }
+    }, {passive: true});
+
+    // Klik fallback
+    banner.onclick = () => {
+      if (rondaSlides.length > 1) {
+        currentRondaSlideIdx = (currentRondaSlideIdx + 1) % rondaSlides.length;
+        displayRondaSlide(currentRondaSlideIdx);
+      }
+    };
+  }
+
+  function filterRonda() {
+    try {
+    var keyword = document.getElementById('rondaSearchInput').value.toLowerCase();
+    var list = document.getElementById('listRonda');
+    var isYearly = document.getElementById('rondaFilterBulan').value == "0";
+
+    var actionDiv = document.getElementById('rondaYearlyActions');
+    if(actionDiv) actionDiv.style.display = isYearly ? 'block' : 'none';
+
+    // Logika Deteksi Minggu Berjalan
+    var today = new Date();
+    var months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    var curMonth = today.getMonth() + 1;
+    var curYear = today.getFullYear();
+    
+    // Calculate Current Week Range for Highlighting
+    var startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0,0,0,0);
+    
+    var endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23,59,59,999);
+
+    var weekColors = {
+      1: '#ef4444', // Merah (Minggu 1)
+      2: '#10b981', // Hijau (Minggu 2)
+      3: '#38bdf8', // Biru Muda (Minggu 3)
+      4: '#f59e0b', // Oranye/Amber (Minggu 4)
+      5: '#8b5cf6'  // Ungu (Minggu 5)
+    };
+    
+    var filtered = currentRondaData.filter(function(item) {
+      var petugasStr = Array.isArray(item.petugas) ? item.petugas.join(" ") : String(item.petugas || "");
+      return petugasStr.toLowerCase().includes(keyword) || 
+             (item.kelompok || '').toLowerCase().includes(keyword);
+    });
+
+    list.innerHTML = '';
+    if (filtered.length > 0) {
+      var html = '<table><thead><tr><th>Tanggal</th><th>Kelompok</th><th>Petugas</th><th>Aksi</th></tr></thead><tbody>';
+      var lastMonthLabel = '';
+
+      filtered.forEach(function(item) {
+        // Parse tanggal item (yyyy-mm-dd)
+        var parts = item.tanggal.split('-');
+        var iYear = parseInt(parts[0]);
+        var iMonth = parseInt(parts[1]);
+        var iDay = parseInt(parts[2]);
+        var itemDate = new Date(iYear, iMonth - 1, iDay);
+        var iWeek = Math.ceil((iDay + new Date(iYear, iMonth - 1, 1).getDay()) / 7);
+
+        // Tambahkan Divider Bulan jika mode tahunan aktif
+        if (isYearly) {
+          var currentMonthLabel = months[iMonth - 1] + ' ' + iYear;
+          if (currentMonthLabel !== lastMonthLabel) {
+            html += `<tr><td colspan="4" class="month-divider" id="month-header-${iMonth}"><i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:5px;">calendar_month</i>${currentMonthLabel}</td></tr>`;
+            lastMonthLabel = currentMonthLabel;
+          }
+        }
+
+        // Active Week Highlighter: Real-time date comparison
+        var isCurrentWeek = (itemDate >= startOfWeek && itemDate <= endOfWeek); 
+        var rowStyle = "";
+        
+        if (isCurrentWeek) {
+          var activeColor = weekColors[iWeek] || 'var(--primary-color)';
+          rowStyle = `style="background-color: ${activeColor}15 !important; border-left: 6px solid ${activeColor} !important; font-weight: 800;"`;
+        }
+
+        var petugasRaw = Array.isArray(item.petugas) ? item.petugas.join("\n") : String(item.petugas || "");
+        // Tampilan Jadwal Ronda Lebih Bagus (Chips)
+        var petugasList = petugasRaw ? '<div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">' + 
+          petugasRaw.split(/\r?\n/).filter(p => p.trim() !== "").map(p => 
+          `<span class="status-badge" style="background:var(--bg-app); color:var(--text-main); border:1px solid var(--border-color); display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 12px; font-size: 11px; white-space: nowrap; gap: 4px;">
+            <i class="material-icons" style="font-size:14px; color:var(--primary-color);">account_circle</i> ${p}
+          </span>`).join('') + '</div>' : '-';
+        var aksi = hasPermission('rt_ronda_crud') ? 
+          `<div style="display: flex; gap: 4px; flex-wrap: nowrap;">
+            <button class="btn-small" onclick="editRonda(${item.row},'${item.tanggal}','${item.kelompok.replace(/'/g,"\\'")}','${item.petugas.replace(/'/g,"\\'").replace(/\n/g,"\\n")}')">
+              <i class="material-icons" style="font-size:14px;">edit</i>
+            </button>
+            <button class="btn-small danger" onclick="hapusRonda(${item.row})">
+              <i class="material-icons" style="font-size:14px;">delete</i>
+            </button>
+          </div>` : '-';
+        
+        html += `<tr ${rowStyle}>
+          <td style="white-space: nowrap; width: 1%;">${item.tanggal}</td>
+          <td style="white-space: nowrap; width: 1%;"><strong>${item.kelompok}</strong></td>
+          <td>${petugasList}</td>
+          <td style="white-space: nowrap; width: 1%;">${aksi}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } else {
+      list.innerHTML = `
+        <div class="card-item" style="text-align:center; padding:40px 20px;">
+          <div style="font-size:48px; color:var(--text-muted); opacity:0.2; margin-bottom:15px;"><i class="material-icons" style="font-size:64px;">event_busy</i></div>
+          <div style="font-size:20px; font-weight:800; color:var(--primary-red); letter-spacing:2px; text-transform:uppercase;">LIBUR RONDA</div>
+          <p class="muted" style="font-size:13px; margin-top:8px;">Tidak ditemukan jadwal ronda untuk periode atau pencarian ini.</p>
+        </div>`;
+    }
+    } catch (e) {
+      console.error("FilterRonda Logic Error:", e);
+      list.innerHTML = '<div class="muted">Terdapat kesalahan tipe data pada database Ronda.</div>';
+    }
+  }
+
+  function scrollToCurrentMonth() {
+    var today = new Date();
+    var curMonth = today.getMonth() + 1;
+    var curYear = today.getFullYear();
+    var filterYear = parseInt(document.getElementById('rondaFilterTahun').value);
+    
+    // Validasi apakah tahun yang dilihat adalah tahun sekarang
+    if (filterYear !== curYear) {
+        return showWarning('Tombol navigasi cepat hanya berfungsi untuk rekap tahun berjalan (' + curYear + ')');
+    }
+
+    var el = document.getElementById('month-header-' + curMonth);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      showWarning('Jadwal untuk bulan ' + (today.toLocaleString('id-ID', {month:'long'})) + ' belum tersedia.');
+    }
+  }
+
+  function muatTahunRondaList() {
+    // 1. AMBIL ELEMENT LOKAL & SET REAL-TIME SEGERA (Hapus logika H-3 agar sesuai real-time)
+    const filterBulan = document.getElementById('rondaFilterBulan');
+    const filterTahun = document.getElementById('rondaFilterTahun');
+    const skrg = new Date();
+    const tahunSkrg = skrg.getFullYear();
+    const bulanSkrg = skrg.getMonth() + 1;
+
+    // KOREKSI C: LOCK DROPDOWN BULAN RIIL (MEI)
+    if (filterBulan) {
+      filterBulan.value = String(bulanSkrg);
+    }
+
+    showLoading('Menginisialisasi filter...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      let years = (res && res.status === 'success') ? res.data : [];
+      
+      // 2. LOGIKA INJEKSI TAHUN DINAMIS (Point 2: Dynamic Year Injection)
+      // Pastikan tahunSkrg ada di daftar
+      if (!years.includes(tahunSkrg) && !years.includes(Number(tahunSkrg))) {
+        years.push(tahunSkrg);
+      }
+      
+      // Render Dropdown Tahun dengan Casting Eksplisit
+      rondaFilterTahunSelect.innerHTML = '';
+      [...new Set(years)].sort((a, b) => b - a).forEach(function(y) {
+        filterTahun.options.add(new Option(y, String(y)));
+      });
+
+      // KOREKSI C: FINAL LOCK-IN BULAN MEI (REAL-TIME SYNC)
+      filterTahun.value = String(tahunSkrg);
+      filterBulan.value = String(bulanSkrg);
+
+      // Ensure button visibility is updated here too
+      document.getElementById('btnSalinRondaWa').style.display = hasPermission('rt_ronda_crud') ? 'block' : 'none';
+      muatDataRonda();
+    }).getTahunRondaList();
+  }
+
+  function editNamaProfil() {
+    Swal.fire({
+      title: 'Ubah Nama Profil',
+      input: 'text',
+      inputLabel: 'Masukkan nama lengkap baru Anda',
+      inputValue: currentUser.nama,
+      showCancelButton: true,
+      confirmButtonText: 'Simpan',
+      confirmButtonColor: 'var(--primary-color)',
+      preConfirm: (value) => {
+        if (!value || value.trim().length < 2) {
+          Swal.showValidationMessage('Nama minimal 2 karakter!');
+          return false;
+        }
+        return value.trim();
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Memperbarui nama...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            currentUser.nama = result.value;
+            document.getElementById('profNama').innerText = result.value;
+            document.getElementById('welcomeUserName').innerText = 'Halo, ' + result.value + '!';
+          } else showError(res.pesan);
+        }).ubahNama(currentUser.email, result.value, currentToken);
+      }
+    });
+  }
+
+  function updateStatusPkkLaporan(id) {
+    if (!hasPermission('pkk_laporan_admin_crud')) return;
+    var statusBaru = document.getElementById('pkkStatus_' + id).value;
+    showLoading('Memperbarui status...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        bukaPkkLaporanAdmin();
+      } else {
+        showError(res.pesan);
+      }
+    }).pkkUpdateStatusLaporan(id, statusBaru);
+  }
+
+  function hapusPkkLaporan(id) {
+    if (!hasPermission('pkk_laporan_admin_crud')) return;
+    showConfirm('Hapus laporan PKK ini?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            bukaPkkLaporanAdmin();
+          } else {
+            showError(r.pesan);
+          }
+        }).pkkHapusLaporan(id);
+      }
+    });
+  }
+
+  function bukaFormRonda() {
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal ronda.'); return; }
+    document.getElementById('rondaRow').value = '';
+    document.getElementById('rondaTanggal').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('rondaKelompok').value = '';
+    document.getElementById('rondaPetugas').value = '';
+    document.getElementById('rondaJudulForm').innerText = 'Tambah Jadwal Ronda';
+    bukaFormMode('rondaFormCrud', 'listRonda');
+  }
+
+  function editRonda(row, tanggal, kelompok, petugas) {
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal ronda.'); return; }
+    document.getElementById('rondaRow').value = row;
+    document.getElementById('rondaTanggal').value = tanggal;
+    document.getElementById('rondaKelompok').value = kelompok;
+    document.getElementById('rondaPetugas').value = petugas;
+    document.getElementById('rondaJudulForm').innerText = 'Edit Jadwal Ronda';
+    bukaFormMode('rondaFormCrud', 'listRonda');
+  }
+
+  function simpanDataRonda() {
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal ronda.'); return; }
+    var row = document.getElementById('rondaRow').value;
+    var tanggal = document.getElementById('rondaTanggal').value;
+    var kelompok = document.getElementById('rondaKelompok').value;
+    var petugas = document.getElementById('rondaPetugas').value;
+
+    if (!tanggal || !kelompok || !petugas) {
+      return showWarning('Semua kolom wajib diisi!');
+    }
+
+    showLoading('Menyimpan jadwal ronda...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        tutupForm('rondaFormCrud', 'listRonda');
+        muatDataRonda();
+      } else {
+        showError(res.pesan);
+      }
+    }).simpanRonda(row, tanggal, kelompok, petugas);
+  }
+
+  function hapusRonda(row) {
+    if (!hasPermission('rt_ronda_crud')) { showError('Anda tidak memiliki izin untuk menghapus jadwal ronda.'); return; }
+    showConfirm('Yakin hapus jadwal ronda ini?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus jadwal ronda...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDataRonda();
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus jadwal ronda: ' + err.message);
+        }).hapusRonda(row);
+      }
+    });
+  }
+
+  // ======================== KONTAK ========================
+  function bukaKontak() {
+    sembunyikanSemuaLayar();
+    document.getElementById('kontakView').style.display = 'block';
+    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
+
+    if (hasPermission('rt_kontak_crud')) { // Kontrol visibilitas tombol Tambah
+      document.getElementById('btnTambahKontak').style.display = 'flex';
+    } else {
+      document.getElementById('btnTambahKontak').style.display = 'none';
+    }
+
+    muatDataKontak();
+    history.pushState({view: 'kontakView', tab: 'warga', onLoad: 'muatDataKontak'}, '', '#kontak');
+  }
+
+  function muatDataKontak() {
+    var list = document.getElementById('listKontak');
+    list.innerHTML = '<div class="skeleton" style="height:80px;"></div>';
+    
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close(); // Close loading modal
+      list.innerHTML = '';
+      
+      if (res.data && res.data.length) {
+        // 1. Pengurutan Berdasarkan Jabatan (Ketua di atas)
+        function getWeight(jab) {
+          var j = (jab || '').toLowerCase();
+          if (j.includes('ketua')) return 1;
+          if (j.includes('sekretaris')) return 2;
+          if (j.includes('bendahara')) return 3;
+          return 10;
+        }
+        res.data.sort(function(a, b) { return getWeight(a.jabatan) - getWeight(b.jabatan); });
+
+        // 3. Render Daftar Kader (Tampilan Flat/Daftar)
+        res.data.forEach(function(node) {
+          var wa = node.nohp ? node.nohp.replace(/^0/, "62") : '';
+          var linkwa = node.nohp 
+            ? `<a href="https://wa.me/${wa}" target="_blank" class="row" style="text-decoration:none; color:var(--accent-blue); font-size:13px;"><i class="material-icons" style="font-size:18px;">call</i><span>Hubungi (${node.nohp})</span></a>` 
+            : '<span class="muted" style="font-size:12px;">No HP tidak tersedia</span>';
+          
+          var isKetua = node.jabatan.toLowerCase().includes('ketua');
+          // Foto diperbesar menjadi 72px
+          var avatar = node.fotoUrl 
+            ? `<img src="${getDirectUrl(node.fotoUrl, 'w200')}" style="width:100%; height:100%; object-fit:cover; border-radius:inherit;">` 
+            : `<i class="material-icons" style="font-size:32px;">person</i>`;
+          
+          var aksi = hasPermission('rt_kontak_crud') ? `
+            <div class="card-actions" style="margin-top:8px; padding-top:5px;" onclick="event.stopPropagation()">
+              <button class="btn-action-subtle" onclick="editKontak('${node.id}','${node.nama.replace(/'/g,"\\'")}','${(node.jabatan||'').replace(/'/g,"\\'")}','${node.nohp}','${node.fotoUrl}')"><i class="material-icons" style="font-size:18px;">edit</i></button>
+              <button class="btn-action-subtle danger-hover" onclick="hapusDataKontak('${node.id}')"><i class="material-icons" style="font-size:18px;">delete</i></button>
+            </div>` : '';
+
+          list.innerHTML += `
+            <div class="card-item ${isKetua ? 'ketua-highlight' : ''}" style="padding:16px; margin-bottom:12px; cursor:pointer;" onclick="tampilkanDetailKader('${node.nama.replace(/'/g,"\\'")}','${(node.jabatan||'').replace(/'/g,"\\'")}','${node.nohp}','${node.fotoUrl}')">
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div style="background:${isKetua ? '#f59e0b' : 'var(--primary-red)'}; color:white; width:72px; height:72px; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; box-shadow: var(--shadow-sm);">
+                  ${avatar}
+                </div>
+                <div style="flex:1;">
+                  <div style="font-weight:800; font-size:12px; color:var(--primary-red); text-transform:uppercase; letter-spacing:0.5px;">${node.jabatan || 'Anggota'}</div>
+                  <div style="font-weight:700; font-size:17px; color:var(--text-main); margin:2px 0;">${node.nama}</div>
+                  <div style="margin-top:4px;">${linkwa}</div>
+                </div>
+              </div>
+              ${aksi}
+            </div>`;
+        });
+      } else {
+        list.innerHTML = '<p class="muted">Belum ada data kader pengurus.</p>';
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data kontak: ' + err.message);
+    }).getKontakPengurus();
+  }
+
+  function bukaFormKontak() {
+    if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk menambah kontak.'); return; }
+    document.getElementById('kId').value = '';
+    document.getElementById('kNama').value = '';
+    document.getElementById('kJabatan').value = '';
+    document.getElementById('kNoHp').value = '';
+    document.getElementById('kFoto').value = '';
+    document.getElementById('kPreviewFoto').innerHTML = '';
+    document.getElementById('judulFormKontak').innerText = 'Tambah Kader Baru';
+    bukaFormMode('formCrudKontak', 'wrapListKontak');
+  }
+
+  function editKontak(id, nama, jabatan, nohp, fotoUrl) {
+    if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk mengedit kontak.'); return; }
+    document.getElementById('kId').value = id;
+    document.getElementById('kNama').value = nama;
+    document.getElementById('kJabatan').value = jabatan;
+    document.getElementById('kNoHp').value = nohp;
+    document.getElementById('kFoto').value = '';
+    var preview = document.getElementById('kPreviewFoto');
+    preview.innerHTML = fotoUrl ? `<img src="${getDirectUrl(fotoUrl)}" style="max-height:100px; border-radius:8px; border:1px solid var(--border-color);">` : '';
+    document.getElementById('judulFormKontak').innerText = 'Edit Data Kader';
+    bukaFormMode('formCrudKontak', 'wrapListKontak');
+  }
+
+  function simpanDataKontak() {
+    if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk menyimpan kontak.'); return; }
+    var id = document.getElementById('kId').value;
+    var nama = document.getElementById('kNama').value;
+    var jabatan = document.getElementById('kJabatan').value;
+    var nohp = document.getElementById('kNoHp').value;
+    var fileInput = document.getElementById('kFoto');
+    
+    if (!nama) {
+      return showWarning('Nama wajib diisi!');
+    }
+    var btn = document.querySelector('#formCrudKontak .btn-primary');
+    var old = btn.innerHTML;
+    showLoading('Menyimpan data kontak...', true); // Show loading with progress bar
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+
+    var saveProcess = function(dataFile, mimeType, fileName) {
+      google.script.run.withSuccessHandler(function(res) {
+        btn.innerHTML = old;
+        btn.disabled = false;
+        if (res.status === 'success') {
+          showSuccess(res.pesan);
+          tutupForm('formCrudKontak', 'wrapListKontak');
+          muatDataKontak();
+        } else {
+          showError(res.pesan);
+        }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        btn.innerHTML = old;
+        btn.disabled = false;
+        showError('Gagal menyimpan kontak: ' + err.message);
+      }).simpanKontak(id, nama, jabatan, nohp, "", dataFile, mimeType, fileName);
+    };
+
+    if (fileInput.files.length > 0) {
+      var file = fileInput.files[0];
+      if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      // showLoading is already called, now update progress
+      compressImage(file, function(base64, mime) {
+        startSimulatedUpload(); // Start simulated upload after compression
+        saveProcess(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
+      }, 800); // Profile photos only need 800px
+    } else {
+      saveProcess(null, null, null);
+    }
+  }
+
+  function hapusDataKontak(id) {
+    if (!hasPermission('rt_kontak_crud')) { showError('Anda tidak memiliki izin untuk menghapus kontak.'); return; }
+    showConfirm('Yakin hapus kontak?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus kontak...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close(); // Close loading modal
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDataKontak();
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus kontak: ' + err.message);
+        }).hapusKontak(id);
+      }
+    });
+  }
+
+  // Listener Preview Foto
+  var kFotoInput = document.getElementById('kFoto');
+  if (kFotoInput) {
+    kFotoInput.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      var preview = document.getElementById('kPreviewFoto');
+      if (file && file.size <= 10 * 1024 * 1024 && file.type.indexOf('image/') === 0) {
+        var reader = new FileReader();
+        reader.onload = function(evt) {
+          preview.innerHTML = '<img src="' + evt.target.result + '" style="max-height:100px; border-radius:8px;">';
+        };
+        reader.readAsDataURL(file);
+      } else if (file) {
+        showWarning('Ukuran maksimal 10MB dan harus gambar');
+        e.target.value = '';
+        preview.innerHTML = '';
+      }
+    });
+  }
+
+  // ======================== KELOLA USER ========================
+  function bukaKelolaUser() {
+    sembunyikanSemuaLayar();
+    document.getElementById('kelolaUserView').style.display = 'block';
+    history.pushState({view: 'kelolaUserView', tab: 'warga', onLoad: 'muatDataUser'}, '', '#kelolaUser');
+    
+    // Muat pengaturan admin jika yang buka adalah admin
+    loadAdminSettingsUI();
+    history.pushState({view: 'kelolaUserView', tab: 'warga', onLoad: 'muatDataUser'}, '', '#kelolaUser');
+    
+    // Muat daftar role dulu baru muat data user
+    muatDaftarRole(function() {
+      muatDataUser();
+      
+      var btn = document.getElementById('btnTambahUser');
+      if (btn) { // Kontrol visibilitas tombol Tambah User
+        btn.style.display = hasPermission('rt_user_crud') ? 'flex' : 'none';
+      }
+    });
+  }
+
+  // Define a custom sort order for roles
+  const roleOrder = {
+    'admin': 1,
+    'pengurus rt': 2,
+    'pengurus pkk': 3,
+    'pengurus karang taruna': 4,
+    'warga': 5
+  };
+
+  function muatDataUser() {
+    var list = document.getElementById('listUsers');
+    list.innerHTML = '<p>Memuat...</p>';
+    showLoading('Memuat data user...');
+    document.getElementById('userSearchInput').value = ''; // Reset pencarian saat buka menu
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close(); // Close loading modal
+      if (res.data && res.data.length) {
+        allUsers = res.data;
+        renderUserList(allUsers);
+      } else {
+        list.innerHTML = '<p>Belum ada user.</p>';
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data user: ' + err.message);
+    }).getAllUsersWithWarga();
+  }
+
+  function cariUser() {
+    var keyword = document.getElementById('userSearchInput').value.toLowerCase();
+    var filtered = allUsers.filter(function(item) {
+      var name = String(item.nama || "").toLowerCase();
+      var email = String(item.email || "").toLowerCase();
+      return name.includes(keyword) || email.includes(keyword);
+    });
+    renderUserList(filtered);
+  }
+
+  function editNotifikasiUI(id) {
+    const it = activeNotifications.find(n => n.id === id);
+    if (!it) return showError('Data tidak ditemukan');
+
+    Swal.fire({
+      title: 'Edit Notifikasi',
+      background: 'var(--bg-surface)',
+      html: `
+        <div style="text-align:left;">
+          <label class="muted">Judul Notifikasi</label>
+          <input id="editNotifJudul" class="swal2-input" style="margin:8px 0; width:100%;" value="${it.judul}">
+          <label class="muted">Isi Pesan</label>
+          <textarea id="editNotifIsi" class="swal2-textarea" style="margin:8px 0; width:100%; font-family:inherit;">${it.isi}</textarea>
+          <label class="muted">Target Role (pisahkan koma atau "all")</label>
+          <input id="editNotifRole" class="swal2-input" style="margin:8px 0; width:100%;" value="${it.targetRole}">
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Simpan Perubahan',
+      confirmButtonColor: 'var(--primary-color)',
+      preConfirm: () => {
+        return {
+          judul: document.getElementById('editNotifJudul').value,
+          isi: document.getElementById('editNotifIsi').value,
+          role: document.getElementById('editNotifRole').value
+        }
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Memperbarui notifikasi...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            bukaNotifikasi(); // Refresh list
+          } else {
+            showError(res.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal memperbarui notifikasi: ' + err.message);
+        }).adminEditNotifikasi(id, result.value.judul, result.value.isi, result.value.role, it.targetPage);
+      }
+    });
+  }
+
+  function hapusNotifikasiUI(id) {
+    showConfirm('Hapus notifikasi ini secara permanen?').then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            bukaNotifikasi(); // Refresh list
+          } else {
+            showError(res.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus notifikasi: ' + err.message);
+        }).adminHapusNotifikasi(id);
+      }
+    });
+  }
+
+  function gantiPasswordUI() {
+    Swal.fire({
+      title: 'Ubah Password',
+      background: 'var(--bg-surface)',
+      html: `
+        <div style="text-align:left;">
+          <div class="input-group" style="margin-bottom:12px;">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Password Lama</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">lock_outline</i>
+              <input type="password" id="oldPass" class="swal2-input" placeholder="••••••••" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+          <div class="input-group" style="margin-bottom:12px;">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Password Baru</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">lock</i>
+              <input type="password" id="newPass" class="swal2-input" placeholder="Minimal 4 karakter" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="muted" style="font-size:12px; display:block; margin-bottom:5px;">Konfirmasi Password Baru</label>
+            <div style="position:relative;">
+              <i class="material-icons" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted);">check_circle_outline</i>
+              <input type="password" id="confirmPass" class="swal2-input" placeholder="Ulangi password baru" style="margin:0; width:100%; padding-left:45px; height:46px; font-size:15px; background:var(--bg-app); border:1px solid var(--border-color); border-radius:10px;">
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Perbarui Password',
+      confirmButtonColor: 'var(--primary-color)',
+      cancelButtonText: 'Batal',
+      preConfirm: () => {
+        const oldP = document.getElementById('oldPass').value;
+        const newP = document.getElementById('newPass').value;
+        const confP = document.getElementById('confirmPass').value;
+        if (!oldP || !newP || !confP) {
+          Swal.showValidationMessage('Harap isi semua kolom!');
+          return false;
+        }
+        if (newP !== confP) {
+          Swal.showValidationMessage('Konfirmasi password tidak cocok!');
+          return false;
+        }
+        if (newP.length < 4) {
+          Swal.showValidationMessage('Password minimal 4 karakter!');
+          return false;
+        }
+        return { oldP, newP };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Memproses pembaruan password...');
+        google.script.run
+          .withSuccessHandler(function(res) {
+            Swal.close();
+            if (res.status === 'success') showSuccess(res.pesan);
+            else showError(res.pesan);
+          })
+          .withFailureHandler(function(err) {
+            Swal.close();
+            showError('Gagal memperbarui password: ' + err.message);
+          })
+          .ubahPassword(currentUser.email, result.value.oldP, result.value.newP);
+      }
+    });
+  }
+
+  function renderUserList(data) {
+    var list = document.getElementById('listUsers');
+    list.innerHTML = '';
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p class="muted">Tidak ditemukan user yang cocok.</p>';
+      return;
+    }
+
+    // Urutkan berdasarkan hierarki role dan nama
+    data.sort((a, b) => {
+      const roleA = roleOrder[a.role] || 99; 
+      const roleB = roleOrder[b.role] || 99;
+      if (roleA === roleB) return (a.nama || '').localeCompare(b.nama || '');
+      return roleA - roleB;
+    });
+
+    let currentRoleGroup = '';
+    data.forEach(function(item) {
+      if (item.role !== currentRoleGroup) {
+        currentRoleGroup = item.role;
+        list.innerHTML += `<div style="margin-top:20px; margin-bottom:10px; padding:8px 12px; background:var(--border-color); border-radius:8px; font-weight:700; color:var(--text-main);">${currentRoleGroup.toUpperCase()}</div>`;
+      }
+
+      var roleDisplay = item.role.charAt(0).toUpperCase() + item.role.slice(1);
+      var editHtml = hasPermission('rt_user_crud') ? `
+        <div class="card-actions">
+          <button class="btn-action-subtle" onclick="editUser('${item.id}')">
+            <i class="material-icons">edit_note</i> Edit Role
+          </button>
+          <button class="btn-action-subtle ${item.status === 'suspended' ? 'success-hover' : 'warning-hover'}" 
+                  onclick="konfirmasiToggleStatus('${item.id}', '${item.status}', '${item.nama.replace(/'/g, "\\'")}')">
+            <i class="material-icons">${item.status === 'suspended' ? 'lock_open' : 'lock_outline'}</i> ${item.status === 'suspended' ? 'Aktifkan' : 'Suspend'}
+          </button>
+          <button class="btn-action-subtle danger-hover" onclick="konfirmasiHapusUser('${item.id}', '${item.nama.replace(/'/g, "\\'")}')">
+            <i class="material-icons">delete_outline</i> Hapus
+          </button>
+        </div>` : '';
+      
+      list.innerHTML += `
+        <div class="card-item">
+          <div style="font-size:16px; font-weight:800; color:var(--primary-red); margin-bottom:8px; display:flex; align-items:center;">
+            ${item.nama}
+            <span class="status-badge ${item.status === 'suspended' ? 'status-belum' : 'status-selesai'}" style="margin-left:8px; font-size:10px;">${item.status === 'suspended' ? 'Suspended' : 'Aktif'}</span>
+          </div>
+          <div style="display:grid; gap:6px;">
+            <div class="row"><i class="material-icons muted" style="font-size:18px;">email</i> <span style="font-weight:600;">Email:</span> ${item.email}</div>
+            <div class="row"><i class="material-icons muted" style="font-size:18px;">badge</i> <span style="font-weight:600;">Role:</span> <strong style="color:var(--primary-red);">${roleDisplay}</strong></div>
+          </div>
+          ${editHtml}
+        </div>`;
+    });
+  }
+
+  function simpanNomorAdmin() {
+    var val = document.getElementById('adminWaInput').value.trim();
+    if(!val) return showWarning('Nomor tidak boleh kosong!');
+    showLoading('Menyimpan pengaturan...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if(res.status === 'success') {
+        showSuccess('Nomor Admin berhasil diperbarui!');
+        updateAdminContactLink();
+      } else showError(res.pesan);
+    }).saveSettings('admin_whatsapp', val);
+  }
+
+  function loadAdminSettingsUI() {
+    google.script.run.withSuccessHandler(function(res) {
+      const input = document.getElementById('adminWaInput');
+      if (res && res.status === 'success' && res.data.admin_whatsapp && input) {
+        input.value = res.data.admin_whatsapp;
+      }
+    }).getSettings();
+  }
+
+  function muatDaftarRole(callback) {
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'success') {
+        var select = document.getElementById('uRole');
+        var currentVal = select.value;
+        select.innerHTML = '';
+        res.data.forEach(function(r) {
+          var opt = document.createElement('option');
+          opt.value = r.toLowerCase();
+          opt.text = r;
+          select.appendChild(opt);
+        });
+        if (currentVal) select.value = currentVal;
+        if (callback) callback();
+      }
+    }).getDaftarRole();
+  }
+
+  function buatRoleBaru() {
+    Swal.fire({
+      title: 'Tambah Role Baru',
+      input: 'text',
+      inputLabel: 'Nama Role',
+      inputPlaceholder: 'Contoh: Pengurus Keamanan',
+      showCancelButton: true,
+      confirmButtonText: 'Simpan',
+      confirmButtonColor: '#d32f2f'
+    }).then(function(result) {
+      if (result.isConfirmed && result.value) {
+        showLoading('Menyimpan Role Baru...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            muatDaftarRole();
+          } else {
+            showError(res.pesan);
+          }
+        }).tambahRoleBaru(result.value);
+      }
+    });
+  }
+
+  function editUser(id) {
+    if (!hasPermission('rt_user_crud')) { showError('Anda tidak memiliki izin untuk mengedit user.'); return; }
+    
+    // Perbaikan: Pastikan allUsers sudah terisi dan perbandingan ID dilakukan dengan membersihkan whitespace
+    if (!allUsers || allUsers.length === 0) { showError('Data user belum dimuat sempurna. Silakan tunggu.'); return; }
+    
+    const userToEdit = allUsers.find(user => String(user.id).trim() === String(id).trim());
+    if (!userToEdit) { showError('User tidak ditemukan!'); return; }
+
+    document.getElementById('uId').value = id;
+    document.getElementById('uNama').value = userToEdit.nama;
+    document.getElementById('uEmail').value = userToEdit.email;
+    document.getElementById('uRole').value = userToEdit.role.toLowerCase();
+    generatePermissionCheckboxes(userToEdit.permissions || []);
+    bukaFormMode('formCrudUser', 'wrapListUser');
+  }
+
+  function konfirmasiHapusUser(id, nama) {
+    if (!hasPermission('rt_user_crud')) { showError('Anda tidak memiliki izin untuk menghapus user.'); return; }
+    Swal.fire({
+      title: 'Hapus User?',
+      text: "Anda akan menghapus user '" + nama + "'. Tindakan ini tidak dapat dibatalkan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Menghapus user...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            muatDataUser();
+          } else {
+            showError(res.pesan);
+          }
+        }).hapusUser(id);
+      }
+    });
+  }
+
+  function konfirmasiToggleStatus(id, currentStatus, nama) {
+    var actionMsg = currentStatus === 'suspended' ? 'mengaktifkan kembali' : 'menonaktifkan sementara (suspend)';
+    var btnText = currentStatus === 'suspended' ? 'Ya, Aktifkan' : 'Ya, Suspend';
+
+    Swal.fire({
+      title: 'Ubah Status Akun?',
+      text: "Apakah Anda yakin ingin " + actionMsg + " akun " + nama + "?",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: currentStatus === 'suspended' ? '#10b981' : '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: btnText
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading('Memperbarui status...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            muatDataUser();
+          } else showError(res.pesan);
+        }).toggleUserStatus(id, currentStatus);
+      }
+    });
+  }
+
+  function bukaFormTambahUser() {
+    if (!hasPermission('rt_user_crud')) { showError('Anda tidak memiliki izin untuk menambah user.'); return; }
+    document.getElementById('uId').value = '';
+    document.getElementById('uNama').value = '';
+    document.getElementById('uEmail').value = '';
+    document.getElementById('uRole').value = 'warga';
+    generatePermissionCheckboxes([]);
+    document.getElementById('judulFormUser').innerText = 'Tambah User';
+    bukaFormMode('formCrudUser', 'wrapListUser');
+  }
+
+  function filterPermissions() {
+    var text = document.getElementById('uPermSearch').value.toLowerCase();
+    var labels = document.querySelectorAll('.u-perm-label');
+    
+    labels.forEach(function(label) {
+      var match = label.textContent.toLowerCase().includes(text);
+      label.style.display = match ? 'flex' : 'none';
+    });
+    
+    // Sembunyikan header grup jika tidak ada fitur yang cocok di dalamnya
+    document.querySelectorAll('.u-perm-group').forEach(function(group) {
+      var visibleItems = group.querySelectorAll('.u-perm-label:not([style*="display: none"])');
+      group.style.display = visibleItems.length > 0 ? 'block' : 'none';
+    });
+    updateSelectAllState();
+  }
+
+  function toggleAllPermissions(checked) {
+    document.querySelectorAll('.u-perm-chk').forEach(function(chk) {
+      chk.checked = checked;
+    });
+  }
+
+  function updateSelectAllState() {
+    var all = document.querySelectorAll('.u-perm-chk');
+    var checked = document.querySelectorAll('.u-perm-chk:checked');
+    var selectAll = document.getElementById('uPermSelectAll');
+    if (selectAll) {
+      selectAll.checked = (all.length > 0 && all.length === checked.length);
+    }
+  }
+
+  function generatePermissionCheckboxes(selectedPerms) {
+    var container = document.getElementById('uPermissionList');
+    container.innerHTML = '';
+    
+    // Reset search bar saat generate ulang
+    var searchInput = document.getElementById('uPermSearch');
+    if (searchInput) searchInput.value = '';
+
+    // Definisi grup dan warna kategori
+    const groups = [
+      { id: 'rt', label: 'MODUL RT (RUKUN TETANGGA)', color: 'var(--warga-red)' },
+      { id: 'pkk', label: 'MODUL PKK', color: 'var(--pkk-green)' },
+      { id: 'kt', label: 'MODUL KARANG TARUNA', color: 'var(--kt-blue)' }
+    ];
+
+    groups.forEach(function(group) {
+      // Filter fitur yang masuk dalam grup ini
+      var perms = availablePermissions.filter(function(p) {
+        return p.key.startsWith(group.id + '_');
+      });
+
+      if (perms.length > 0) {
+        var groupWrapper = document.createElement('div');
+        groupWrapper.className = 'u-perm-group';
+        groupWrapper.style.marginBottom = '12px';
+
+        // Header kategori dengan warna identitas modul
+        var header = document.createElement('div');
+        header.style.cssText = 'font-weight:800; font-size:10px; padding:6px 12px; border-radius:6px; color:white; background:' + group.color + '; margin-bottom:4px; letter-spacing:0.8px; box-shadow: var(--shadow-sm);';
+        header.innerText = group.label;
+        groupWrapper.appendChild(header);
+
+        // List checkbox dalam kategori
+        perms.forEach(function(p) {
+          var isChecked = selectedPerms.indexOf(p.key) !== -1 ? 'checked' : '';
+          var label = document.createElement('label');
+          label.className = 'u-perm-label';
+          label.style.cssText = 'display:flex; align-items:center; gap:12px; font-size:13px; cursor:pointer; padding:6px 12px; border-radius:10px; transition: background 0.2s;';
+          label.innerHTML = '<input type="checkbox" class="u-perm-chk" value="' + p.key + '" ' + isChecked + ' style="width:auto; margin:0;" onchange="updateSelectAllState()">'
+            + '<span style="color:var(--text-main); font-weight:500;">' + p.label + '</span>';
+          groupWrapper.appendChild(label);
+        });
+
+        container.appendChild(groupWrapper);
+      }
+    });
+
+    updateSelectAllState();
+  }
+
+  function simpanDataUser() {
+    if (!hasPermission('rt_user_crud')) { showError('Anda tidak memiliki izin untuk menyimpan user.'); return; }
+    var id = document.getElementById('uId').value;
+    var nama = document.getElementById('uNama').value;
+    var email = document.getElementById('uEmail').value;
+    var role = document.getElementById('uRole').value;
+    var password = document.getElementById('uPassword') ? document.getElementById('uPassword').value : '';
+    
+    var perms = [];
+    document.querySelectorAll('.u-perm-chk:checked').forEach(function(c) { perms.push(c.value); });
+
+    if (!nama || !email) {
+      return showWarning('Nama dan Email wajib diisi!');
+    }
+
+
+    showLoading('Menyimpan perubahan user...');
+    // No progress bar for user data as it's not a file upload
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: res.pesan,
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+        document.getElementById('uPassword').value = ''; // Clear password field after save
+        tutupForm('formCrudUser', 'wrapListUser');
+        muatDataUser();
+      } else {
+        showError(res.pesan);
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close();
+      showError('Gagal menyimpan user: ' + err.message);
+    }).simpanUser(id, nama, email, role, password, perms.join(','));
+  }
+
+
+  // ======================== PENGADUAN ========================
+  function bukaFormPengaduan() {
+    sembunyikanSemuaLayar();
+    document.getElementById('formPengaduanView').style.display = 'block';
+    history.pushState({view: 'formPengaduanView', tab: 'warga'}, '', '#kirimPengaduan');
+  }
+
+  function submitPengaduan() {
+    var isi = document.getElementById('isiPengaduan').value;
+    if (!isi) {
+      return showWarning("Silakan isi laporan!");
+    }
+    var btn = document.querySelector('#formPengaduanView .btn-primary');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    showLoading('Mengirim laporan...', true); // Start loading with progress bar
+    var obj = {
+      pelapor: currentUser.nama,
+      isi: isi,
+      dataFile: null,
+      mimeType: '',
+      fileName: ''
+    };
+    // Reset progress bar
+    currentProgress = 0;
+    updateProgress(0, 'Memulai...');
+    var fileInput = document.getElementById('fotoPengaduan');
+    if (fileInput.files.length) {
+      var file = fileInput.files[0];
+      compressImage(file, function(base64, mime) {
+        obj.dataFile = base64;
+        obj.mimeType = mime;
+        obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+        kirimLaporan(obj, btn);
+      }).withFailureHandler(function(err) {
+        clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
+      });
+    } else {
+      kirimLaporan(obj, btn);
+    }
+  }
+
+  function kirimLaporan(obj, btn) {
+    startSimulatedUpload(); // Start simulated upload after compression (or immediately if no file)
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = "Kirim Laporan";
+      btn.disabled = false;
+      if (res.status === 'success') {
+        showSuccess(res.pesan).then(function() {
+          document.getElementById('isiPengaduan').value = '';
+          document.getElementById('fotoPengaduan').value = '';
+          document.getElementById('previewUpload').innerHTML = '';
+          kembaliKeDashboard();
+        });
+      } else {
+        showError(res.pesan);
+      }
+    }).prosesPengaduan(obj);
+  }
+
+  function bukaHistori() {
+    sembunyikanSemuaLayar();
+    document.getElementById('historiPengaduanView').style.display = 'block';
+    history.pushState({view: 'historiPengaduanView', tab: 'warga', onLoad: 'muatHistoriPengaduan'}, '', '#historiPengaduan');
+    muatHistoriPengaduan();
+  }
+
+  /**
+   * Refactored: Render dari State Lokal
+   */
+  function renderListHistoriUI(data) {
+    const list = document.getElementById('listHistori');
+    list.innerHTML = '';
+    if (!data || !data.length) {
+      list.innerHTML = '<p>Belum ada histori.</p>';
+      return;
+    }
+
+    const allImgs = data.filter(it => it.fotoUrl).map(it => getDirectUrl(it.fotoUrl));
+    
+    data.forEach((item, j) => {
+      let statusClass = 'status-belum';
+      if (item.status === 'Selesai') statusClass = 'status-selesai';
+      else if (item.status === 'Diproses' || item.status === 'Mengirim...') statusClass = 'status-diproses';
+
+      const fotoHTML = item.fotoUrl ? `<img src="${item.fotoUrl.startsWith('blob') ? item.fotoUrl : getDirectUrl(item.fotoUrl)}" class="img-thumbnail" onclick="openLightbox('${item.fotoUrl}', ${JSON.stringify(allImgs).replace(/"/g, '&quot;')}, ${j})">` : '';
+
+      list.innerHTML += `<div class="card-item" id="card-${item.id}">
+        <div><strong>${item.pelapor}</strong> - ${item.waktu}</div>
+        <div class="status-badge ${statusClass}" style="margin-top:5px;">${item.status}</div>
+        <div style="margin-top:10px;">${item.isi}</div>
+        ${fotoHTML}
+      </div>`;
+    });
+  }
+
+  function muatHistoriPengaduan() {
+    var list = document.getElementById('listHistori');
+    // Cek cache dulu agar instan
+    if (window.pengaduanDataGlobal.length > 0) renderListHistoriUI(window.pengaduanDataGlobal);
+    else list.innerHTML = SPINNER_HTML;
+
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'error') return showError(res.pesan);
+      window.pengaduanDataGlobal = res.data || [];
+      renderListHistoriUI(window.pengaduanDataGlobal);
+    }).getHistoriPengaduan(currentUser.nama);
+  }
+
+  function bukaLaporanAdmin() {
+    sembunyikanSemuaLayar();
+    document.getElementById('laporanPengaduanAdminView').style.display = 'block';
+    history.pushState({view: 'laporanPengaduanAdminView', tab: 'warga', onLoad: 'muatLaporanPengaduanAdmin'}, '', '#adminPengaduan');
+    muatLaporanPengaduanAdmin();
+  }
+
+  function muatLaporanPengaduanAdmin() {
+    var list = document.getElementById('listLaporanSemua');
+    list.innerHTML = '<p>Memuat...</p>';
+    google.script.run.withSuccessHandler(function(res) {
+      list.innerHTML = ''; // Clear skeleton
+      if (res.data && res.data.length) {
+        var allImgs = [];
+        for (var i = 0; i < res.data.length; i++) {
+          allImgs.push(getDirectUrl(res.data[i].fotoUrl));
+        }
+        for (var j = 0; j < res.data.length; j++) {
+          var item = res.data[j];
+          var statusClass = 'status-belum';
+          if (item.status === 'Selesai') {
+            statusClass = 'status-selesai';
+          } else if (item.status === 'Diproses') {
+            statusClass = 'status-diproses';
+          }
+          var directUrl = getDirectUrl(item.fotoUrl);
+          var fotoHTML = '';
+          if (item.fotoUrl) {
+            fotoHTML = '<img src="' + directUrl + '" class="img-thumbnail" style="border:1px solid var(--border-color);" '
+              + 'onclick="openLightbox(\'' + directUrl + '\', '
+              + JSON.stringify(allImgs).replace(/"/g, '&quot;') + ',' + j + ')">';
+          }
+          var isBelum = '';
+          var isProses = '';
+          var isSelesai = '';
+          if (item.status === 'Belum teratasi') {
+            isBelum = 'selected';
+          }
+          if (item.status === 'Diproses') {
+            isProses = 'selected';
+          }
+          if (item.status === 'Selesai') {
+            isSelesai = 'selected';
+          }
+          var crudButtons = '';
+          if (hasPermission('rt_pengaduan_admin_crud')) { // Tampilkan tombol update/hapus jika memiliki izin
+            crudButtons = '<button class="btn-small success" onclick="updateStatusLaporan(\'' + item.id + '\')">Update</button>'
+              + '<button class="btn-small danger" onclick="hapusPengaduan(\'' + item.id + '\')">Hapus</button>';
+          }
+          list.innerHTML += '<div class="card-item">'
+            + '<div><strong>' + item.pelapor + '</strong> - ' + item.waktu + '</div>'
+            + '<div class="status-badge ' + statusClass + '">' + item.status + '</div>'
+            + '<div>' + item.isi + '</div>'
+            + fotoHTML
+            + '<hr>'
+            + '<select id="status_' + item.id + '" style="background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color);">'
+            + '<option ' + isBelum + '>Belum teratasi</option>'
+            + '<option ' + isProses + '>Diproses</option>'
+            + '<option ' + isSelesai + '>Selesai</option>'
+            + '</select>'
+            + crudButtons
+            + '</div>';
+        }
+      } else {
+        list.innerHTML = '<p>Belum ada laporan.</p>';
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat laporan pengaduan: ' + err.message);
+    }).getSemuaPengaduan();
+  }
+
+  function hapusPengaduan(id) {
+    if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk menghapus pengaduan.'); return; }
+    showConfirm('Yakin hapus pengaduan?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus pengaduan...');
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan).then(function() {
+              if (document.getElementById('historiPengaduanView').style.display === 'block') {
+                bukaHistori();
+              } else {
+                bukaLaporanAdmin();
+              }
+            });
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus pengaduan: ' + err.message);
+        }).hapusPengaduan(id);
+      }
+    });
+  }
+
+  function updateStatusLaporan(id) {
+    if (!hasPermission('rt_pengaduan_admin_crud')) { showError('Anda tidak memiliki izin untuk mengubah status pengaduan.'); return; }
+    var statusBaru = document.getElementById('status_' + id).value;
+    showLoading('Mengupdate...');
+    // No progress bar for status update as it's not a file upload
+    google.script.run.withSuccessHandler(function(r) {
+      Swal.close();
+      if (r.status === 'success') {
+        showSuccess(r.pesan).then(function() {
+          bukaLaporanAdmin();
+        });
+      } else {
+        showError(r.pesan);
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memperbarui status pengaduan: ' + err.message);
+    }).updateStatusPengaduan(id, statusBaru);
+  }
+
+  // ======================== KAS & GRAFIK ========================
+  function hitungTotalSaldo(data) {
+    var totalPemasukan = 0;
+    var totalPengeluaran = 0;
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].jenis === 'Pemasukan') {
+        totalPemasukan += data[i].jumlah;
+      } else {
+        totalPengeluaran += data[i].jumlah;
+      }
+    }
+    return Number((totalPemasukan - totalPengeluaran).toFixed(2));
+  }
+
+  function hitungTotalKematian(data) {
+    var total = 0;
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].jenis === 'Pemasukan' && data[i].kategori === 'Kematian') {
+        total += data[i].jumlah;
+      }
+    }
+    return Number(total.toFixed(2));
+  }
+
+  function updateRingkasanUI(backendTotals) {
+    // Prefer pakai total dari backend (lebih akurat dari sisi kategori/akumulasi)
+    // backendTotals totalSaldo/totalUangKematian bisa saja string.
+    var totalSaldo = hitungTotalSaldo(allKasData);
+    var totalKematian = hitungTotalKematian(allKasData);
+
+    if (backendTotals) {
+      if (backendTotals.totalSaldo !== null && backendTotals.totalSaldo !== undefined) {
+        var parsedSaldo = parseFloat(backendTotals.totalSaldo);
+        if (isFinite(parsedSaldo)) totalSaldo = parsedSaldo;
+      }
+      if (backendTotals.totalUangKematian !== null && backendTotals.totalUangKematian !== undefined) {
+        var parsedKematian = parseFloat(backendTotals.totalUangKematian);
+        if (isFinite(parsedKematian)) totalKematian = parsedKematian;
+      }
+    }
+
+    // Selalu update elemen di dalam layar laporan Kas (kasView)
+    var totalKasEl2 = document.getElementById('totalKasIuran');
+    if (totalKasEl2) totalKasEl2.innerText = totalSaldo.toLocaleString('id-ID');
+    var totalKematianEl2 = document.getElementById('totalKonsumsiRondaIuran');
+    if (totalKematianEl2) totalKematianEl2.innerText = totalKematian.toLocaleString('id-ID');
+
+    // Hanya update elemen di Beranda (dashboardView) jika tab yang aktif adalah 'warga'
+    if (currentTab === 'warga') {
+      var totalKasEl1 = document.getElementById('totalKasIuranValue');
+      if (totalKasEl1) totalKasEl1.innerText = totalSaldo.toLocaleString('id-ID');
+      var totalKematianEl1 = document.getElementById('totalKonsumsiRondaIuranValue');
+      if (totalKematianEl1) totalKematianEl1.innerText = totalKematian.toLocaleString('id-ID');
+    }
+  }
+
+  var kasBackendTotalsGlobal = null;
+
+  function muatDataKas(callback) {
+    // Aktifkan skeleton pada semua elemen saldo RT
+    const targets = ['totalKasIuranValue', 'totalKonsumsiRondaIuranValue', 'totalKasIuran', 'totalKonsumsiRondaIuran'];
+    targets.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.add('skeleton-text');
+        el.innerText = '0.000.000';
+      }
+    });
+
+    google.script.run.withSuccessHandler(function(res) {
+      targets.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('skeleton-text');
+      });
+
+      var backendTotals = null;
+      if (res && res.status === 'success') {
+        allKasData = res.data || [];
+        var ts = res.totalSaldo;
+        var tk = res.totalUangKematian;
+        backendTotals = {
+          totalSaldo: (isFinite(parseFloat(ts)) ? parseFloat(ts) : null),
+          totalUangKematian: (isFinite(parseFloat(tk)) ? parseFloat(tk) : null)
+        };
+      } else {
+        allKasData = [];
+      }
+      kasBackendTotalsGlobal = backendTotals;
+
+
+      var pemasukanList = [];
+      var pengeluaranList = [];
+      for (var i = 0; i < allKasData.length; i++) {
+        var jns = (allKasData[i].jenis || '').toLowerCase().trim();
+        if (jns === 'pemasukan') {
+          pemasukanList.push(allKasData[i]);
+        } else if (jns === 'pengeluaran') {
+          pengeluaranList.push(allKasData[i]);
+        }
+      }
+      originalPemasukanList = pemasukanList;
+      originalPengeluaranList = pengeluaranList;
+      filterTabelTransaksi();
+      muatRekapPeriode();
+      updateRingkasanUI(backendTotals);
+      var selectedYear = parseInt(document.getElementById('tahunKasSelect').value);
+      renderGrafikKas(selectedYear);
+      if (callback) {
+        callback();
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat data kas: ' + err.message);
+    }).getKasWarga();
+  }
+
+  function filterTabelTransaksi() {
+    var bulan = parseInt(document.getElementById('filterBulanTransaksi').value);
+    var tahun = parseInt(document.getElementById('filterTahunTransaksi').value);
+    var filteredP = [];
+    var filteredG = [];
+    for (var i = 0; i < originalPemasukanList.length; i++) {
+      var item = originalPemasukanList[i];
+      var p = item.tanggal.split('-');
+      if (p.length === 3) {
+        var thn = parseInt(p[0]);
+        var bln = parseInt(p[1]);
+        if (bulan !== 0) {
+          if (thn === tahun && bln === bulan) {
+            filteredP.push(item);
+          }
+        } else {
+          if (thn === tahun) {
+            filteredP.push(item);
+          }
+        }
+      }
+    }
+    for (var j = 0; j < originalPengeluaranList.length; j++) {
+      var item2 = originalPengeluaranList[j];
+      var p2 = item2.tanggal.split('-');
+      if (p2.length === 3) {
+        var thn2 = parseInt(p2[0]);
+        var bln2 = parseInt(p2[1]);
+        if (bulan !== 0) {
+          if (thn2 === tahun && bln2 === bulan) {
+            filteredG.push(item2);
+          }
+        } else {
+          if (thn2 === tahun) {
+            filteredG.push(item2);
+          }
+        }
+      }
+    }
+    renderTabelTransaksi(filteredP, filteredG);
+  }
+
+  function renderTabelTransaksi(pemasukanList, pengeluaranList) {
+    var tbodyP = document.getElementById('tbodyPemasukan');
+    var tbodyG = document.getElementById('tbodyPengeluaran');
+    tbodyP.innerHTML = '';
+    tbodyG.innerHTML = '';
+    var isAdmin = hasPermission('rt_iuran_manage');
+    for (var p = 0; p < pemasukanList.length; p++) {
+      var item = pemasukanList[p];
+      var row = tbodyP.insertRow();
+      row.insertCell(0).innerText = item.tanggal;
+      var cellKat = row.insertCell(1);
+      if (item.kategori) {
+        cellKat.innerHTML = '<span class="kategori-badge">' + item.kategori + '</span>';
+      } else {
+        cellKat.innerText = '-';
+      }
+      row.insertCell(2).innerText = item.deskripsi || '-';
+      var cellJumlah = row.insertCell(3);
+      cellJumlah.innerText = 'Rp ' + item.jumlah.toLocaleString('id-ID');
+      cellJumlah.style.color = '#10b981';
+      cellJumlah.style.fontWeight = '700';
+      var cellAksi = row.insertCell(4);
+      if (isAdmin) {
+        var eb = document.createElement('button');
+        eb.className = 'btn-small';
+        eb.innerHTML = '<i class="material-icons" style="font-size:14px;">edit</i>';
+        (function(it) {
+          eb.onclick = function() {
+            editKas(
+              it.id,
+              it.tanggal,
+              it.kategori,
+              it.deskripsi,
+              it.jenis,
+              it.jumlah
+            );
+          };
+        })(item);
+        var db = document.createElement('button');
+        db.className = 'btn-small danger';
+        db.innerHTML = '<i class="material-icons" style="font-size:14px;">delete</i>';
+        (function(id) {
+          db.onclick = function() {
+            hapusKas(id);
+          };
+        })(item.id);
+        cellAksi.appendChild(eb);
+        cellAksi.appendChild(db);
+      } else {
+        cellAksi.innerText = '-';
+      }
+    }
+    for (var q = 0; q < pengeluaranList.length; q++) {
+      var item2 = pengeluaranList[q];
+      var row2 = tbodyG.insertRow();
+      row2.insertCell(0).innerText = item2.tanggal;
+      var cellKat2 = row2.insertCell(1);
+      if (item2.kategori) {
+        cellKat2.innerHTML = '<span class="kategori-badge">' + item2.kategori + '</span>';
+      } else {
+        cellKat2.innerText = '-';
+      }
+      row2.insertCell(2).innerText = item2.deskripsi || '-';
+      var cellJumlah2 = row2.insertCell(3);
+      cellJumlah2.innerText = 'Rp ' + item2.jumlah.toLocaleString('id-ID');
+      cellJumlah2.style.color = '#ef4444';
+      cellJumlah2.style.fontWeight = '700';
+      var cellAksi2 = row2.insertCell(4);
+      if (isAdmin) {
+        var eb2 = document.createElement('button');
+        eb2.className = 'btn-small';
+        eb2.innerHTML = '<i class="material-icons" style="font-size:14px;">edit</i>';
+        (function(it) {
+          eb2.onclick = function() {
+            editKas(
+              it.id,
+              it.tanggal,
+              it.kategori,
+              it.deskripsi,
+              it.jenis,
+              it.jumlah
+            );
+          };
+        })(item2);
+        var db2 = document.createElement('button');
+        db2.className = 'btn-small danger';
+        db2.innerHTML = '<i class="material-icons" style="font-size:14px;">delete</i>';
+        (function(id) {
+          db2.onclick = function() {
+            hapusKas(id);
+          };
+        })(item2.id);
+        cellAksi2.appendChild(eb2);
+        cellAksi2.appendChild(db2);
+      } else {
+        cellAksi2.innerText = '-';
+      }
+    }
+  }
+
+  function muatGrafikKas() {
+    var tahun = parseInt(document.getElementById('tahunKasSelect').value);
+    updateRingkasanUI(kasBackendTotalsGlobal);
+    renderGrafikKas(tahun);
+  }
+
+  function cetakLaporanKas() {
+    var tahun = document.getElementById('tahunKasSelect').value;
+    var bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    // Agregasi Data
+    var dataBulanan = Array.from({ length: 12 }, (_, i) => ({
+      namaBulan: bulanIndo[i],
+      p_kas: 0, p_kematian: 0,
+      g_kas: 0, g_kematian: 0,
+      keterangan: []
+    }));
+
+    allKasData.forEach(item => {
+      var d = item.tanggal.split('-');
+      if (d[0] == tahun) {
+        var mIdx = parseInt(d[1]) - 1;
+        var isKematian = (item.kategori || '').toLowerCase().includes('kematian');
+        
+        if (item.jenis === 'Pemasukan') {
+          if (isKematian) dataBulanan[mIdx].p_kematian += item.jumlah;
+          else dataBulanan[mIdx].p_kas += item.jumlah;
+        } else {
+          if (isKematian) dataBulanan[mIdx].g_kematian += item.jumlah;
+          else dataBulanan[mIdx].g_kas += item.jumlah;
+        }
+        if (item.deskripsi) dataBulanan[mIdx].keterangan.push(item.deskripsi);
+      }
+    });
+
+    var total = { p_kas: 0, p_kematian: 0, g_kas: 0, g_kematian: 0 };
+    var tableRows = dataBulanan.map(b => {
+      if (b.p_kas === 0 && b.p_kematian === 0 && b.g_kas === 0 && b.g_kematian === 0) return '';
+      total.p_kas += b.p_kas; total.p_kematian += b.p_kematian;
+      total.g_kas += b.g_kas; total.g_kematian += b.g_kematian;
+      return `<tr>
+        <td>${b.namaBulan}</td>
+        <td align="right">${b.p_kas.toLocaleString('id-ID')}</td>
+        <td align="right">${b.p_kematian.toLocaleString('id-ID')}</td>
+        <td align="right">${b.g_kas.toLocaleString('id-ID')}</td>
+        <td align="right">${b.g_kematian.toLocaleString('id-ID')}</td>
+        <td><small>${b.keterangan.slice(0,2).join(', ')}</small></td>
+      </tr>`;
+    }).join('');
+
+    var printWin = window.open('', '_blank');
+    printWin.document.write(`
+      <html><head><title>Laporan Kas RT01</title>
+      <style>
+        body { font-family: sans-serif; padding: 40px; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #000; padding: 8px; font-size: 12px; }
+        th { background: #eee; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .footer { margin-top: 50px; float: right; text-align: center; width: 250px; }
+      </style></head><body>
+      <div class="header">
+        <h2>LAPORAN KAS WARGA RT 01 RW 03</h2>
+        <p>Tahun Anggaran: ${tahun}</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2">Bulan</th>
+            <th colspan="2">Pemasukan (Rp)</th>
+            <th colspan="2">Pengeluaran (Rp)</th>
+            <th rowspan="2">Keterangan</th>
+          </tr>
+          <tr>
+            <th>Kas/PKL</th><th>Kematian</th>
+            <th>Kas/PKL</th><th>Kematian</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr style="font-weight:bold; background:#eee;">
+            <td>TOTAL</td>
+            <td align="right">${total.p_kas.toLocaleString('id-ID')}</td>
+            <td align="right">${total.p_kematian.toLocaleString('id-ID')}</td>
+            <td align="right">${total.g_kas.toLocaleString('id-ID')}</td>
+            <td align="right">${total.g_kematian.toLocaleString('id-ID')}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:20px; font-weight:bold;">
+        <p>Total Kas Warga + PKL : Rp ${(total.p_kas - total.g_kas).toLocaleString('id-ID')}</p>
+        <p>Total Kas Kematian : Rp ${(total.p_kematian - total.g_kematian).toLocaleString('id-ID')}</p>
+      </div>
+      <div class="footer">
+        <p>Ngelom, ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p>
+        <p>Bendahara RT 01 RW 03</p>
+        <br><br><br>
+        <p><strong>( M. Irsyad )</strong></p>
+      </div>
+      </body></html>`);
+    printWin.document.close();
+    printWin.print();
+  }
+
+  function renderGrafikKas(tahun) {
+    var pemasukanPerBulan = [0,0,0,0,0,0,0,0,0,0,0,0];
+    var pengeluaranPerBulan = [0,0,0,0,0,0,0,0,0,0,0,0];
+    for (var i = 0; i < allKasData.length; i++) {
+      var item = allKasData[i];
+      var tgl = item.tanggal.split('-');
+      if (tgl.length === 3) {
+        var tahunData = parseInt(tgl[0]);
+        if (tahunData === tahun) {
+          var bln = parseInt(tgl[1]) - 1;
+          if (item.jenis === 'Pemasukan') {
+            pemasukanPerBulan[bln] += item.jumlah;
+          } else {
+            pengeluaranPerBulan[bln] += item.jumlah;
+          }
+        }
+      }
+    }
+    var labels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    if (kasChart) {
+      kasChart.destroy();
+    }
+    var ctx = document.getElementById('kasChart').getContext('2d');
+    kasChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Pemasukan',
+            data: pemasukanPerBulan,
+            borderColor: '#10b981',
+            backgroundColor: 'transparent',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 5,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          },
+          {
+            label: 'Pengeluaran',
+            data: pengeluaranPerBulan,
+            borderColor: '#ef4444',
+            backgroundColor: 'transparent',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 5,
+            pointBackgroundColor: '#ef4444',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        onClick: function(event, activeElements) {
+          if (activeElements.length > 0) {
+            var index = activeElements[0].index;
+            var bulan = labels[index];
+            var tahunGrafik = parseInt(document.getElementById('tahunKasSelect').value);
+            tampilkanDetailBulan(index, bulan, tahunGrafik);
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.dataset.label + ': Rp ' + context.raw.toLocaleString('id-ID');
+              }
+            }
+          },
+          legend: {
+            labels: {
+              usePointStyle: true,
+              padding: 20
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return 'Rp ' + value.toLocaleString('id-ID');
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function tampilkanDetailBulan(index, bulan, tahunGrafik) {
+    var transaksi = [];
+    for (var i = 0; i < allKasData.length; i++) {
+      var t = allKasData[i];
+      var parts = t.tanggal.split('-');
+      if (parts.length === 3) {
+        var thn = parseInt(parts[0]);
+        var bln = parseInt(parts[1]);
+        if (thn === tahunGrafik && bln === (index + 1)) {
+          transaksi.push(t);
+        }
+      }
+    }
+    if (transaksi.length === 0) {
+      Swal.fire('Info', 'Tidak ada transaksi pada ' + bulan + ' ' + tahunGrafik, 'info');
+      return;
+    }
+    var pList = [];
+    var gList = [];
+    var totalIn = 0;
+    var totalOut = 0;
+
+    for (var k = 0; k < transaksi.length; k++) {
+      var jns = (transaksi[k].jenis || '').toLowerCase().trim();
+      if (jns === 'pemasukan') {
+        pList.push(transaksi[k]);
+        totalIn += transaksi[k].jumlah;
+      } else if (jns === 'pengeluaran') {
+        gList.push(transaksi[k]);
+        totalOut += transaksi[k].jumlah;
+      }
+    }
+
+    var html = '<div style="text-align:left; font-family:\'Inter\',sans-serif;">';
+    
+    // Header Ringkasan di dalam Modal
+    html += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; background:var(--bg-app); padding:15px; border-radius:12px; border:1px solid var(--border-color); color:var(--text-main);">'
+          + '  <div><div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase;">Pemasukan</div><div style="font-size:16px; font-weight:700; color:#10b981;">Rp ' + totalIn.toLocaleString('id-ID') + '</div></div>'
+          + '  <div><div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase;">Pengeluaran</div><div style="font-size:16px; font-weight:700; color:#ef4444;">Rp ' + totalOut.toLocaleString('id-ID') + '</div></div>'
+          + '  <div style="grid-column: span 2; border-top:1px solid var(--border-color); padding-top:10px; margin-top:5px;"><div style="font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; margin-top:8px;">Total Uang pada Bulan Ini</div><div style="font-size:18px; font-weight:800; color:var(--primary-dark);">Rp ' + (totalIn - totalOut).toLocaleString('id-ID') + '</div></div>'
+          + '</div>';
+
+    html += '<div style="max-height:350px; overflow-y:auto; padding-right:5px;">';
+
+    // Fungsi helper untuk render item transaksi
+    var renderItem = function(item, color) {
+      var tgl = item.tanggal.split('-');
+      var tglFormat = tgl[2] + '/' + tgl[1];
+      return '<div style="display:flex; justify-content:space-between; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border-color);">'
+           + '  <div style="max-width:70%;">'
+           + '    <div style="font-size:13px; font-weight:600; color:var(--text-main);">' + (item.deskripsi || 'Tanpa deskripsi') + '</div>'
+           + '    <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">'
+           + '      <span style="font-size:10px; background:var(--bg-app); padding:2px 6px; border-radius:4px; color:var(--text-muted); font-weight:600;">' + tglFormat + '</span>'
+           + '      <span style="font-size:10px; background:' + color + '15; padding:2px 6px; border-radius:4px; color:' + color + '; font-weight:600;">' + (item.kategori || 'Umum') + '</span>'
+           + '    </div>'
+           + '  </div>'
+           + '  <div style="font-size:14px; font-weight:700; color:' + color + ';">' + (color === '#10b981' ? '+' : '-') + ' ' + item.jumlah.toLocaleString('id-ID') + '</div>'
+           + '</div>';
+    };
+
+    // List Pemasukan
+    html += '<div style="font-size:12px; font-weight:800; color:#10b981; margin-bottom:8px; display:flex; align-items:center; gap:5px;"><i class="material-icons" style="font-size:16px;">arrow_downward</i> PEMASUKAN</div>';
+    if (pList.length) {
+      pList.forEach(function(it) { html += renderItem(it, '#10b981'); });
+    } else {
+      html += '<div style="font-size:12px; color:#94a3b8; padding:10px 0;">Tidak ada data pemasukan.</div>';
+    }
+
+    // List Pengeluaran
+    html += '<div style="font-size:12px; font-weight:800; color:#ef4444; margin:20px 0 8px; display:flex; align-items:center; gap:5px;"><i class="material-icons" style="font-size:16px;">arrow_upward</i> PENGELUARAN</div>';
+    if (gList.length) {
+      gList.forEach(function(it) { html += renderItem(it, '#ef4444'); });
+    } else {
+      html += '<div style="font-size:12px; color:#94a3b8; padding:10px 0;">Tidak ada data pengeluaran.</div>';
+    }
+
+    html += '</div>'; // End scroll container
+    html += '</div>';
+
+    Swal.fire({
+      title: '<div style="font-size:18px; font-weight:800; color:var(--text-main);">Detail Transaksi ' + bulan + ' ' + tahunGrafik + '</div>',
+      background: 'var(--bg-surface)',
+      html: html,
+      width: 'min(90%, 450px)',
+      showCloseButton: true,
+      showConfirmButton: false,
+      customClass: {
+        popup: 'professional-modal-radius'
+      }
+    });
+  }
+
+  // CSS tambahan untuk modal profesional (di dalam JS/Style tag manual tidak perlu jika sudah ada)
+
+  // ======================== REKAP PERIODE ========================
+  function toggleLaporanMode() {
+    var mode = document.getElementById('laporanMode').value;
+    document.getElementById('laporanTahunanMode').style.display = 'none';
+    document.getElementById('laporanBulanMode').style.display = 'none';
+    document.getElementById('laporanCustomMode').style.display = 'none';
+    if (mode === 'tahunan') {
+      document.getElementById('laporanTahunanMode').style.display = 'flex';
+    } else if (mode === 'bulan') {
+      document.getElementById('laporanBulanMode').style.display = 'flex';
+    } else {
+      document.getElementById('laporanCustomMode').style.display = 'flex';
+      if (!document.getElementById('startDate').value) {
+        var now = new Date();
+        var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        document.getElementById('startDate').value = firstDay.toISOString().slice(0, 10);
+        document.getElementById('endDate').value = lastDay.toISOString().slice(0, 10);
+      }
+    }
+    muatRekapPeriode();
+  }
+
+  function muatRekapPeriode() {
+    var mode = document.getElementById('laporanMode').value;
+    var startDate = '';
+    var endDate = '';
+    var periodeText = '';
+    if (mode === 'tahunan') {
+      var tahun = parseInt(document.getElementById('tahunLaporanTahunan').value);
+      periodeText = 'Tahun ' + tahun;
+      startDate = new Date(tahun, 0, 1).toISOString().slice(0,10);
+      endDate = new Date(tahun, 11, 31).toISOString().slice(0,10);
+    } else if (mode === 'bulan') {
+      var bulan = parseInt(document.getElementById('bulanLaporan').value);
+      var tahunBulan = parseInt(document.getElementById('tahunLaporanBulan').value);
+      var bulanNama = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      periodeText = bulanNama[bulan-1] + ' ' + tahunBulan;
+      startDate = new Date(tahunBulan, bulan-1, 1).toISOString().slice(0,10);
+      endDate = new Date(tahunBulan, bulan, 0).toISOString().slice(0,10);
+    } else {
+      startDate = document.getElementById('startDate').value;
+      endDate = document.getElementById('endDate').value;
+      if (!startDate || !endDate) {
+        return showWarning('Pilih tanggal mulai dan selesai!');
+      }
+      var s = startDate.split('-'); var e = endDate.split('-');
+      periodeText = s[2]+'/'+s[1] + ' - ' + e[2]+'/'+e[1];
+    }
+    document.getElementById('periodeText').innerText = periodeText;
+    fetchKasByDateRange(startDate, endDate);
+  }
+
+  function fetchKasByDateRange(startDate, endDate) {
+    showLoading('Memuat data kas...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'error') {
+        showError(res.pesan);
+        return;
+      }
+      var totalPemasukan = 0;
+      var totalPengeluaran = 0;
+      if (res.data && res.data.length) {
+        for (var i = 0; i < res.data.length; i++) {
+          if (res.data[i].jenis === 'Pemasukan') {
+            totalPemasukan += res.data[i].jumlah;
+          } else {
+            totalPengeluaran += res.data[i].jumlah;
+          }
+        }
+      }
+      document.getElementById('rekapTotalPemasukan').innerText = 'Rp ' + Math.round(totalPemasukan).toLocaleString('id-ID');
+      document.getElementById('rekapTotalPengeluaran').innerText = 'Rp ' + Math.round(totalPengeluaran).toLocaleString('id-ID');
+      document.getElementById('rekapSelisih').innerText = 'Rp ' + Math.round(totalPemasukan - totalPengeluaran).toLocaleString('id-ID');
+      // (label sudah diubah di HTML menjadi "Total Uang:")
+    }).getKasWargaByDateRange(startDate, endDate);
+  }
+
+  // ======================== FORM KAS ========================
+  function bukaFormKas(jenis) {
+    document.getElementById('judulFormKas').innerText = 'Tambah ' + jenis;
+    document.getElementById('kasId').value = '';
+    document.getElementById('kasTanggal').value = new Date().toISOString().slice(0,10);
+    document.getElementById('kasKategori').value = '';
+    document.getElementById('kasDeskripsi').value = '';
+    document.getElementById('kasJumlah').value = '';
+    document.getElementById('formKas').dataset.jenis = jenis;
+    document.getElementById('formKas').style.display = 'block';
+  }
+
+  function editKas(id, tanggal, kategori, deskripsi, jenis, jumlah) {
+    document.getElementById('judulFormKas').innerText = 'Edit ' + jenis;
+    document.getElementById('kasId').value = id;
+    document.getElementById('kasTanggal').value = tanggal;
+    document.getElementById('kasKategori').value = kategori || '';
+    document.getElementById('kasDeskripsi').value = deskripsi || '';
+    document.getElementById('kasJumlah').value = jumlah ? Number(jumlah).toLocaleString('id-ID') : '';
+    document.getElementById('formKas').dataset.jenis = jenis;
+    document.getElementById('formKas').style.display = 'block';
+  }
+
+  function simpanKas() {
+    var id = document.getElementById('kasId').value;
+    var tanggal = document.getElementById('kasTanggal').value;
+    var kategori = document.getElementById('kasKategori').value;
+    var deskripsi = document.getElementById('kasDeskripsi').value;
+    var jenis = document.getElementById('formKas').dataset.jenis;
+    var jumlah = document.getElementById('kasJumlah').value.replace(/\D/g, '');
+    if (!tanggal || !jenis || !jumlah) {
+      return showWarning('Tanggal, Jenis, dan Jumlah wajib diisi!');
+    }
+    showLoading('Menyimpan...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        tutupForm('formKas', '');
+        muatDataKas();
+      } else {
+        showError(res.pesan);
+      }
+    }).simpanKasWarga(id, tanggal, deskripsi, jenis, kategori, '', jumlah);
+  }
+
+  function hapusKas(id) {
+    showConfirm('Yakin hapus transaksi?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDataKas();
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close(); // Close loading modal
+          showError('Gagal menghapus transaksi: ' + err.message);
+        }).hapusKasWarga(id);
+      }
+    });
+  }
+
+  // ======================== IURAN WARGA ========================
+  function loadTahunIuranOptions() {
+    google.script.run.withSuccessHandler(function(res) {
+      var select = document.getElementById('tahunIuranSelect');
+      if (!select) return;
+      if (res.status === 'success' && res.data.length > 0) {
+        select.innerHTML = '';
+        for (var i = 0; i < res.data.length; i++) {
+          var option = document.createElement('option');
+          option.value = res.data[i];
+          option.text = res.data[i];
+          select.appendChild(option);
+        }
+        select.value = res.data[0];
+      } else {
+        select.innerHTML = '';
+        var tahunSekarang = new Date().getFullYear();
+        for (var y = tahunSekarang - 2; y <= tahunSekarang + 2; y++) {
+          var opt = document.createElement('option');
+          opt.value = y;
+          opt.text = y;
+          select.appendChild(opt);
+        }
+        select.value = tahunSekarang;
+      }
+      muatTabelIuran();
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar tahun iuran: ' + err.message);
+    }).getTahunIuranList();
+  }
+
+  function muatTabelIuran() {
+    var tahun = parseInt(document.getElementById('tahunIuranSelect').value);
+    // Reset pencarian saat ganti tahun
+    var searchInput = document.getElementById('iuranSearchInput');
+    if (searchInput) searchInput.value = '';
+
+    showLoading('Memuat data iuran...');
+    var p1 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarKategori();
+    });
+    var p2 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getDaftarWarga();
+    });
+    var p3 = new Promise(function(resolve, reject) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getIuranPerTahun(tahun);
+    });
+
+    Promise.all([p1, p2, p3]).then(function(results) {
+      Swal.close();
+      daftarKategori = results[0] || [];
+      var wargaList = results[1] || [];
+      var iuranList = results[2] || [];
+      var iuranMap = new Map();
+      for (var i = 0; i < iuranList.length; i++) {
+        iuranMap.set(iuranList[i].nama, iuranList[i]);
+      }
+      var rows = [];
+      if (wargaList.length > 0) {
+        for (var w = 0; w < wargaList.length; w++) {
+          rows.push({
+            nama: wargaList[w].nama,
+            kategori: '',
+            iuranBulanan: [0,0,0,0,0,0,0,0,0,0,0,0]
+          });
+        }
+      } else if (iuranList.length > 0) {
+        for (var i2 = 0; i2 < iuranList.length; i2++) {
+          rows.push({
+            nama: iuranList[i2].nama,
+            kategori: iuranList[i2].kategori,
+            iuranBulanan: iuranList[i2].iuranBulanan.slice()
+          });
+        }
+      }
+      for (var r = 0; r < rows.length; r++) {
+        var ex = iuranMap.get(rows[r].nama);
+        if (ex) {
+          rows[r].kategori = ex.kategori;
+          rows[r].iuranBulanan = ex.iuranBulanan.slice();
+        }
+      }
+      iuranData = rows;
+      renderTabelIuran(rows, tahun);
+    }).catch(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat data iuran: ' + (err && err.message ? err.message : err));
+    });
+  }
+
+  function cariWargaIuran() {
+    var keyword = document.getElementById('iuranSearchInput').value.toLowerCase();
+    var tahun = parseInt(document.getElementById('tahunIuranSelect').value);
+    if (!iuranData) return;
+    var filtered = iuranData.filter(function(row) {
+      return (row.nama || '').toLowerCase().includes(keyword);
+    });
+    renderTabelIuran(filtered, tahun);
+  }
+
+  function renderTabelIuran(rows, tahun) {
+    var thead = document.getElementById('theadIuran');
+    var tbody = document.getElementById('tbodyIuran');
+    var bulanSingkat = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    var headerHtml = '<tr><th>Nama</th><th>Kategori</th>';
+    for (var b = 0; b < 12; b++) {
+      headerHtml += '<th style="text-align:center;">' + bulanSingkat[b] + '</th>';
+    }
+    headerHtml += '<th>Aksi</th>';
+    thead.innerHTML = headerHtml;
+    tbody.innerHTML = '';
+    var isAdmin = false;
+    if (currentUser.role === 'admin' || currentUser.role === 'pengurus rt') {
+      isAdmin = true;
+    }
+    for (var idx = 0; idx < rows.length; idx++) {
+      var row = rows[idx];
+      var tr = document.createElement('tr');
+      
+      // Highlight jika lunas setahun (semua 12 bulan bernilai > 0)
+      var isLunas = row.iuranBulanan.every(function(v) { return v > 0; });
+      if (isLunas) tr.classList.add('row-lunas');
+
+      var tdNama = document.createElement('td');
+      tdNama.innerText = row.nama;
+      tr.appendChild(tdNama);
+      var tdKategori = document.createElement('td');
+      if (isAdmin) {
+        var select = document.createElement('select');
+        select.style.width = '100%';
+        select.style.padding = '4px 6px';
+        select.style.fontSize = '12px';
+        select.style.margin = '0';
+        var optEmpty = document.createElement('option');
+        optEmpty.value = '';
+        optEmpty.text = '-- Pilih --';
+        select.appendChild(optEmpty);
+        for (var k = 0; k < daftarKategori.length; k++) {
+          var opt = document.createElement('option');
+          opt.value = daftarKategori[k].nama;
+          opt.text = daftarKategori[k].nama + ' (Rp ' + daftarKategori[k].nominal.toLocaleString('id-ID') + ')';
+          if (row.kategori === daftarKategori[k].nama) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        }
+        (function(rowData, thn) {
+          select.addEventListener('change', function() {
+            rowData.kategori = this.value;
+            google.script.run.updateKategoriWarga(rowData.nama, thn, this.value);
+          });
+        })(row, tahun);
+        tdKategori.appendChild(select);
+      } else {
+        tdKategori.innerText = row.kategori || '-';
+      }
+      tr.appendChild(tdKategori);
+      for (var bln = 0; bln < 12; bln++) {
+        var td = document.createElement('td');
+        td.style.textAlign = 'center';
+        if (isAdmin) {
+          var chk = document.createElement('input');
+          chk.type = 'checkbox'; 
+          chk.style.width = '24px'; /* Lebih besar agar mudah ditekan jari */
+          chk.style.height = '24px';
+          chk.style.cursor = 'pointer';
+          chk.style.margin = '4px';
+          if (row.iuranBulanan[bln] > 0) {
+            chk.checked = true;
+          }
+          (function(rowData, blnIdx, thn, currentRow) {
+            chk.onchange = function(e) {
+              rowData.iuranBulanan[blnIdx] = e.target.checked ? 1 : 0;
+              // Update visual baris secara instan tanpa reload tabel
+              var lunasNow = rowData.iuranBulanan.every(function(v) { return v > 0; });
+              if (lunasNow) currentRow.classList.add('row-lunas');
+              else currentRow.classList.remove('row-lunas');
+
+              google.script.run.updateIuranCell(rowData.nama, thn, blnIdx+1, rowData.iuranBulanan[blnIdx]);
+            };
+          })(row, bln, tahun, tr);
+          td.appendChild(chk);
+        } else {
+          // Tampilan ikon modern untuk warga (bukan checkbox)
+          var icon = row.iuranBulanan[bln] > 0 ? 'check_circle' : 'cancel';
+          var color = row.iuranBulanan[bln] > 0 ? '#10b981' : '#cbd5e1';
+          td.innerHTML = `<i class="material-icons" style="font-size:18px; color:${color};">${icon}</i>`;
+        }
+        tr.appendChild(td);
+      }
+      var tdAksi = document.createElement('td');
+      if (isAdmin) {
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn-small warning';
+        editBtn.innerHTML = '<i class="material-icons" style="font-size:14px;">edit</i>';
+        (function(n, t) {
+          editBtn.onclick = function() { editNamaWargaIuran(n); };
+        })(row.nama, tahun);
+        tdAksi.appendChild(editBtn);
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn-small danger';
+        delBtn.innerHTML = '<i class="material-icons" style="font-size:14px;">delete</i>';
+        (function(nama, thn) {
+          delBtn.onclick = function() {
+            hapusBarisIuran(nama, thn);
+          };
+        })(row.nama, tahun);
+        tdAksi.appendChild(delBtn);
+      } else {
+        tdAksi.innerText = '-';
+      }
+      tr.appendChild(tdAksi);
+      tbody.appendChild(tr);
+    }
+  }
+
+  function editNamaWargaIuran(namaLama) {
+    Swal.fire({
+      title: 'Ubah Nama Warga (Global)',
+      text: 'Nama akan berubah di semua tahun iuran.',
+      input: 'text',
+      inputValue: namaLama,
+      showCancelButton: true,
+      confirmButtonText: 'Perbarui Semua',
+      confirmButtonColor: 'var(--primary-color)'
+    }).then(function(result) {
+      if (result.isConfirmed && result.value && result.value !== namaLama) {
+        showLoading('Sinkronisasi nama di seluruh tahun...');
+        google.script.run.withSuccessHandler(function(res) {
+          Swal.close();
+          if (res.status === 'success') { showSuccess(res.pesan); muatTabelIuran(); }
+          else { showError(res.pesan); }
+        }).gantiNamaWargaIuran(namaLama, result.value);
+      }
+    });
+  }
+
+  function hapusBarisIuran(nama, tahun) {
+    showConfirm('Yakin hapus data iuran ' + nama + ' tahun ' + tahun + '?').then(function(res) {
+      if (res.isConfirmed) {
+        showLoading('Menghapus...');
+        google.script.run.withSuccessHandler(function(r) {
+          Swal.close();
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatTabelIuran();
+          } else {
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          Swal.close();
+          showError('Gagal menghapus data iuran: ' + err.message);
+        }).hapusIuranWarga(nama, tahun);
+      }
+    });
+  }
+
+  // ======================== KATEGORI IURAN (MODAL TIDAK BERTUMPUK) ========================
+  function bukaFormKategoriIuran() {
+    muatDaftarKategoriIuran();
+    document.getElementById('modalKategoriIuran').classList.add('active');
+    document.getElementById('modalBackdrop').classList.add('active');
+  }
+
+  function tutupModalKategoriIuran() {
+    document.getElementById('modalKategoriIuran').classList.remove('active');
+    document.getElementById('modalBackdrop').classList.remove('active');
+  }
+
+  function muatDaftarKategoriIuran() {
+    google.script.run.withSuccessHandler(function(list) {
+      var container = document.getElementById('listKategoriIuran');
+      container.innerHTML = '';
+      if (list && list.length) {
+        for (var i = 0; i < list.length; i++) {
+          var k = list[i];
+          var div = document.createElement('div');
+          div.style.marginBottom = '8px';
+          div.style.display = 'flex';
+          div.style.gap = '8px';
+          div.style.alignItems = 'center';
+          div.style.flexWrap = 'wrap';
+          var span = document.createElement('span');
+          span.style.flex = '1';
+          span.innerText = k.nama + ' - Rp ' + k.nominal.toLocaleString('id-ID');
+          var editBtn = document.createElement('button');
+          editBtn.innerText = 'Edit';
+          editBtn.className = 'btn-small';
+          (function(id, nama, nominal) {
+            editBtn.onclick = function() {
+              editKategoriIuran(id, nama, nominal);
+            };
+          })(k.id, k.nama, k.nominal);
+          var delBtn = document.createElement('button');
+          delBtn.innerText = 'Hapus';
+          delBtn.className = 'btn-small danger';
+          (function(id) {
+            delBtn.onclick = function() { hapusKategoriIuran(id); };
+          })(k.id);
+          div.appendChild(span);
+          div.appendChild(editBtn);
+          div.appendChild(delBtn);
+          container.appendChild(div);
+        }
+      } else {
+        container.innerHTML = '<p>Belum ada kategori. Tambah baru.</p>';
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar kategori: ' + err.message);
+    }).getDaftarKategori();
+  }
+
+  function tambahKategoriIuran() {
+    var nama = document.getElementById('newKategoriName').value.trim();
+    var nominal = parseFloat(document.getElementById('newKategoriNominal').value.replace(/\D/g, '')) || 0;
+    if (!nama) {
+      return showWarning('Nama kategori wajib diisi!');
+    }
+    if (nominal <= 0) {
+      return showWarning('Nominal iuran harus lebih dari 0!');
+    }
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        document.getElementById('newKategoriName').value = '';
+        document.getElementById('newKategoriNominal').value = '';
+        muatDaftarKategoriIuran();
+        muatTabelIuran();
+      } else {
+        Swal.close(); // Ensure loading is closed if this fails
+        showError(res.pesan);
+      }
+    }).withFailureHandler(function(err) {
+      showError(err.message || 'Terjadi kesalahan saat menambah kategori.');
+    }).tambahKategori(nama, nominal);
+  }
+
+  function editKategoriIuran(id, namaLama, nominalLama) {
+    Swal.fire({
+      title: 'Edit Kategori',
+      html: '<input id="swal-kat-nama" class="swal2-input" placeholder="Nama Kategori" value="' + namaLama + '" style="color:var(--text-main);">'
+        + '<div class="input-group-prefix" style="margin: 15px 30px 0; border: 1px solid var(--border-color); border-radius: 12px; height: 50px; display: flex; align-items: center; padding: 0 15px; background:var(--bg-app);">'
+        + '<span style="position:static; font-weight:700; color:var(--text-main); margin-right:10px;">Rp</span>'
+        + '<input id="swal-kat-nominal" type="text" style="border:none; margin:0; padding:0; flex:1; height:100%; outline:none; font-size:16px; background:transparent; color:var(--text-main);" '
+        + 'placeholder="Nominal Iuran" value="' + Number(nominalLama).toLocaleString('id-ID') + '" oninput="formatNominal(this)" onblur="autoRound(this)">'
+        + '</div>',
+      focusConfirm: false,
+      preConfirm: function() {
+        var newNama = document.getElementById('swal-kat-nama').value;
+        var newNominal = parseFloat(document.getElementById('swal-kat-nominal').value.replace(/\D/g, '')) || 0;
+        if (!newNama) Swal.showValidationMessage('Nama harus diisi');
+        if (newNominal <= 0) Swal.showValidationMessage('Nominal harus lebih dari 0');
+        return { nama: newNama, nominal: newNominal };
+      }
+    }).then(function(result) {
+      if (result.isConfirmed) {
+        var v = result.value;
+        google.script.run.withSuccessHandler(function(res) {
+          if (res.status === 'success') {
+            showSuccess(res.pesan);
+            muatDaftarKategoriIuran();
+            muatTabelIuran();
+          } else {
+            Swal.close(); // Ensure loading is closed if this fails
+            showError(res.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          showError(err.message || 'Terjadi kesalahan saat mengubah kategori.');
+        }).editKategori(id, v.nama, v.nominal);
+      }
+    });
+  }
+
+  function hapusKategoriIuran(id) {
+    showConfirm('Yakin hapus kategori ini?').then(function(res) {
+      if (res.isConfirmed) {
+        google.script.run.withSuccessHandler(function(r) {
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDaftarKategoriIuran();
+            muatTabelIuran();
+          } else {
+            Swal.close(); // Ensure loading is closed if this fails
+            showError(r.pesan);
+          }
+        }).withFailureHandler(function(err) {
+          showError(err.message || 'Terjadi kesalahan saat menghapus kategori.');
+        }).hapusKategori(id);
+      }
+    });
+  }
+
+  // ======================== DAFTAR WARGA UNTUK IURAN ========================
+  function bukaFormWarga() {
+    muatDaftarWargaIuran();
+    document.getElementById('modalWarga').style.display = 'flex';
+    document.getElementById('modalBackdrop').classList.add('active');
+  }
+
+  function muatDaftarWargaIuran() {
+    var container = document.getElementById('listWarga');
+    container.innerHTML = '<div style="padding:20px; text-align:center;"><div class="bbx-spinner" style="margin:0 auto;"></div></div>';
+    google.script.run.withSuccessHandler(function(list) {
+      container.innerHTML = '';
+      if (list && list.length) {
+        list.sort((a,b) => a.nama.localeCompare(b.nama));
+        list.forEach(function(w) {
+          var item = document.createElement('div');
+          item.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--border-color); font-size:14px;';
+          item.innerHTML = `<span style="font-weight:600; color:var(--text-main);">${w.nama}</span>`;
+          
+          var del = document.createElement('button');
+          del.className = 'btn-small danger';
+          del.style.margin = '0';
+          del.innerHTML = '<i class="material-icons" style="font-size:16px;">delete</i>';
+          del.onclick = function() {
+             showWarning('Pencarian warga mencakup seluruh tahun. Untuk menghapus data warga, silakan gunakan tombol hapus di tabel iuran tahun yang dipilih.');
+          };
+          item.appendChild(del);
+          container.appendChild(item);
+        });
+      } else { container.innerHTML = '<p style="padding:15px; text-align:center;" class="muted">Belum ada data warga.</p>'; }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Ensure loading is closed if this fails
+      showError('Gagal memuat daftar warga: ' + err.message);
+    }).getDaftarWarga();
+  }
+
+  function tambahWargaIuran() {
+    var nama = document.getElementById('newWarga').value.trim();
+    if (!nama) {
+      return showWarning('Nama warga tidak boleh kosong');
+    }
+    google.script.run.withSuccessHandler(function(res) {
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        document.getElementById('newWarga').value = '';
+        muatDaftarWargaIuran();
+        muatTabelIuran();
+      } else {
+        Swal.close(); // Ensure loading is closed if this fails
+        showError(res.pesan);
+      }
+    }).withFailureHandler(function(err) {
+      showError(err.message || 'Terjadi kesalahan saat menambah warga.');
+    }).tambahWargaIuran(nama);
+  }
+
+  function tutupModalWarga() {
+    document.getElementById('modalWarga').style.display = 'none';
+    document.getElementById('modalBackdrop').classList.remove('active');
+  }
+
+  // ======================== BUKA HALAMAN KAS ========================
+  function bukaKas() {
+    sembunyikanSemuaLayar();
+    document.getElementById('kasView').style.display = 'block';
+    history.pushState({view: 'kasView', tab: 'warga', onLoad: 'muatDataKas'}, '', '#kas');
+    var actionDiv = document.getElementById('actionButtonsKas');
+    var iuranAdminDiv = document.getElementById('iuranAdminButtons');
+    if (hasPermission('rt_kas_crud')) { // Kontrol visibilitas tombol Tambah/Kurang Kas
+      actionDiv.innerHTML = '<button class="btn-small success" onclick="bukaFormKas(\'Pemasukan\')">+ Tambah Pemasukan</button>'
+        + '<button class="btn-small danger" onclick="bukaFormKas(\'Pengeluaran\')">+ Tambah Pengeluaran</button>';
+    } else { actionDiv.innerHTML = ''; }
+    if (hasPermission('rt_iuran_manage')) { // Kontrol visibilitas tombol Kelola Iuran
+      iuranAdminDiv.innerHTML = '<button class="btn-small" onclick="bukaFormKategoriIuran()">Kelola Kategori Iuran</button>'
+        + '<button class="btn-small" onclick="bukaFormWarga()">Kelola Nama Warga</button>';
+    } else {
+      actionDiv.innerHTML = '';
+      iuranAdminDiv.innerHTML = '';
+    }
+    muatDataKas();
+    loadTahunIuranOptions();
+    toggleLaporanMode();
+  }
+
+  // ======================== GALERI ========================
+  function bukaGaleri() {
+    sembunyikanSemuaLayar();
+    document.getElementById('galeriView').style.display = 'block';
+    history.pushState({view: 'galeriView', tab: 'warga', onLoad: 'muatDataGaleri'}, '', '#galeri');
+    if (hasPermission('rt_galeri_crud')) { // Kontrol visibilitas tombol Tambah Galeri
+      document.getElementById('btnTambahGaleri').style.display = 'flex';
+    } else {
+      document.getElementById('btnTambahGaleri').style.display = 'none';
+    }
+    muatDataGaleri();
+  }
+
+  function muatDataGaleri() {
+    var container = document.getElementById('listGaleri');
+    container.innerHTML = '<p>Memuat galeri...</p>';
+    google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      container.innerHTML = ''; // Clear previous content
+      rtGaleriDataGlobal = res.data || [];
+      filterDataGaleri();
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat galeri: ' + err.message);
+    }).getGaleriKegiatan();
+  }
+
+  function filterDataGaleri() {
+    var tahun = document.getElementById('galeriTahunFilter').value;
+    var filtered = rtGaleriDataGlobal;
+    if (tahun !== 'all') {
+      filtered = rtGaleriDataGlobal.filter(function(item) {
+        return item.tanggal && item.tanggal.includes(tahun);
+      });
+    }
+    renderGaleriGrid(filtered);
+  }
+
+  function renderGaleriGrid(data) {
+    var container = document.getElementById('listGaleri');
+    container.innerHTML = '';
+    if (data && data.length) {
+      var allMedia = data.map(function(it) { return it.imageUrl; });
+      for (var j = 0; j < data.length; j++) {
+        var item = data[j];
+        var thumb = getMediaThumbnail(item.imageUrl);
+        var isVideo = isVideoLink(item.imageUrl);
+        var safeCaption = escapeHtml(item.caption || '-');
+        var safeTanggal = escapeHtml(item.tanggal || '-');
+        var safeTanggalRaw = escapeJsString(item.tanggalRaw || '');
+        var safeImageUrl = escapeJsString(item.imageUrl);
+        var safeItemId = escapeJsString(item.id);
+        var aksiButtons = hasPermission('rt_galeri_crud') ? 
+          '<button class="btn-small" onclick="editGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\',\'' + safeTanggalRaw + '\')">Edit</button>' +
+          '<button class="btn-small danger" onclick="hapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
+        var videoIcon = isVideo ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
+        container.innerHTML += `
+          <div class="galeri-card" style="position:relative; display:flex; flex-direction:column; height:100%;">
+            ${videoIcon}
+            <img src="${thumb}" class="galeri-img" onclick="openLightbox('${safeImageUrl}', ${JSON.stringify(allMedia).replace(/"/g, '&quot;')}, ${j})" style="aspect-ratio:16/9; object-fit:cover;">
+            <div style="padding:16px; flex:1; display:flex; flex-direction:column;">
+              <div style="font-weight:800; font-size:15px; color:var(--text-main); line-height:1.4; margin-bottom:4px;">${safeCaption}</div>
+              <div style="font-size:11px; font-weight:600; color:var(--primary-red); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:4px;">
+                <i class="material-icons" style="font-size:14px;">calendar_today</i> ${safeTanggal}
+              </div>
+              <div style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px; flex:1;">
+                Dokumentasi kegiatan warga RT01/RW03.
+              </div>
+              <div style="margin-top:auto; padding-top:10px; border-top:1px solid var(--border-color);">
+                ${aksiButtons}
+              </div>
+            </div>
+          </div>`;
+      }
+    } else { container.innerHTML = '<p>Belum ada foto di galeri.</p>'; }
+  }
+
+  function bukaFormGaleri() {
+    if (!hasPermission('rt_galeri_crud')) { showError('Anda tidak memiliki izin untuk menambah foto galeri.'); return; }
+    document.getElementById('galeriCaption').value = '';
+    document.getElementById('galeriFile').value = '';
+    document.getElementById('previewGaleri').innerHTML = '';
+    bukaFormMode('formCrudGaleri', 'wrapListGaleri');
+  }
+
+  function editGaleri(id, caption, url) {
+    document.getElementById('galeriId').value = id;
+    document.getElementById('galeriCaption').value = caption;
+    document.getElementById('judulFormGaleri').innerText = 'Edit Foto Galeri';
+    bukaFormMode('formCrudGaleri', 'wrapListGaleri');
+  }
+
+  var galeriFileEl = document.getElementById('galeriFile');
+  if (galeriFileEl) {
+    galeriFileEl.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      var preview = document.getElementById('previewGaleri');
+      if (file && file.size <= 10 * 1024 * 1024 && file.type.indexOf('image/') === 0) {
+        var reader = new FileReader();
+        reader.onload = function(evt) {
+          preview.innerHTML = '<img src="' + evt.target.result + '" style="max-height:150px; border-radius:12px;">';
+        };
+        reader.readAsDataURL(file);
+      } else if (file) {
+        showWarning('Ukuran maksimal 10MB dan harus gambar');
+        e.target.value = '';
+        preview.innerHTML = '';
+      }
+    });
+  }
+
+  function uploadGaleri() {
+    if (!hasPermission('rt_galeri_crud')) { showError('Anda tidak memiliki izin untuk mengupload foto galeri.'); return; }
+    var id = document.getElementById('galeriId').value;
+    var caption = document.getElementById('galeriCaption').value;
+    var tgl = document.getElementById('galeriTanggal').value;
+    var type = document.getElementById('galeriType').value;
+    var fileInput = document.getElementById('galeriFile');
+    var vLink = document.getElementById('galeriVideoLink').value;
+
+    if (!caption) {
+      return showWarning('Caption wajib diisi!');
+    }
+
+    if (type === 'video') {
+      if (!vLink) return showWarning('Link video wajib diisi!');
+      showLoading('Menyimpan Video...');
+      // No progress bar for video link as no file upload
+      google.script.run.withSuccessHandler(function(res) {
+        Swal.close(); showSuccess('Tersimpan!'); tutupForm('formCrudGaleri', 'wrapListGaleri'); muatDataGaleri();
+      }).simpanGaleriKegiatan(id, caption, null, '', '', vLink, tgl);
+      return;
+    }
+
+    if (!fileInput.files.length) {
+      return showWarning('Pilih gambar!');
+    }
+    var file = fileInput.files[0];
+    if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+    var btn = document.querySelector('#formCrudGaleri .btn-primary');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+
+    compressImage(file, function(base64, mime) {
+      google.script.run.withSuccessHandler(function(res) {
+        btn.innerHTML = 'Upload';
+        btn.disabled = false;
+        if (res.status === 'success') {
+          showSuccess(res.pesan);
+          tutupForm('formCrudGaleri', 'wrapListGaleri');
+          muatDataGaleri();
+        } else {
+          showError(res.pesan);
+        }
+      }).simpanGaleriKegiatan(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", "", tgl);
+    });
+  }
+
+  function hapusGaleri(id) {
+    if (!hasPermission('rt_galeri_crud')) { showError('Anda tidak memiliki izin untuk menghapus foto galeri.'); return; }
+    showConfirm('Yakin hapus foto?').then(function(res) {
+      if (res.isConfirmed) {
+        google.script.run.withSuccessHandler(function(r) {
+          if (r.status === 'success') {
+            showSuccess(r.pesan);
+            muatDataGaleri();
+          } else {
+            showError(r.pesan);
+          }
+        }).hapusGaleriKegiatan(id);
+      }
+    });
+  }
+
+  // ======================== LIGHTBOX ========================
+  function openLightbox(src, images, idx) {
+    lightboxImages = images || [src];
+    lightboxCurrentIndex = idx || 0;
+    renderLightboxMedia();
+    document.getElementById('lightboxOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderLightboxMedia() {
+    var src = lightboxImages[lightboxCurrentIndex];
+    var imgEl = document.getElementById('lightboxImg');
+    var videoWrapper = document.getElementById('lightboxVideoWrapper');
+    
+    if (isVideoLink(src)) {
+      imgEl.style.display = 'none';
+      videoWrapper.style.display = 'block';
+      videoWrapper.style.display = 'flex';
+      var embedUrl = "";
+      if (src.includes('youtube.com') || src.includes('youtu.be')) {
+        embedUrl = "https://www.youtube.com/embed/" + extractYoutubeId(src);
+        videoWrapper.innerHTML = '<iframe width="100%" height="400" src="'+embedUrl+'" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+      } else {
+        // Fallback untuk link lain yang mungkin tidak bisa di-embed langsung
+        videoWrapper.innerHTML = '<div style="background:white; padding:40px; border-radius:12px; text-align:center;"><p>Video tidak dapat diputar langsung.</p><a href="'+src+'" target="_blank" class="btn-primary" style="display:inline-block; width:auto; padding:10px 20px;">Buka di Aplikasi Media Sosial</a></div>';
+      }
+    } else {
+      imgEl.style.display = 'block';
+      imgEl.src = getDirectUrl(src, 'w1600');
+      videoWrapper.style.display = 'none';
+      videoWrapper.innerHTML = "";
+    }
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightboxOverlay').classList.remove('active');
+    document.getElementById('lightboxVideoWrapper').innerHTML = "";
+    document.body.style.overflow = '';
+  }
+
+  function toggleZoom(img) {
+    img.classList.toggle('zoomed');
+  }
+
+  function navigateLightbox(dir) {
+    lightboxCurrentIndex += dir;
+    if (lightboxCurrentIndex < 0) {
+      lightboxCurrentIndex = lightboxImages.length - 1;
+    }
+    if (lightboxCurrentIndex >= lightboxImages.length) {
+      lightboxCurrentIndex = 0;
+    }
+    document.getElementById('lightboxImg').classList.remove('zoomed');
+    renderLightboxMedia();
+  }
+
+  // ======================== MODUL PKK ========================
+  function bukaPkkJadwal() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkJadwalView').style.display = 'block';
+    history.pushState({view: 'pkkJadwalView', tab: 'pkk', onLoad: 'pkkMuatDataJadwal'}, '', '#pkkJadwal');
+    if (hasPermission('pkk_jadwal_crud')) { // Kontrol visibilitas tombol Tambah Jadwal PKK
+      document.getElementById('pkkBtnTambahJadwal').style.display = 'flex';
+    } else {
+      document.getElementById('pkkBtnTambahJadwal').style.display = 'none';
+    }
+    pkkMuatDataJadwal();
+  }
+
+  function pkkBukaFormJadwal() {
+    if (!hasPermission('pkk_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menambah jadwal PKK.'); return; }
+    document.getElementById('pkkJId').value = '';
+    document.getElementById('pkkNama').value = '';
+    document.getElementById('pkkWaktu').value = '';
+    document.getElementById('pkkTempat').value = '';
+    document.getElementById('pkkPic').value = '';
+    document.getElementById('pkkKeterangan').value = '';
+    document.getElementById('judulFormPkkJadwal').innerText = 'Tambah Jadwal PKK';
+    bukaFormMode('formPkkCrudJadwal', 'pkkWrapListJadwal');
+  }
+
+  function pkkEditJadwal(id, nama, waktu, tempat, pic, keterangan) {
+    if (!hasPermission('pkk_jadwal_crud')) { showError('Anda tidak memiliki izin untuk mengedit jadwal PKK.'); return; }
+    document.getElementById('pkkJId').value = id;
+    document.getElementById('pkkNama').value = nama || '';
+    document.getElementById('pkkWaktu').value = waktu || '';
+    document.getElementById('pkkTempat').value = tempat || '';
+    document.getElementById('pkkPic').value = pic || '';
+    document.getElementById('pkkKeterangan').value = keterangan || '';
+    document.getElementById('judulFormPkkJadwal').innerText = 'Edit Jadwal PKK';
+    bukaFormMode('formPkkCrudJadwal', 'pkkWrapListJadwal');
+  }
+
+  function pkkSimpanDataJadwal() {
+    if (!hasPermission('pkk_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menyimpan jadwal PKK.'); return; }
+    var id = document.getElementById('pkkJId').value;
+    var nama = document.getElementById('pkkNama').value;
+    var waktu = document.getElementById('pkkWaktu').value;
+    var tempat = document.getElementById('pkkTempat').value;
+    var pic = document.getElementById('pkkPic').value;
+    var keterangan = document.getElementById('pkkKeterangan').value;
+    if (!nama) return showWarning('Nama kegiatan wajib diisi!');
+
+    var btn = document.querySelector('#formPkkCrudJadwal .btn-primary');
+    var old = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = old;
+      btn.disabled = false;
+      if (res.status === 'success') {
+        showSuccess(res.pesan);
+        tutupForm('formPkkCrudJadwal', 'pkkWrapListJadwal');
+        pkkMuatDataJadwal();
+      } else {
+        showError(res.pesan);
+      }
+    }).pkkSimpanJadwal(id, nama, waktu, tempat, pic, keterangan);
+  }
+
+  function pkkHapusJadwal(id) {
+    if (!hasPermission('pkk_jadwal_crud')) { showError('Anda tidak memiliki izin untuk menghapus jadwal PKK.'); return; }
+    showConfirm('Yakin hapus jadwal PKK?').then(function(res) {
+      if (!res.isConfirmed) return;
+      google.script.run.withSuccessHandler(function(r) {
+        if (r.status === 'success') {
+          showSuccess(r.pesan);
+          pkkMuatDataJadwal();
+        } else {
+          showError(r.pesan);
+        }
+      }).pkkHapusJadwal(id);
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal menghapus jadwal PKK: ' + err.message);
+    });
+  }
+
+  function pkkMuatDataJadwal() {
+    var list = document.getElementById('pkkListJadwal');
+    list.innerHTML = '<p>Memuat...</p>';
+    showLoading('Memuat jadwal PKK...');
+    google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      Swal.close(); // Close loading modal
+      list.innerHTML = '';
+      if (res.data && res.data.length) {
+        for (var i = 0; i < res.data.length; i++) {
+          var item = res.data[i];
+          var aksi = '';
+          if (hasPermission('pkk_jadwal_crud')) {
+            aksi = `
+              <div class="card-actions" style="margin-top:15px; border-top:1px dashed var(--border-color); padding-top:12px;">
+                <button class="btn-action-subtle success-hover" onclick="pkkEditJadwal('${item.id}','${(item.nama || '').replace(/'/g, "\\'")}','${(item.waktu || '').replace(/'/g, "\\'")}','${(item.tempat || '').replace(/'/g, "\\'")}','${(item.pic || '').replace(/'/g, "\\'")}','${(item.keterangan || '').replace(/'/g, "\\'")} ')">
+                  <i class="material-icons">edit_note</i> Edit
+                </button>
+                <button class="btn-action-subtle danger-hover" onclick="pkkHapusJadwal('${item.id}')">
+                  <i class="material-icons">delete_outline</i> Hapus
+                </button>
+              </div>`;
+          }
+          list.innerHTML += `
+            <div class="card-item" style="border-left-width: 5px; border-left-color: var(--pkk-green);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                <div style="font-size:17px; font-weight:800; color:var(--text-main); line-height:1.2; flex:1; padding-right:10px;">${item.nama}</div>
+                <span style="background:rgba(16,185,129,0.1); color:var(--pkk-green); padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;">PKK Ngelom</span>
+              </div>
+              <div style="display:grid; gap:8px;">
+                <div class="row" style="align-items:flex-start;"><i class="material-icons" style="font-size:18px; color:var(--pkk-green); margin-top:2px;">info_outline</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.keterangan || 'Kegiatan PKK'}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--pkk-green);">schedule</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${formatIndoDate(item.waktu)}</div>
+                </div>
+                <div class="row"><i class="material-icons" style="font-size:18px; color:var(--pkk-green);">place</i> 
+                  <div style="font-size:14px; color:var(--text-main); font-weight:500;">${item.tempat}</div>
+                </div>
+              </div>
+              ${aksi}
+            </div>`;
+        }
+      } else {
+        list.innerHTML = '<p>Belum ada jadwal PKK.</p>';
+      }
+    }).pkkGetJadwal();
+  }
+
+  function bukaPkkKader() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkKaderView').style.display = 'block';
+    history.pushState({view: 'pkkKaderView', tab: 'pkk', onLoad: 'pkkMuatDataKader'}, '', '#pkkKader');
+    if (hasPermission('pkk_kader_crud')) { // Kontrol visibilitas tombol Tambah Kader PKK
+      document.getElementById('pkkBtnTambahKader').style.display = 'flex';
+    } else {
+      document.getElementById('pkkBtnTambahKader').style.display = 'none';
+    }
+    pkkMuatDataKader();
+  }
+
+  function pkkBukaFormKader() {
+    if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk menambah kader PKK.'); return; }
+    document.getElementById('pkkKaderId').value = '';
+    document.getElementById('pkkKaderNama').value = '';
+    document.getElementById('pkkKaderJabatan').value = '';
+    document.getElementById('pkkKaderNoHp').value = '';
+    document.getElementById('pkkKaderFoto').value = '';
+    document.getElementById('pkkKaderPreviewFoto').innerHTML = '';
+    document.getElementById('judulFormPkkKader').innerText = 'Tambah Kader PKK';
+    bukaFormMode('formPkkCrudKader', 'pkkWrapListKader');
+  }
+
+  function pkkEditKader(id, nama, jabatan, nohp, fotoUrl) {
+    if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk mengedit kader PKK.'); return; }
+    document.getElementById('pkkKaderId').value = id;
+    document.getElementById('pkkKaderNama').value = nama || '';
+    document.getElementById('pkkKaderJabatan').value = jabatan || '';
+    document.getElementById('pkkKaderNoHp').value = nohp || '';
+    document.getElementById('pkkKaderFoto').value = '';
+    var preview = document.getElementById('pkkKaderPreviewFoto');
+    preview.innerHTML = fotoUrl ? `<img src="${getDirectUrl(fotoUrl)}" style="max-height:100px; border-radius:8px;">` : '';
+    document.getElementById('judulFormPkkKader').innerText = 'Edit Kader PKK';
+    bukaFormMode('formPkkCrudKader', 'pkkWrapListKader');
+  }
+
+  function pkkSimpanDataKader() {
+    if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk menyimpan kader PKK.'); return; }
+    var id = document.getElementById('pkkKaderId').value;
+    var nama = document.getElementById('pkkKaderNama').value;
+    var jabatan = document.getElementById('pkkKaderJabatan').value;
+    var nohp = document.getElementById('pkkKaderNoHp').value;
+    var fInput = document.getElementById('pkkKaderFoto');
+
+    if (!nama) return showWarning('Nama wajib diisi!');
+
+    var processSave = function(dataFile, mimeType, fileName) {
+      showLoading('Menyimpan data kader PKK...', true); // Show loading with progress bar
+      showLoading('Menyimpan data kader PKK...');
+      google.script.run.withSuccessHandler(function(res) {
+        Swal.close();
+        if (res.status === 'success') {
+          showSuccess(res.pesan);
+          tutupForm('formPkkCrudKader', 'pkkWrapListKader');
+          pkkMuatDataKader();
+        } else {
+          showError(res.pesan);
+        }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        showError('Gagal menyimpan kader PKK: ' + err.message);
+      }).pkkSimpanKader(id, nama, jabatan, nohp, dataFile, mimeType, fileName);
+    };
+
+    if(fInput.files.length > 0) {
+      var file = fInput.files[0];
+      if (file.size > 10 * 1024 * 1024) return showWarning('Ukuran file maksimal 10MB!');
+      showLoading('Mengompresi gambar...', true); // Start loading with progress bar
+      compressImage(file, function(base64, mime) {
+        startSimulatedUpload(); // Start simulated upload after compression
+        processSave(base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg");
+      }, 800); // Profile photos only need 800px
+    } else {
+      processSave(null, null, null);
+    }
+  }
+
+  function pkkHapusKader(id) {
+    if (!hasPermission('pkk_kader_crud')) { showError('Anda tidak memiliki izin untuk menghapus kader PKK.'); return; }
+    showConfirm('Yakin hapus kader PKK?').then(function(res) {
+      if (!res.isConfirmed) return;
+      showLoading('Menghapus kader PKK...');
+      google.script.run.withSuccessHandler(function(r) {
+        if (r.status === 'success') {
+          showSuccess(r.pesan);
+          pkkMuatDataKader();
+        } else {
+          showError(r.pesan);
+        }
+      }).withFailureHandler(function(err) {
+        Swal.close(); // Close loading modal
+        showError('Gagal menghapus kader PKK: ' + err.message);
+      }).pkkHapusKader(id);
+    });
+  }
+
+  function pkkMuatDataKader() {
+    var list = document.getElementById('pkkListKader');
+    list.innerHTML = '<p>Memuat...</p>';
+    google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      list.innerHTML = '';
+      if (res.data && res.data.length) {
+        for (var i = 0; i < res.data.length; i++) {
+          var item = res.data[i];
+          var aksi = hasPermission('pkk_kader_crud') ? `
+            <div class="card-actions" onclick="event.stopPropagation()">
+              <button class="btn-action-subtle" onclick="pkkEditKader('${item.id}','${(item.nama||'').replace(/'/g,"\\'")}','${(item.jabatan||'').replace(/'/g,"\\'")}','${item.nohp}','${item.fotoUrl}')"><i class="material-icons">edit</i></button>
+              <button class="btn-action-subtle danger-hover" onclick="pkkHapusKader('${item.id}')"><i class="material-icons">delete</i></button>
+            </div>` : '';
+
+          var wa = item.nohp ? item.nohp.replace(/^0/, '62') : '';
+          var avatar = item.fotoUrl ? `<img src="${getDirectUrl(item.fotoUrl)}" style="width:100%; height:100%; object-fit:cover; border-radius:inherit;">` : `<i class="material-icons" style="font-size:32px;">person</i>`;
+
+          list.innerHTML += `
+            <div class="card-item" style="padding:16px; margin-bottom:12px; cursor:pointer;" onclick="tampilkanDetailKader('${(item.nama||'').replace(/'/g,"\\'")}','${(item.jabatan||'').replace(/'/g,"\\'")}','${item.nohp}','${item.fotoUrl}')">
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div style="background:var(--primary-red); color:white; width:64px; height:64px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;">
+                  ${avatar}
+                </div>
+                <div style="flex:1;">
+                  <div style="font-weight:800; font-size:12px; color:var(--primary-color); text-transform:uppercase;">${item.jabatan || 'Anggota'}</div>
+                  <div style="font-weight:700; font-size:16px; color:var(--text-main);">${item.nama}</div>
+                  <div style="font-size:13px; color:var(--primary-color);">${item.nohp || '-'}</div>
+                </div>
+              </div>
+              ${aksi}
+            </div>`;
+        }
+      } else {
+        list.innerHTML = '<p>Belum ada kader PKK.</p>';
+      }
+    }).pkkGetKader();
+  }
+
+  function bukaPkkKirimLaporan() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkKirimLaporanView').style.display = 'block';
+    history.pushState({view: 'pkkKirimLaporanView', tab: 'pkk'}, '', '#pkkKirimLaporan');
+    // default view; tombol simpan via pkkSubmitLaporan
+  }
+
+  function pkkSubmitLaporan() {
+    var judul = document.getElementById('pkkJudulLaporan').value;
+    var deskripsi = document.getElementById('pkkDeskripsiLaporan').value;
+    if (!deskripsi) return showWarning('Detail laporan wajib diisi!');
+
+    var btn = document.querySelector('#pkkKirimLaporanView .btn-primary');
+    
+    var obj = {
+      pelapor: currentUser.nama,
+      judul: judul,
+      deskripsi: deskripsi,
+      dataFile: null,
+      mimeType: '',
+      fileName: ''
+    };
+
+    var fileInput = document.getElementById('pkkFotoLaporan');
+    if (fileInput.files.length) {
+      btn.disabled = true;
+      var file = fileInput.files[0];
+      // Refactoring: Hapus calls ke fungsi undefined (updateProgress) dan perbaiki callback
+      compressImage(file, function(base64, mime) {
+        obj.dataFile = base64;
+        obj.mimeType = mime;
+        obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+        kirimLaporanPkk(obj, btn);
+      }, 800); // Gunakan 800px agar upload sangat cepat
+    } else {
+      btn.disabled = true;
+      kirimLaporanPkk(obj, btn);
+    }
+  }
+
+  function kirimLaporanPkk(obj, btn) {
+    showLoading('Mengunggah laporan ke server...');
+    btn.innerHTML = '<span class="loading-spinner"></span> Mengirim...';
+    
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = 'Kirim';
+      btn.disabled = false;
+      if (res.status === 'success') {
+        showSuccess(res.pesan).then(function() {
+          document.getElementById('pkkJudulLaporan').value = '';
+          document.getElementById('pkkDeskripsiLaporan').value = '';
+          document.getElementById('pkkFotoLaporan').value = '';
+          document.getElementById('pkkPreviewUpload').innerHTML = '';
+          kembaliKeDashboard();
+        });
+      } else {
+        showError(res.pesan);
+      }
+    }).pkkKirimLaporan(obj);
+  }
+
+  function bukaPkkHistori() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkHistoriView').style.display = 'block';
+    history.pushState({view: 'pkkHistoriView', tab: 'pkk', onLoad: 'pkkMuatDataHistori'}, '', '#pkkHistori');
+    pkkMuatDataHistori();
+  }
+
+  function pkkMuatDataHistori() {
+    var list = document.getElementById('pkkListHistori');
+    list.innerHTML = '<p>Memuat...</p>';
+
+    google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      list.innerHTML = '';
+      if (res.data && res.data.length) {
+        var allImgs = [];
+        for (var i = 0; i < res.data.length; i++) {
+          if (res.data[i].fotoUrl) allImgs.push(getDirectUrl(res.data[i].fotoUrl));
+        }
+
+        for (var j = 0; j < res.data.length; j++) {
+          var item = res.data[j];
+          var statusClass = 'status-belum';
+          if (item.status === 'Selesai') statusClass = 'status-selesai';
+          else if (item.status === 'Diproses') statusClass = 'status-diproses';
+
+          var directUrl = getDirectUrl(item.fotoUrl);
+          var fotoHTML = '';
+          if (item.fotoUrl) {
+            fotoHTML = '<img src="' + directUrl + '" class="img-thumbnail" style="border:1px solid var(--border-color);" '
+              + 'onclick="openLightbox(\'' + directUrl + '\', '
+              + JSON.stringify(allImgs).replace(/"/g, '&quot;') + ',' + j + ')">';
+          }
+
+          list.innerHTML += '<div class="card-item">'
+            + '<div><strong>' + (item.pelapor || '-') + '</strong> - ' + (item.tanggal || '-') + '</div>'
+            + '<div class="status-badge ' + statusClass + '" style="margin-top:5px;">' + (item.status || '-') + '</div>'
+            + '<div style="margin-top:10px;">'
+            + '<div style="font-weight:600; color:var(--text-main);">' + (item.judul || '-') + '</div>'
+            + '<div>' + (item.deskripsi || '-') + '</div>'
+            + '</div>'
+            + fotoHTML
+            + '</div>';
+        }
+      } else {
+        list.innerHTML = '<p>Belum ada histori PKK.</p>';
+      }
+    }).pkkGetLaporanByPelapor(currentUser.nama);
+  }
+
+  function bukaPkkGaleri() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkGaleriView').style.display = 'block';
+    history.pushState({view: 'pkkGaleriView', tab: 'pkk', onLoad: 'pkkMuatDataGaleri'}, '', '#pkkGaleri');
+    if (hasPermission('pkk_galeri_crud')) { // Kontrol visibilitas tombol Tambah Galeri PKK
+      document.getElementById('pkkBtnTambahGaleri').style.display = 'flex';
+    } else {
+      document.getElementById('pkkBtnTambahGaleri').style.display = 'none';
+    }
+    pkkMuatDataGaleri();
+  }
+
+  function pkkEditGaleri(id, caption, imageUrl) {
+    if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk mengedit galeri PKK.'); return; }
+    document.getElementById('pkkGaleriId').value = id;
+    document.getElementById('pkkGaleriCaption').value = caption;
+    document.getElementById('pkkGaleriFile').value = ''; // Clear file input
+    document.getElementById('pkkPreviewGaleri').innerHTML = imageUrl ? '<img src="' + getMediaThumbnail(imageUrl) + '" style="max-height:150px; border-radius:12px;">' : '';
+    document.getElementById('pkkGaleriVideoLink').value = isVideoLink(imageUrl) ? imageUrl : '';
+    document.getElementById('pkkGaleriType').value = isVideoLink(imageUrl) ? 'video' : 'image';
+    toggleGaleriType('pkk');
+    bukaFormMode('formPkkCrudGaleri', 'pkkWrapListGaleri');
+  }
+
+  function pkkBukaFormGaleri() {
+    if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk menambah foto galeri PKK.'); return; }
+    document.getElementById('pkkGaleriId').value = '';
+    document.getElementById('pkkGaleriTanggal').value = new Date().toISOString().slice(0,10);
+    document.getElementById('pkkGaleriCaption').value = '';
+    document.getElementById('pkkGaleriFile').value = '';
+    document.getElementById('pkkGaleriVideoLink').value = '';
+    document.getElementById('pkkPreviewGaleri').innerHTML = '';
+    bukaFormMode('formPkkCrudGaleri', 'pkkWrapListGaleri');
+  }
+
+  function pkkUploadGaleri() {
+    if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk mengupload foto galeri PKK.'); return; }
+    var id = document.getElementById('pkkGaleriId').value;
+    var caption = document.getElementById('pkkGaleriCaption').value;
+    var tgl = document.getElementById('pkkGaleriTanggal').value;
+    var type = document.getElementById('pkkGaleriType').value;
+    var fileInput = document.getElementById('pkkGaleriFile');
+    var vLink = document.getElementById('pkkGaleriVideoLink').value;
+
+    if (!caption) return showWarning('Caption wajib diisi!');
+
+    if (type === 'video') {
+      if (!vLink) return showWarning('Link video wajib diisi!');
+      showLoading('Menyimpan Video PKK...');
+      google.script.run.withSuccessHandler(function(res) { // Added showLoading before server call
+        Swal.close(); 
+        if(res && res.status==='success'){
+          showSuccess(res.pesan || 'Tersimpan!');
+          tutupForm('formPkkCrudGaleri', 'pkkWrapListGaleri');
+          pkkMuatDataGaleri();
+        } else {
+          showError(res && res.pesan ? res.pesan : 'Gagal menyimpan video');
+        }
+      }).pkkSimpanGaleri(id, caption, null, '', '', vLink, tgl);
+      return;
+    }
+
+    if (!fileInput.files.length && !id) return showWarning('Pilih gambar!');
+    var file = fileInput.files[0];
+    if(file && file.size > 10 * 1024 * 1024) return showWarning('File terlalu besar (Maks 10MB)');
+    
+    if (!fileInput.files.length && id) {
+      // Update caption saja tanpa ganti gambar
+      showLoading('Mengupdate data...');
+      google.script.run.withSuccessHandler(function(res){
+        Swal.close(); showSuccess(res.pesan); tutupForm('formPkkCrudGaleri','pkkWrapListGaleri'); pkkMuatDataGaleri();
+      }).pkkSimpanGaleri(id, caption, null, '', '', "", tgl);
+      return;
+    }
+    
+    var btn = document.querySelector('#formPkkCrudGaleri .btn-primary');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+
+    var file = fileInput.files[0];
+    compressImage(file, function(base64, mime) {
+      showLoading('Mengoptimalkan Foto...');
+      google.script.run.withSuccessHandler(function(res) {
+        btn.innerHTML = 'Upload';
+        btn.disabled = false;
+        if (res.status === 'success') {
+          showSuccess(res.pesan);
+          tutupForm('formPkkCrudGaleri', 'pkkWrapListGaleri');
+          pkkMuatDataGaleri();
+        } else { showError(res.pesan); }
+      }).pkkSimpanGaleri(id, caption, base64, mime, file.name.replace(/\.[^/.]+$/, "") + ".jpg", null, tgl);
+    });
+  }
+
+  function pkkHapusGaleri(id) {
+    if (!hasPermission('pkk_galeri_crud')) { showError('Anda tidak memiliki izin untuk menghapus foto galeri PKK.'); return; }
+    showConfirm('Yakin hapus foto PKK?').then(function(res) {
+      if (!res.isConfirmed) return;
+      google.script.run.withSuccessHandler(function(r) {
+        if (r.status === 'success') {
+          showSuccess(r.pesan);
+          pkkMuatDataGaleri();
+        } else {
+          showError(r.pesan);
+        }
+      }).pkkHapusGaleri(id);
+    });
+  }
+
+  function pkkMuatDataGaleri() {
+    var container = document.getElementById('pkkListGaleri');
+    container.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
+    google.script.run.withSuccessHandler(function(res) { // Clear skeleton
+      container.innerHTML = '';
+      if(res.status==='error'){ 
+        showError(res.pesan); 
+        container.innerHTML = '<p class="muted">Gagal memuat database PKK.</p>';
+        return; 
+      }
+      if (res.data && res.data.length) {
+        var allMediaUrls = []; // Use a new variable for URLs to pass to lightbox
+        for (var i = 0; i < res.data.length; i++) { allMediaUrls.push(res.data[i].imageUrl); }
+        for (var j = 0; j < res.data.length; j++) {
+          var item = res.data[j];
+          var safeCaption = escapeHtml(item.caption || '-');
+          var safeTanggal = escapeHtml(item.tanggal || '-');
+          var safeImageUrl = escapeJsString(item.imageUrl);
+          var safeItemId = escapeJsString(item.id);
+          var aksiButtons = hasPermission('pkk_galeri_crud') ? 
+            '<div class="hr-light"></div><button class="btn-small" onclick="pkkEditGaleri(\'' + safeItemId + '\',\'' + escapeJsString(item.caption || '') + '\',\'' + safeImageUrl + '\')">Edit</button>' +
+            '<button class="btn-small danger" onclick="pkkHapusGaleri(\'' + safeItemId + '\')">Hapus</button>' : '';
+            
+          var thumb = getMediaThumbnail(item.imageUrl);
+          var icon = isVideoLink(item.imageUrl) ? '<div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:18px;">play_arrow</i></div>' : '';
+
+          container.innerHTML += '<div class="galeri-card" style="position:relative;">'
+            + icon
+            + '<img src="' + thumb + '" class="galeri-img" onclick="openLightbox(\'' + safeImageUrl + '\', '
+            + JSON.stringify(allMediaUrls).replace(/"/g, '&quot;') + ',' + j + ')">'
+            + '<div style="padding:12px;">'
+            + '<div style="font-weight:600;">' + safeCaption + '</div>'
+            + '<div style="font-size:12px; color:#64748b; margin-top:4px;">📅 ' + safeTanggal + '</div>'
+            + (aksiButtons ? '<div style="margin-top:10px;">' + aksiButtons + '</div>' : '')
+            + '</div></div>';
+        }
+      } else {
+        container.innerHTML = '<p>Belum ada foto di galeri PKK.</p>';
+      }
+    }).withFailureHandler(function(err) {
+      Swal.close(); // Close loading modal
+      showError('Gagal memuat galeri PKK: ' + err.message);
+    }).pkkGetGaleri();
+  }
+  function bukaPkkLaporanAdmin() {
+    sembunyikanSemuaLayar();
+    document.getElementById('pkkLaporanAdminView').style.display = 'block'; // Use the new dedicated view
+    history.pushState({view: 'pkkLaporanAdminView', tab: 'pkk', onLoad: 'pkkMuatDataLaporanAdmin'}, '', '#pkkLaporanAdmin');
+    pkkMuatDataLaporanAdmin();
+  }
+
+  function pkkMuatDataLaporanAdmin() {
+    var list = document.getElementById('pkkListLaporanAdmin'); 
+    list.innerHTML = SPINNER_HTML; // Gunakan SPINNER_HTML
+    showLoading('Memuat laporan admin PKK...');
+    google.script.run.withSuccessHandler(function(res) {
+      Swal.close();
+      if (res.data && res.data.length) {
+        const allImgs = res.data.map(it => getDirectUrl(it.fotoUrl));
+        const htmlParts = res.data.map(function(item, idx) {
+          const statusClass = item.status === 'Selesai' ? 'status-selesai' : (item.status === 'Diproses' ? 'status-diproses' : 'status-belum');
+          const fotoHTML = item.fotoUrl ? `<img src="${getDirectUrl(item.fotoUrl)}" class="img-thumbnail" onclick="openLightbox('${getDirectUrl(item.fotoUrl)}', ${JSON.stringify(allImgs).replace(/"/g, '&quot;')}, ${idx})">` : '';
+          
+          const crudButtons = hasPermission('pkk_laporan_admin_crud') ? 
+            `<button class="btn-small success" onclick="updateStatusPkkLaporan('${item.id}')">Update</button>
+             <button class="btn-small danger" onclick="hapusPkkLaporan('${item.id}')">Hapus</button>` : '';
+          
+          return `
+            <div class="card-item">
+              <div><strong>${item.pelapor}</strong> - ${item.tanggal}</div>
+              <div class="status-badge ${statusClass}">${item.status}</div>
+              <div style="margin-top:8px;"><strong>${item.judul}</strong></div>
+              <div>${item.deskripsi}</div>
+              ${fotoHTML}
+              <hr>
+              <select id="pkkStatus_${item.id}" style="background:var(--bg-surface); color:var(--text-main); border:1px solid var(--border-color);">
+                <option ${item.status === 'Menunggu' ? 'selected' : ''}>Menunggu</option>
+                <option ${item.status === 'Diproses' ? 'selected' : ''}>Diproses</option>
+                <option ${item.status === 'Selesai' ? 'selected' : ''}>Selesai</option>
+              </select>
+              ${crudButtons}
+            </div>`;
+        });
+        list.innerHTML = htmlParts.join('');
+      } else { list.innerHTML = '<p>Belum ada laporan PKK.</p>'; }
+    }).pkkGetLaporan();
+  }
+
+  // Keandalan Notifikasi: Cek segera saat aplikasi kembali aktif (Foreground)
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && currentToken) {
+      console.log("App visible, checking notifications...");
+      muatNotifikasiSekali(localStorage.getItem('lastNotifTs'));
+    }
+  });
+
+  // ======================== PWA INSTALL LOGIC ========================
+  let deferredPrompt;
+  const pwaBanner = document.getElementById('pwaInstallBanner');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // MASALAH 2: Menangkap event instalasi untuk dipicu secara manual via UI kustom
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Log untuk debug (opsional)
+    console.log('PWA: Event beforeinstallprompt berhasil ditangkap dan disimpan.');
+
+    // Cek apakah user pernah menutup banner ini sebelumnya
+    const lastDismissed = localStorage.getItem('pwaDismissedTs');
+    const now = Date.now();
+    
+    // Tampilkan banner jika belum pernah ditutup atau sudah lewat dari 3 hari (cooldown)
+    if (!lastDismissed || (now - parseInt(lastDismissed) > 3 * 24 * 60 * 60 * 1000)) {
+      if (pwaBanner) pwaBanner.style.display = 'flex';
+    }
+  });
+
+  function installPWA() {
+    if (!deferredPrompt) return;
+    // Tampilkan prompt instalasi asli dari sistem operasi (Android/iOS)
+    deferredPrompt.prompt();
+    // Tunggu jawaban dari user
+    deferredPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User menerima instalasi PWA');
+      }
+      deferredPrompt = null;
+      if (pwaBanner) pwaBanner.style.display = 'none';
+    });
+  }
+
+  function dismissPWAInstall() {
+    if (pwaBanner) pwaBanner.style.display = 'none';
+    // Simpan timestamp penolakan agar banner tidak muncul setiap kali aplikasi dibuka
+    localStorage.setItem('pwaDismissedTs', Date.now().toString());
+  }
+
+  window.addEventListener('appinstalled', (evt) => {
+    // Sembunyikan banner jika aplikasi akhirnya terpasang
+    if (pwaBanner) pwaBanner.style.display = 'none';
+    showSuccess("Aplikasi berhasil terpasang di layar utama!");
+  });
+
+  // Listener untuk pesan dari Service Worker (Navigasi saat notifikasi diklik)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function(event) {
+      if (event.data.action === 'navigate' && event.data.page) {
+        handleNotifLihat(event.data.page);
+      }
+    });
+  }
+
+  refreshNavVisibility();
+</script>
