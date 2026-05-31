@@ -2819,7 +2819,7 @@
 <script>
   // ======================== CLOUD HOSTING ADAPTER ========================
   // Pastikan URL ini adalah URL /exec dari deployment terbaru Anda
-  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/execc";
+  const GAS_BASE_URL = "https://script.google.com/macros/s/AKfycbw4XMmamkccb0GUwi6eZ4L-zCaAlYaYHJAbZsY0x2qJHRYkMpur9S0NiEtZS0Oa88v7pw/exec";
 
   // ENGINE NOTIFIKASI LATAR BELAKANG (NATIVE WEB PUSH)
   const VAPID_PUBLIC_KEY = 'BHzPkFcMroyzSXgnhm-282eYGLbUxdlaeFRusTZZE8GFL6MbFTaf501CW8n5lwRRvtDVwJ0bGLMKisHqgwysE3k';
@@ -2900,25 +2900,26 @@
                   
                   const res = await fetch(requestUrl, { 
                     method: 'POST', 
-                    mode: 'cors',
-                    // Jangan tambahkan header Content-Type agar tetap menjadi "Simple Request"
+                    // Menggunakan 'no-cors' jika hanya mengirim, tapi kita butuh respon JSON.
+                    // Maka tetap gunakan CORS tapi pastikan request tetap "Simple Request".
+                    mode: 'cors', 
                     body: JSON.stringify({ action: prop, data: args }) 
                   });
+                  
                   const text = await res.text();
                   if (!text) throw new Error("Respon kosong dari server.");
 
                   let json;
                   try { json = JSON.parse(text); } catch(e) { throw new Error("Format data server tidak valid (Bukan JSON)."); }
                   
-                  // Masukkan hasil ke success handler (biar UI yang menangani status 'success' atau 'error' di dalamnya)
                   if (handlers.success) handlers.success(json);
                   return json; // PENTING: Kembalikan data agar 'await' berfungsi
                 } catch (err) {
                   const errorToReport = !navigator.onLine ? new Error("Gagal terhubung ke server. Anda sedang offline.") : err;
                   if (handlers.failure) handlers.failure(errorToReport);
                   else {
-                    console.error("GAS Server Error:", errorToReport);
-                    showError("Gangguan Jaringan: Pastikan internet Anda stabil.");
+                    console.error("Koneksi API Gagal:", err);
+                    showError("Gagal terhubung ke server. Silakan muat ulang halaman atau periksa koneksi Anda.");
                   }
                   throw errorToReport;
                 }
@@ -3203,20 +3204,21 @@
       const MAX_DIM = 900;
       const targetBase64Len = Math.ceil(100 * 1024 * (4 / 3));
 
-      showLoading('Memproses lampiran...');
+      showLoading('Optimasi lampiran...', true);
       updateProgress(5, 'Membaca gambar...');
 
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = () => reject(new Error('Gagal membaca file.'));
         reader.onload = () => resolve(reader.result);
+        reader.onprogress = (e) => { if(e.lengthComputable) updateProgress(Math.floor((e.loaded / e.total) * 15), 'Membaca data...'); };
         reader.readAsDataURL(file);
       });
 
       const img = await new Promise((resolve, reject) => {
         const im = new Image();
         im.onload = () => resolve(im);
-        im.onerror = () => reject(new Error('Gagal memuat gambar untuk kompresi.'));
+        im.onerror = () => reject(new Error('Gagal memproses gambar.'));
         im.src = dataUrl;
       });
 
@@ -3244,16 +3246,17 @@
 
       const qualitySteps = [0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4];
       for (let i = 0; i < qualitySteps.length; i++) {
-        updateProgress(30 + i * 8, 'Mencari kualitas terbaik...');
+        const pct = 30 + Math.floor((i / qualitySteps.length) * 50);
+        updateProgress(pct, 'Kompresi cerdas...');
         const q = qualitySteps[i];
         const out = canvas.toDataURL('image/jpeg', q);
         const base64 = out.split(',')[1];
         if (base64 && base64.length > 0 && base64.length <= targetBase64Len) {
           return {
             base64,
+            asli: false,
             mimeType: 'image/jpeg',
             fileName: (file.name || 'foto').replace(/\.[^/.]+$/, '') + '.jpg',
-            asli: false
           };
         }
       }
@@ -3749,16 +3752,57 @@
     });
   }
 
-  function showLoading(msg) {
+  var currentProgress = 0;
+  var progressInterval;
+
+  /**
+   * 10XTHINK: Global Progress Controller
+   * Mengontrol pengisian progress bar dan teks status secara real-time
+   */
+  function updateProgress(val, msg) {
+    currentProgress = val;
+    var progressFill = document.getElementById('bbxProgressFill');
+    var progressText = document.getElementById('bbxProgressText');
+    var loadingMsg = document.getElementById('bbxLoadingMsg');
+    if (progressFill) progressFill.style.width = val + '%';
+    if (progressText) progressText.innerText = val + '%';
+    if (loadingMsg && msg) loadingMsg.innerText = msg;
+  }
+
+  /**
+   * 10XTHINK: Simulated Progress for Server Response
+   * Memberikan efek progres "berjalan" saat menunggu respon Google Apps Script
+   */
+  function startSimulatedUpload() {
+    if (progressInterval) clearInterval(progressInterval);
+    let val = currentProgress > 80 ? currentProgress : 80;
+    progressInterval = setInterval(() => {
+      if (val < 98) {
+        val += Math.random() * 1.5;
+        updateProgress(Math.floor(val), 'Sinkronisasi database...');
+      }
+    }, 600);
+  }
+
+  function showLoading(msg, withProgress = false) {
+    const progressHtml = withProgress ? `
+      <div style="margin-top:12px; background:rgba(var(--primary-color-rgb), 0.1); height:8px; border-radius:10px; overflow:hidden; border:1px solid var(--border-color);">
+        <div id="bbxProgressFill" style="background:var(--primary-color); width:0%; height:100%; transition:width 0.3s ease;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">
+        <span id="bbxLoadingMsg">${msg || 'Memproses...'}</span>
+        <span id="bbxProgressText">0%</span>
+      </div>` : `<div style="color:var(--text-muted); font-size:13px; line-height:1.35;" id="bbxLoadingMsg">${msg || ''}</div>`;
+
     // loading custom: spinner modern + teks, terlihat jelas tanpa perlu ganti content halaman
     Swal.fire({
       title: '',
       html:
-        '<div style="display:flex; align-items:center; gap:14px; padding:6px 2px;">'
+        '<div style="display:flex; align-items:center; gap:14px; padding:6px 2px; min-height:70px;">'
           + '  <div class="bbx-spinner" aria-hidden="true"></div>'
-          + '  <div style="text-align:left;">'
+          + '  <div style="text-align:left; flex:1;">'
           + '    <div style="font-weight:700; color:var(--primary-dark); margin-bottom:4px;">Memproses...</div>'
-          + '    <div style="color:var(--text-muted); font-size:13px; line-height:1.35;">' + (msg || '') + '</div>'
+          +      progressHtml
           + '  </div>'
           + '</div>',
       allowOutsideClick: false,
@@ -5996,6 +6040,7 @@ function bukaJadwal() {
 
     var saveProcess = function(dataFile, mimeType, fileName) {
       google.script.run.withSuccessHandler(function(res) {
+        if (progressInterval) clearInterval(progressInterval);
         btn.innerHTML = old;
         btn.disabled = false;
         if (res.status === 'success') {
@@ -6599,9 +6644,11 @@ function bukaJadwal() {
       return showWarning("Silakan isi laporan!");
     }
     var btn = document.querySelector('#formPengaduanView .btn-primary');
-    btn.innerHTML = '<span class="loading-spinner"></span>';
     btn.disabled = true;
-    showLoading('Mengirim laporan...', true); // Start loading with progress bar
+    
+    showLoading('Menyiapkan laporan...', true);
+    updateProgress(5, 'Validasi data...');
+
     var obj = {
       pelapor: currentUser.nama,
       isi: isi,
@@ -6609,9 +6656,6 @@ function bukaJadwal() {
       mimeType: '',
       fileName: ''
     };
-    // Reset progress bar
-    currentProgress = 0;
-    updateProgress(0, 'Memulai...');
     var fileInput = document.getElementById('fotoPengaduan');
     if (fileInput.files.length) {
       var file = fileInput.files[0];
@@ -6619,11 +6663,13 @@ function bukaJadwal() {
         obj.dataFile = base64;
         obj.mimeType = mime;
         obj.fileName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+        startSimulatedUpload();
         kirimLaporan(obj, btn);
       }).withFailureHandler(function(err) {
         clearInterval(progressInterval); Swal.close(); showError('Gagal kompresi gambar: ' + err.message);
       });
     } else {
+      updateProgress(50, 'Mengirim data...');
       kirimLaporan(obj, btn);
     }
   }
@@ -8446,6 +8492,7 @@ function bukaJadwal() {
           showError(r.pesan);
         }
       }).withFailureHandler(function(err) {
+        if (progressInterval) clearInterval(progressInterval);
         Swal.close(); // Close loading modal
         showError('Gagal menghapus kader PKK: ' + err.message);
       }).pkkHapusKader(id);
